@@ -487,7 +487,8 @@ Acceptance gate:
 
 1. docs match implementation reality,
 2. screenshots are captured to
-   `C:\Users\Sandeep\AppData\Local\Temp\lotus-risk-module-shots`,
+   `<temp-dir>/lotus-risk-module-shots`, where `<temp-dir>` is a caller-selected temporary
+   directory outside the repository,
 3. screenshot artifacts remain outside git.
 
 ## Success Criteria

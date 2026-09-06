@@ -110,7 +110,8 @@ correct `.env.local` before collecting evidence. Canonical proof must travel thr
 From `lotus-workbench`:
 
 ```powershell
-npm run live:stack:up
+$workspaceRoot = (Resolve-Path (Join-Path $PWD '..')).Path
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot
 ```
 
 For RFC/mainline certification, add `-RequireMainlineSources`. It fetches each canonical sibling
@@ -235,21 +236,28 @@ the same canonical hostnames and public ports as Docker-backed apps, so live evi
 comparable:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -LocalApps workbench
-powershell -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -LocalApps workbench,gateway,manage
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -LocalApps workbench
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -LocalApps workbench,gateway,manage
 ```
 
 Workbench-focused development can also use:
 
 ```powershell
-npm run live:stack:up:workbench-local
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -LocalApps workbench
 ```
+
+The `npm run live:stack:up:workbench-local` convenience alias is retained for the current default
+checkout location. It does not forward `-ProjectsRoot`; use the explicit command above for a
+portable sibling-checkout layout.
 
 Core/manage RFC proof can use a narrower governed bring-up path:
 
 ```powershell
-npm run live:stack:up:core-manage
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -CoreManageOnly
 ```
+
+The matching `npm run live:stack:up:core-manage` convenience alias has the same default-location
+constraint. It is not the portable operator command.
 
 This mode still uses the canonical hosts block, starts Docker-backed `lotus-core`, starts
 `lotus-manage` on the canonical coexistence port `8001`, restarts direct ingress, and runs the
@@ -264,7 +272,7 @@ last Docker image build, use the build variant so the evidence cannot accidental
 container image:
 
 ```powershell
-npm run live:stack:up:core-manage:build
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -CoreManageOnly -BuildImages
 ```
 
 The core/manage proof mode starts Docker-backed `lotus-manage` with the explicit stateful sourcing
@@ -294,7 +302,7 @@ panels, labels, or live-validation scripts, refresh the Workbench runtime before
 Use either the source-backed local app path:
 
 ```powershell
-npm run live:stack:up:workbench-local
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -LocalApps workbench
 ```
 
 or rebuild the Docker-backed Workbench image when proving the containerized runtime:
@@ -334,7 +342,7 @@ does not include the separate `1000`-portfolio load scenario.
 From `lotus-workbench`:
 
 ```powershell
-npm run live:stack:up:validate
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -RunValidation -BuildImages
 ```
 
 This runs the same bring-up flow and then executes the end-to-end validation lane once the stack
@@ -347,7 +355,7 @@ or Workbench image.
 To stop the canonical local stack cleanly:
 
 ```powershell
-npm run live:stack:down
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot
 ```
 
 That script:
@@ -364,15 +372,22 @@ To validate an already-running canonical stack:
 npm run live:validate
 ```
 
-This is the preferred operator path after `npm run live:stack:up` because it keeps service startup
+This is the preferred operator path after the canonical bring-up command because it keeps service startup
 separate from readiness, browser, and screenshot evidence gathering.
 
-To write demo screenshots to a caller-provided directory:
+To write demo screenshots to a temporary directory outside the repository from Windows
+PowerShell:
 
 ```powershell
+$screenshotDirectory = Join-Path ([IO.Path]::GetTempPath()) "lotus-risk-module-shots"
 powershell -ExecutionPolicy Bypass -File scripts/live/Validate-LotusFrontOfficeCanonical.ps1 `
-  -ScreenshotDirectory C:\Users\Sandeep\AppData\Local\Temp\lotus-risk-module-shots
+  -ScreenshotDirectory $screenshotDirectory
 ```
+
+Canonical orchestration is currently supported only from Windows PowerShell. A top-level `pwsh`
+invocation on Unix is not a supported alternative because startup still contains Windows workspace
+defaults and nested `powershell` calls; #1020 owns that implementation gap. Set
+`$screenshotDirectory` to another caller-owned path when evidence must be retained elsewhere.
 
 Validation layers:
 
@@ -629,15 +644,15 @@ reason when present; DPM panel proof is gated by the command-center, wave, outco
 portfolio-memory, construction-alternatives, PM operating-quality, and PM copilot workspace contracts
 instead of failing on unrelated historical action-register freshness.
 
-When validating active Workbench source changes without rebuilding the whole stack, use
-`npm run live:stack:up:workbench-local` or
-`Start-LotusFrontOfficeCanonical.ps1 -LocalApps workbench` before collecting final browser proof.
+When validating active Workbench source changes without rebuilding the whole stack, use the
+`Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -LocalApps workbench` command
+above before collecting final browser proof.
 That path keeps the canonical backend stack but serves Workbench from the current branch, avoiding
 stale Docker image evidence for newly added panels or selectors. Both default startup paths rebuild
 the Idea Compose project automatically because its capacity evidence embeds a fresh per-run identity;
 they do not rebuild unrelated services for that reason. If Gateway, Advise, Manage, Core, or another
-source service changed, use the default `npm run live:stack:up:validate` path or pass `-BuildImages`
-explicitly before accepting live proof.
+source service changed, use the `-RunValidation -BuildImages` bring-up command above before
+accepting live proof.
 
 The DPM mandate command-center panel is screenshot-ready only when Gateway returns a canonical
 populated `READY` supportability posture. Partial, degraded, blocked, and empty command-center
