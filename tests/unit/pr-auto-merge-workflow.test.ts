@@ -49,34 +49,12 @@ describe("PR auto-merge workflow", () => {
     expect(dispatchWorkflow).toContain("actions: write");
     expect(dispatchWorkflow).toContain("contents: write");
     expect(dispatchWorkflow).toContain("fetch-depth: 0");
-    expect(dispatchWorkflow).toContain("gh workflow run main-releasability.yml");
+    expect(dispatchWorkflow).toContain("node scripts/dispatch-main-releasability.mjs");
     expect(dispatchWorkflow).toContain(
       "MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}",
     );
     expect(dispatchWorkflow).toContain(
       "COMMIT_COUNT: ${{ github.event.pull_request.commits }}",
-    );
-    expect(dispatchWorkflow).toContain('[[ "$COMMIT_COUNT" =~ ^[1-9][0-9]*$ ]]');
-    expect(dispatchWorkflow).toContain("allow_squash_merge");
-    expect(dispatchWorkflow).toContain('"$merge_methods" != "false,false,true"');
-    expect(dispatchWorkflow).toContain(
-      'mapfile -t revisions < <(git rev-list -n "$COMMIT_COUNT" "$MERGE_COMMIT_SHA" | tac)',
-    );
-    expect(dispatchWorkflow).toContain('for revision in "${revisions[@]}"; do');
-    expect(dispatchWorkflow).toContain(
-      'if ! git merge-base --is-ancestor "$revision" HEAD; then',
-    );
-    expect(dispatchWorkflow).toContain('dispatch_ref="main-releasability-${revision}"');
-    expect(dispatchWorkflow).toContain('-f expected_sha="$revision"');
-
-    const ancestryGuard = dispatchWorkflow.indexOf(
-      'if ! git merge-base --is-ancestor "$revision" HEAD; then',
-    );
-    expect(ancestryGuard).toBeGreaterThan(
-      dispatchWorkflow.indexOf('for revision in "${revisions[@]}"; do'),
-    );
-    expect(ancestryGuard).toBeLessThan(
-      dispatchWorkflow.indexOf('dispatch_ref="main-releasability-${revision}"'),
     );
 
     expect(mainReleasabilityWorkflow).toContain("concurrency:");
