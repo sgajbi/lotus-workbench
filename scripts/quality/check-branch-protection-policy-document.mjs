@@ -56,6 +56,8 @@ const auditedExceptionFields = new Set([
   "required_pull_request_reviews.require_last_push_approval",
   "required_pull_request_reviews.bypass_pull_request_allowances",
 ]);
+const bypassPrincipalCategories = new Set(["users", "teams", "apps"]);
+const bypassExceptionPrefix = "required_pull_request_reviews.bypass_pull_request_allowances.";
 
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -218,9 +220,12 @@ export function validateBranchProtectionPolicy(policy) {
       issues.push(`documented exception field is duplicated: ${exception.field}`);
     }
     exceptionTargets.add(exception.field);
+    const bypassCategory = exception.field.startsWith(bypassExceptionPrefix)
+      ? exception.field.slice(bypassExceptionPrefix.length)
+      : null;
     const dynamicAuditedField =
       exception.field.startsWith("required_status_checks.checks.app_id:") ||
-      exception.field.startsWith("required_pull_request_reviews.bypass_pull_request_allowances.");
+      (typeof bypassCategory === "string" && bypassPrincipalCategories.has(bypassCategory));
     if (!auditedExceptionFields.has(exception.field) && !dynamicAuditedField) {
       issues.push(`documented exception names unaudited field: ${exception.field}`);
     }
