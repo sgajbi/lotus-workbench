@@ -21,6 +21,7 @@ the same liveness defect it exists to catch):
 from __future__ import annotations
 
 import argparse
+from functools import lru_cache
 import json
 import shutil
 import subprocess
@@ -31,6 +32,7 @@ WORKFLOW = "main-releasability.yml"
 REPOSITORY = "sgajbi/lotus-workbench"
 _RUNS_PER_PAGE = 100
 _VERDICT_CONCLUSIONS = {"success", "failure"}
+_EXACT_RUN_TITLE_PREFIX = "Main Releasability · "
 
 
 def _git(*args: str) -> list[str]:
@@ -43,30 +45,57 @@ def _git(*args: str) -> list[str]:
     return [line for line in completed.stdout.splitlines() if line.strip()]
 
 
+@lru_cache(maxsize=1)
+def _releasability_runs() -> list[dict[str, Any]] | None:
+    """Return every releasability run, including ref-free exact-SHA dispatches."""
+
+    runs: list[dict[str, Any]] = []
+    page = 1
+    while True:
+        completed = subprocess.run(
+            [
+                "gh",
+                "api",
+                "--method",
+                "GET",
+                f"repos/{REPOSITORY}/actions/workflows/{WORKFLOW}/runs",
+                "-f",
+                f"per_page={_RUNS_PER_PAGE}",
+                "-f",
+                f"page={page}",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if completed.returncode != 0:
+            return None
+        try:
+            payload: dict[str, Any] = json.loads(completed.stdout or "{}")
+        except json.JSONDecodeError:
+            return None
+        page_runs = payload.get("workflow_runs")
+        if not isinstance(page_runs, list) or any(
+            not isinstance(run, dict) for run in page_runs
+        ):
+            return None
+        runs.extend(page_runs)
+        if len(page_runs) < _RUNS_PER_PAGE:
+            return runs
+        page += 1
+
+
 def _run_conclusions(sha: str) -> list[str] | None:
     """Conclusions of exact-revision-qualified runs, or None when unknowable."""
 
-    completed = subprocess.run(
-        [
-            "gh",
-            "run",
-            "list",
-            "--workflow",
-            WORKFLOW,
-            "--commit",
-            sha,
-            "--json",
-            "databaseId,conclusion,status",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
+    all_runs = _releasability_runs()
+    if all_runs is None:
         return None
-    try:
-        runs = json.loads(completed.stdout or "[]")
-    except json.JSONDecodeError:
-        return None
+    expected_title = f"{_EXACT_RUN_TITLE_PREFIX}{sha}"
+    runs = [
+        run
+        for run in all_runs
+        if run.get("head_sha") == sha or run.get("display_title") == expected_title
+    ]
     conclusions: list[str] = []
     for run in runs:
         if not isinstance(run, dict):
@@ -266,9 +295,7 @@ def main() -> int:
     if ungated:
         print(
             "\nBackfill one with:\n"
-            "  gh api repos/OWNER/REPO/git/refs "
-            "-f ref=refs/tags/main-releasability-SHA -f sha=SHA\n"
-            "  gh workflow run main-releasability.yml --ref main-releasability-SHA "
+            "  gh workflow run main-releasability.yml --ref main "
             "-f expected_sha=SHA -f triggering_pr=backfill\n"
         )
     if arguments.fail_on_gap and (ungated or unknown):

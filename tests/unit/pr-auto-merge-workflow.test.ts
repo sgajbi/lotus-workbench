@@ -47,7 +47,8 @@ describe("PR auto-merge workflow", () => {
     expect(dispatchWorkflow).toContain("github.event.pull_request.base.ref == 'main'");
     expect(dispatchWorkflow).toContain("permissions:");
     expect(dispatchWorkflow).toContain("actions: write");
-    expect(dispatchWorkflow).toContain("contents: write");
+    expect(dispatchWorkflow).toContain("contents: read");
+    expect(dispatchWorkflow).not.toContain("contents: write");
     expect(dispatchWorkflow).toContain("fetch-depth: 0");
     expect(dispatchWorkflow).toContain("node scripts/dispatch-main-releasability.mjs");
     expect(dispatchWorkflow).toContain(
@@ -59,11 +60,20 @@ describe("PR auto-merge workflow", () => {
 
     expect(mainReleasabilityWorkflow).toContain("concurrency:");
     expect(mainReleasabilityWorkflow).toContain(
+      "run-name: Main Releasability · ${{ inputs.expected_sha || github.sha }}",
+    );
+    expect(mainReleasabilityWorkflow).toContain(
       "group: ${{ github.workflow }}-${{ inputs.expected_sha || github.sha }}",
     );
     expect(mainReleasabilityWorkflow).toContain("cancel-in-progress: false");
     expect(mainReleasabilityWorkflow).toContain("expected_sha:");
     expect(mainReleasabilityWorkflow).toContain('actual_sha="$(git rev-parse HEAD)"');
+    const checkoutCount = mainReleasabilityWorkflow.match(/uses: actions\/checkout@v6/g)?.length ?? 0;
+    const exactRefCount = mainReleasabilityWorkflow.match(
+      /ref: \$\{\{ inputs\.expected_sha \|\| github\.sha \}\}/g,
+    )?.length ?? 0;
+    expect(checkoutCount).toBeGreaterThan(0);
+    expect(exactRefCount).toBe(checkoutCount);
     expect(mainReleasabilityWorkflow.split("concurrency:", 1)[0]).not.toContain("push:");
     expect(mainReleasabilityWorkflow).toMatch(
       /name: Main Releasability \/ Workflow Lint\r?\n    needs: \[exact-revision-assertion\]/,

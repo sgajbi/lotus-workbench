@@ -404,6 +404,11 @@ describe("branch protection governance", () => {
     expect(auditSource).toContain('run.get("path") != ".github/workflows/main-gate-coverage-audit.yml"');
     expect(auditSource).toContain("page += 1");
     expect(auditSource).not.toContain('"--limit"');
+    expect(auditSource).toContain('_EXACT_RUN_TITLE_PREFIX = "Main Releasability · "');
+    expect(auditSource).toContain('run.get("display_title") == expected_title');
+    expect(auditSource).toContain('run.get("head_sha") == sha');
+    expect(auditSource).toContain(`f"repos/{REPOSITORY}/actions/workflows/{WORKFLOW}/runs"`);
+    expect(auditSource).toContain("@lru_cache(maxsize=1)");
     expect(auditSource).toContain('job.get("name") == "Audit / Every Main Commit Has A Gate Verdict"');
     expect(auditSource).toContain('job.get("name") == "Main Releasability / Exact Revision Assertion"');
     expect(workflow).toContain("coverage-audit:");
