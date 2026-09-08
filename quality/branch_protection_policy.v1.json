@@ -1,0 +1,51 @@
+{
+  "contract_id": "lotus-branch-protection-policy",
+  "contract_version": "1.0.0",
+  "repository": "sgajbi/lotus-workbench",
+  "protected_branch": "main",
+  "review_authority": {
+    "review_lead": "the lotus-workbench repository owner (sgajbi), supported by automated and inline review",
+    "mergeable_meaning": "all required checks are green on the current head and every review conversation is resolved",
+    "escalation": "unresolved disagreements escalate to the repository owner (sgajbi), who is the sole accepted collaborator"
+  },
+  "expected": {
+    "enforce_admins": true,
+    "required_linear_history": true,
+    "allow_force_pushes": false,
+    "allow_deletions": false,
+    "required_conversation_resolution": true,
+    "required_status_checks": {
+      "strict": true,
+      "checks": [
+        { "context": "PR Merge Gate / Workflow Lint", "app_id": 15368 },
+        { "context": "PR Merge Gate / Lint Typecheck Coverage Build", "app_id": 15368 },
+        { "context": "PR Merge Gate / Playwright Smoke", "app_id": 15368 },
+        { "context": "PR Merge Gate / Docker Build And Security", "app_id": 15368 },
+        { "context": "PR Merge Gate / CI Local Docker Parity", "app_id": 15368 }
+      ]
+    },
+    "required_pull_request_reviews": {
+      "present": true,
+      "required_approving_review_count": 0,
+      "dismiss_stale_reviews": true,
+      "require_code_owner_reviews": false,
+      "require_last_push_approval": false,
+      "bypass_pull_request_allowances": { "users": [], "teams": [], "apps": [] }
+    },
+    "restrictions_present": false,
+    "codeowners_present": false,
+    "lock_branch": false,
+    "required_signatures": false,
+    "block_creations": false,
+    "allow_fork_syncing": false
+  },
+  "documented_exceptions": [
+    {
+      "field": "required_pull_request_reviews.required_approving_review_count",
+      "value": 0,
+      "reason": "the repository has one accepted developer; requiring another approval would make main unmergeable without adding an independent reviewer",
+      "compensating_controls": "five strict required checks pinned to GitHub Actions, stale-review dismissal, enforce_admins, required conversation resolution, and linear history apply to every merge",
+      "retires_when": "a second accepted reviewer identity exists; then require one approval, add CODEOWNERS, and update this policy in the same change"
+    }
+  ]
+}
