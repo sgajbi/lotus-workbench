@@ -234,6 +234,7 @@ describe("dependency security governance", () => {
     expect(dockerfile).toContain(`ARG NODE_BASE_IMAGE=${governedBase}`);
     expect(dockerfile.match(/FROM \$\{NODE_BASE_IMAGE\}/g)).toHaveLength(1);
     expect(dockerfile).toContain("FROM ${NODE_BASE_IMAGE} AS ci-base");
+    expect(dockerfile).toContain("FROM ci-base AS ci-tools");
     expect(dockerfile).toContain("FROM ci-base AS deps");
     expect(dockerfile).toContain("FROM ci-base AS builder");
     expect(dockerfile).toContain("FROM ci-base AS runner");
@@ -259,7 +260,7 @@ describe("dependency security governance", () => {
     expect(dockerignore).toContain("!scripts/runtime/workbench-healthcheck.mjs");
     expect(dockerignore).not.toContain("!.env");
     expect(dockerignore).not.toContain("!output");
-    expect(ciCompose).toContain("target: ci-base");
+    expect(ciCompose).toContain("target: ci-tools");
     expect(ciCompose).not.toContain("node:22-alpine");
   });
 
