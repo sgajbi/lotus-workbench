@@ -29,6 +29,17 @@ export const FORWARDABLE_BROWSER_GATEWAY_REQUEST_HEADERS = [
   "traceparent",
 ] as const;
 
+/**
+ * Reads the one browser credential that terminates at the Workbench BFF.
+ * Keeping this access beside the forwarding allowlist makes the trust boundary
+ * explicit: the credential is verified and replaced, never copied upstream.
+ */
+export function readWorkbenchSessionAuthorization(
+  request: Pick<Request, "headers">,
+): string | null {
+  return request.headers.get("authorization");
+}
+
 export function buildGatewayBffRequestHeaders(
   browserHeaders: Headers,
 ): Headers {

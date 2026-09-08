@@ -20,7 +20,10 @@ import {
 } from "@/features/workbench/caller-context";
 import { requiresAuthenticatedSessionPrincipal } from "@/features/workbench/authority-mode";
 import { WORKBENCH_AUTHORITY_CONTEXT_HEADER } from "@/features/workbench/authority-context-contract";
-import { buildGatewayBffRequestHeaders } from "@/features/workbench/bff-request-headers";
+import {
+  buildGatewayBffRequestHeaders,
+  readWorkbenchSessionAuthorization,
+} from "@/features/workbench/bff-request-headers";
 import { readGatewayBffResponse } from "@/features/workbench/bff-response";
 import {
   advisoryCopilotAuthorityRejection,
@@ -44,13 +47,14 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
   const gatewayBaseUrl = resolveGatewayBaseUrl();
 
   const headers = buildGatewayBffRequestHeaders(request.headers);
+  const sessionAuthorization = readWorkbenchSessionAuthorization(request);
   let requestBody =
     request.method === "GET" || request.method === "HEAD"
       ? undefined
       : await request.text();
   let verifiedPrincipal: ResolvedPrincipal | undefined;
   let verifiedGatewayCredential: string | undefined;
-  if (request.headers.has("authorization")) {
+  if (sessionAuthorization !== null) {
     const routeRequirement = resolveVerifiedBffRouteRequirement({
       method: request.method,
       upstreamPath,
@@ -59,7 +63,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
     });
     if (routeRequirement) {
       const principalAuthority = await authorizeConfiguredBffPrincipal(
-        request.headers.get("authorization"),
+        sessionAuthorization,
         routeRequirement,
       );
       if (principalAuthority.status === "denied") {
