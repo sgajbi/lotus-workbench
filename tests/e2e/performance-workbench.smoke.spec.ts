@@ -1457,6 +1457,9 @@ test.describe('Performance workbench smoke', () => {
       await expect(
         page.getByRole('heading', { name: 'Concentration', exact: true }),
       ).toBeVisible();
+      await expect(
+        page.locator('.performance-risk-share-bar-track').first(),
+      ).toBeVisible();
 
       if (viewport.name === 'desktop') {
         const sourceEvidence = mandateComparison
@@ -1517,6 +1520,38 @@ test.describe('Performance workbench smoke', () => {
         fullPage: false,
         animations: 'disabled',
       });
+    }
+
+    expect(fixtureGateway).not.toBeNull();
+    fixtureGateway?.setRiskAttributionPosture('partial-mixed');
+    try {
+      await page.setViewportSize({ width: 1440, height: 1000 });
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      const attributionTable = page.getByLabel('Historical risk attribution table');
+      await expect(page.getByText('Attribution is indicative')).toBeVisible();
+      await expect(attributionTable).toContainText('Technology');
+      await expect(attributionTable).toContainText('41.00%');
+      await expect(
+        attributionTable.locator('.performance-risk-share-bar-track'),
+      ).toHaveCount(0);
+      await expect(
+        page.getByRole('radiogroup', { name: 'Risk attribution type' }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByLabel('Risk attribution detail')
+          .getByText(
+            'One review period has insufficient observations; available contributor values remain qualified.',
+            { exact: true },
+          ),
+      ).toBeVisible();
+      await page.screenshot({
+        path: 'output/playwright/risk-attribution-partial-evidence.png',
+        fullPage: true,
+        animations: 'disabled',
+      });
+    } finally {
+      fixtureGateway?.setRiskAttributionPosture('ready');
     }
 
     await runtime.assertStylesAreHeadManaged();

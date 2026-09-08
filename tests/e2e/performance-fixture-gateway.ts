@@ -42,6 +42,9 @@ export type PerformanceFixtureGatewayScenario =
 
 export type PerformanceFixtureGateway = {
   close: () => Promise<void>;
+  setRiskAttributionPosture: (
+    posture: "ready" | "partial-mixed",
+  ) => void;
   port: number;
   requests: {
     summary: number;
@@ -65,6 +68,7 @@ export async function startPerformanceFixtureGateway({
   let detailsRefreshFailuresRemaining = scenario === 'refresh-integrity' ? 1 : 0;
   let trendRefreshFailuresRemaining = scenario === 'trend-integrity' ? 1 : 0;
   let horizonRefreshFailuresRemaining = scenario === 'horizon-integrity' ? 1 : 0;
+  let riskAttributionPosture: "ready" | "partial-mixed" = "ready";
   const requests = {
     summary: 0,
     details: 0,
@@ -316,22 +320,38 @@ export async function startPerformanceFixtureGateway({
     if (requestUrl.pathname.endsWith('/risk/attribution')) {
       requests.riskAttribution += 1;
       const workspace = buildRiskFixtureWorkspace(portfolioId);
+      const attribution = buildFixtureRiskAttribution(
+        workspace,
+        requestUrl.searchParams.get('period') ?? 'YTD',
+        requestUrl.searchParams.get('detail_basis') ?? 'NET',
+        {
+          attributionType:
+            requestUrl.searchParams.get('attribution_type') === 'ACTIVE_RISK'
+              ? 'ACTIVE_RISK'
+              : 'TOTAL_RISK',
+          groupingDimension: resolveRiskGroupingDimension(
+            requestUrl.searchParams.get('grouping_dimension'),
+          ),
+        },
+      );
       sendJson(
         response,
-        buildFixtureRiskAttribution(
-          workspace,
-          requestUrl.searchParams.get('period') ?? 'YTD',
-          requestUrl.searchParams.get('detail_basis') ?? 'NET',
-          {
-            attributionType:
-              requestUrl.searchParams.get('attribution_type') === 'ACTIVE_RISK'
-                ? 'ACTIVE_RISK'
-                : 'TOTAL_RISK',
-            groupingDimension: resolveRiskGroupingDimension(
-              requestUrl.searchParams.get('grouping_dimension'),
-            ),
-          },
-        ),
+        riskAttributionPosture === 'partial-mixed'
+          ? {
+              ...attribution,
+              state: 'partial',
+              warnings: [
+                'One review period has insufficient observations; available contributor values remain qualified.',
+              ],
+              partial_failures: [
+                {
+                  source_service: 'lotus-risk',
+                  error_code: 'insufficient_observations',
+                  detail: 'One review period has insufficient observations.',
+                },
+              ],
+            }
+          : attribution,
       );
       return;
     }
@@ -363,6 +383,9 @@ export async function startPerformanceFixtureGateway({
   return {
     port,
     requests,
+    setRiskAttributionPosture: (posture) => {
+      riskAttributionPosture = posture;
+    },
     close: () => close(server),
   };
 }
