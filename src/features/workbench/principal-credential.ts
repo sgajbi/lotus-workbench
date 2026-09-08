@@ -1,5 +1,8 @@
 import {
+  createPrivateKey,
   createPublicKey,
+  randomUUID,
+  sign,
   verify,
   type JsonWebKey as NodeJsonWebKey,
 } from "node:crypto";
@@ -66,6 +69,17 @@ export type PrincipalVerificationInputs = {
   revokedCredentialIds?: ReadonlySet<string>;
   revokedSubjects?: ReadonlySet<string>;
   leewaySeconds?: number;
+};
+
+export type DelegatedCredentialInputs = {
+  issuer: string;
+  audience: string;
+  actingApplication: string;
+  keyId: string;
+  privateKey: NodeJsonWebKey;
+  now?: Date;
+  lifetimeSeconds?: number;
+  credentialId?: string;
 };
 
 type JsonWebKeySet = {
@@ -252,6 +266,40 @@ export async function resolvePrincipal(
     return deny("portfolio_outside_scope", false);
   }
   return { ...verified, capabilities, portfolioScope };
+}
+
+export function issueDelegatedCredential(
+  principal: ResolvedPrincipal,
+  inputs: DelegatedCredentialInputs,
+): string {
+  if (principal.principalKind !== "user") {
+    throw new Error("Only an admitted user session can be delegated by the Workbench BFF");
+  }
+  const issuedAt = Math.floor((inputs.now ?? new Date()).getTime() / 1000);
+  const header = encodeJson({ alg: SUPPORTED_ALGORITHM, kid: inputs.keyId, typ: "JWT" });
+  const payload = encodeJson({
+    iss: inputs.issuer,
+    aud: inputs.audience,
+    sub: principal.subject,
+    tenant: principal.tenantId,
+    principal_kind: "delegated",
+    act: inputs.actingApplication,
+    iat: issuedAt,
+    nbf: issuedAt,
+    exp: issuedAt + (inputs.lifetimeSeconds ?? 60),
+    jti: inputs.credentialId ?? randomUUID(),
+  });
+  const signingInput = `${header}.${payload}`;
+  const signature = sign(
+    null,
+    Buffer.from(signingInput, "ascii"),
+    createPrivateKey({ key: inputs.privateKey, format: "jwk" }),
+  );
+  return `${signingInput}.${signature.toString("base64url")}`;
+}
+
+function encodeJson(value: JsonObject): string {
+  return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
 }
 
 function intersection<T>(left: ReadonlySet<T>, right: ReadonlySet<T>): ReadonlySet<T> {

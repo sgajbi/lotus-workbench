@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   PrincipalGrantStoreUnavailable,
+  issueDelegatedCredential,
   readBearerCredential,
   resolvePrincipal,
   verifyPrincipalCredential,
@@ -276,5 +277,74 @@ describe("principal grant resolution", () => {
       denialClass: "grant_store_unavailable",
       unauthenticated: false,
     });
+  });
+});
+
+describe("delegated Gateway credentials", () => {
+  it("binds a short-lived delegated credential to the admitted user and Workbench", async () => {
+    const sessionMaterial = createSigningMaterial();
+    const gatewayMaterial = createSigningMaterial("workbench-key");
+    const resolved = await resolvePrincipal(
+      credential(sessionMaterial.privateKey),
+      {
+        ...inputs(sessionMaterial.jwks),
+        grantResolver: grantResolver(),
+        requiredCapabilities: ["portfolio.read"],
+      },
+    );
+    if ("status" in resolved) throw new Error("expected an admitted principal");
+
+    const delegated = issueDelegatedCredential(resolved, {
+      issuer: "https://workbench.lotus.test",
+      audience: "lotus-gateway",
+      actingApplication: "lotus-workbench",
+      keyId: "workbench-key",
+      privateKey: gatewayMaterial.privateKey.export({ format: "jwk" }),
+      now: NOW,
+      lifetimeSeconds: 45,
+      credentialId: "delegated-001",
+    });
+
+    expect(
+      verifyPrincipalCredential(delegated, {
+        expectedIssuer: "https://workbench.lotus.test",
+        expectedAudience: "lotus-gateway",
+        jwks: gatewayMaterial.jwks,
+        now: new Date(NOW.getTime() + 30_000),
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        subject: "user:advisor.sg.001",
+        tenantId: "tenant-sg",
+        principalKind: "delegated",
+        delegatedActor: "lotus-workbench",
+        credentialId: "delegated-001",
+      }),
+    );
+  });
+
+  it("does not delegate a service or already-delegated principal", () => {
+    const gatewayMaterial = createSigningMaterial("workbench-key");
+    expect(() =>
+      issueDelegatedCredential(
+        {
+          issuer: ISSUER,
+          audience: [AUDIENCE],
+          subject: "service:batch",
+          tenantId: "tenant-sg",
+          principalKind: "service",
+          credentialId: "service-001",
+          capabilities: new Set(),
+          portfolioScope: new Set(),
+        },
+        {
+          issuer: "https://workbench.lotus.test",
+          audience: "lotus-gateway",
+          actingApplication: "lotus-workbench",
+          keyId: "workbench-key",
+          privateKey: gatewayMaterial.privateKey.export({ format: "jwk" }),
+        },
+      ),
+    ).toThrow("Only an admitted user session");
   });
 });
