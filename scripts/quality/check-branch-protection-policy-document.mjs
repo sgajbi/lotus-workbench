@@ -289,7 +289,7 @@ export function validateBranchProtectionPolicy(policy) {
       issues.push(`documented exception is bound to no expected field: ${exception.field}`);
     } else if (
       Array.isArray(resolved.value) && Array.isArray(exception.value)
-        ? JSON.stringify([...resolved.value].sort()) !== JSON.stringify([...exception.value].sort())
+        ? JSON.stringify(resolved.value) !== JSON.stringify(exception.value)
         : !Object.is(resolved.value, exception.value)
     ) {
       issues.push(`documented exception value does not match expected.${exception.field}`);

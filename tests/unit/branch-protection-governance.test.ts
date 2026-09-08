@@ -167,6 +167,25 @@ describe("branch protection governance", () => {
     );
   });
 
+  it("rejects a reordered array exception that the live validator would reject", () => {
+    const policy = loadPolicy();
+    policy.expected.required_deployments = {
+      present: true,
+      environments: ["production-primary", "production-secondary"],
+    };
+    policy.documented_exceptions.push({
+      field: "required_deployments.environments",
+      value: ["production-secondary", "production-primary"],
+      reason: "ordered deployment evidence is pending",
+      compensating_controls: "manual environment verification",
+      retires_when: "both environments are governed",
+    });
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("value does not match")]),
+    );
+  });
+
   it("rejects a documented exception for a strong policy value", () => {
     const policy = loadPolicy();
     policy.documented_exceptions.push({
