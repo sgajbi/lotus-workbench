@@ -547,14 +547,50 @@ describe("buildPerformanceRiskViewModel", () => {
   });
 
   it.each([
-    { sourceState: "ready", expectedState: "ready", expectedRows: 2, expectedScale: 41 },
-    { sourceState: "partial", expectedState: "partial", expectedRows: 2, expectedScale: 0 },
-    { sourceState: "unavailable", expectedState: "unavailable", expectedRows: 0, expectedScale: 0 },
-    { sourceState: "blocked", expectedState: "blocked", expectedRows: 0, expectedScale: 0 },
-    { sourceState: "unexpected", expectedState: "unavailable", expectedRows: 0, expectedScale: 0 },
+    {
+      sourceState: "ready",
+      expectedState: "ready",
+      expectedRows: 2,
+      expectedScale: 41,
+      expectedMethodologyRows: 6,
+    },
+    {
+      sourceState: "partial",
+      expectedState: "partial",
+      expectedRows: 2,
+      expectedScale: 0,
+      expectedMethodologyRows: 6,
+    },
+    {
+      sourceState: "unavailable",
+      expectedState: "unavailable",
+      expectedRows: 0,
+      expectedScale: 0,
+      expectedMethodologyRows: 0,
+    },
+    {
+      sourceState: "blocked",
+      expectedState: "blocked",
+      expectedRows: 0,
+      expectedScale: 0,
+      expectedMethodologyRows: 0,
+    },
+    {
+      sourceState: "unexpected",
+      expectedState: "unavailable",
+      expectedRows: 0,
+      expectedScale: 0,
+      expectedMethodologyRows: 0,
+    },
   ])(
     "maps $sourceState attribution without promoting unsupported evidence",
-    ({ sourceState, expectedState, expectedRows, expectedScale }) => {
+    ({
+      sourceState,
+      expectedState,
+      expectedRows,
+      expectedScale,
+      expectedMethodologyRows,
+    }) => {
       const scenario = buildSupportedPerformanceScenario();
       const attribution = {
         ...buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET"),
@@ -571,6 +607,7 @@ describe("buildPerformanceRiskViewModel", () => {
       expect(viewModel.attributionState).toBe(expectedState);
       expect(viewModel.attributionRows).toHaveLength(expectedRows);
       expect(viewModel.attributionMaxContributionShareAbsPct).toBe(expectedScale);
+      expect(viewModel.attributionMethodologyRows).toHaveLength(expectedMethodologyRows);
     },
   );
 });

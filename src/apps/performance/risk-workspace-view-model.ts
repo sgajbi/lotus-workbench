@@ -3003,6 +3003,12 @@ function resolveAttributionEvidencePosture(
 function mapAttributionMethodologyRows(
   response: WorkbenchRiskAttributionResponse | null
 ): PerformanceRiskContextRow[] {
+  if (
+    !response ||
+    (response.state !== "ready" && response.state !== "partial")
+  ) {
+    return [];
+  }
   const methodologyContext = response?.payload?.methodology_context;
   const selectedSet = response?.payload?.periods[0]?.attribution_sets[0];
   if (!methodologyContext) {
