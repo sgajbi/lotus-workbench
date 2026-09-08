@@ -3,12 +3,22 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   getPerformanceRiskSourceState,
+  performanceRiskAttributionQueryOptions,
   performanceRiskSummaryQueryOptions,
 } from "../../src/apps/performance/performance-risk-query-options";
 import { buildPerformanceRiskQueryContext } from "../../src/apps/performance/performance-risk-query-keys";
-import { buildFixtureRiskSummary } from "../../src/apps/performance/risk-workspace-view-model";
-import { getWorkbenchRiskSummaryClient } from "../../src/features/workbench/api";
-import type { WorkbenchRiskSummaryResponse } from "../../src/features/workbench/types";
+import {
+  buildFixtureRiskAttribution,
+  buildFixtureRiskSummary,
+} from "../../src/apps/performance/risk-workspace-view-model";
+import {
+  getWorkbenchRiskAttributionClient,
+  getWorkbenchRiskSummaryClient,
+} from "../../src/features/workbench/api";
+import type {
+  WorkbenchRiskAttributionResponse,
+  WorkbenchRiskSummaryResponse,
+} from "../../src/features/workbench/types";
 import {
   WORKBENCH_QUERY_STALE_TIME_MS,
   workbenchStrictQueryDefaults,
@@ -128,4 +138,66 @@ describe("Performance Risk query options", () => {
     ).toBeNull();
     queryClient.clear();
   });
+
+  it("retains partial attribution as qualified reusable evidence", async () => {
+    const queryClient = createQueryClient();
+    const partialResponse: WorkbenchRiskAttributionResponse = {
+      ...buildFixtureRiskAttribution(workspace, "YTD", "NET"),
+      state: "partial",
+    };
+    vi.mocked(getWorkbenchRiskAttributionClient).mockResolvedValue(
+      partialResponse,
+    );
+    const options = performanceRiskAttributionQueryOptions(
+      context,
+      "NET",
+      "TOTAL_RISK",
+      "SECTOR",
+    );
+
+    await expect(queryClient.fetchQuery(options)).resolves.toEqual(
+      partialResponse,
+    );
+    expect(queryClient.getQueryData(options.queryKey)).toEqual(partialResponse);
+    expect(getWorkbenchRiskAttributionClient).toHaveBeenCalledTimes(1);
+    queryClient.clear();
+  });
+
+  it.each([
+    ["empty source evidence", "unavailable", null],
+    ["blocked selection", "blocked", null],
+    ["unknown runtime state", "unexpected", "retain"],
+  ])(
+    "recovers %s without admitting it as reusable attribution",
+    async (_caseName, state, payloadPosture) => {
+      const queryClient = createQueryClient();
+      const baseResponse = buildFixtureRiskAttribution(
+        workspace,
+        "YTD",
+        "NET",
+      );
+      const response = {
+        ...baseResponse,
+        state,
+        payload: payloadPosture === null ? null : baseResponse.payload,
+      } as WorkbenchRiskAttributionResponse;
+      vi.mocked(getWorkbenchRiskAttributionClient).mockResolvedValue(response);
+      const options = performanceRiskAttributionQueryOptions(
+        context,
+        "NET",
+        "TOTAL_RISK",
+        "SECTOR",
+      );
+
+      const error = await queryClient
+        .fetchQuery(options)
+        .catch((failure) => failure);
+
+      expect(
+        getPerformanceRiskSourceState<WorkbenchRiskAttributionResponse>(error),
+      ).toEqual(response);
+      expect(queryClient.getQueryData(options.queryKey)).toBeUndefined();
+      queryClient.clear();
+    },
+  );
 });
