@@ -43,7 +43,9 @@ commit after the latest successful audit checkpoint has no verdict-bearing Main 
 including intermediate commits introduced by a multi-commit rebase merge. The first run starts from
 the explicitly declared, already-proven pre-adoption main revision; a missing, malformed, or
 non-ancestor checkpoint fails closed, so a high-volume day cannot fall outside a fixed suffix.
-Second, it compares live `main` branch
+Coverage and live-protection comparison are independent jobs: a protection credential or drift
+failure cannot stop a successful coverage evaluation becoming the next checkpoint. Second, the
+protection job compares live `main` branch
 protection field by field with `quality/branch_protection_policy.v1.json`, including required
 deployment environments that GitHub exposes through its GraphQL branch-protection rule. The repository-native
 document check runs in `make lint` before merge; the scheduled live comparison additionally needs

@@ -43,6 +43,20 @@ const weakPostures = new Map([
   ["required_pull_request_reviews.required_approving_review_count", 0],
 ]);
 
+const auditedExceptionFields = new Set([
+  ...booleanExpectedFields,
+  "required_status_checks.strict",
+  "required_status_checks.checks",
+  "required_deployments.present",
+  "required_deployments.environments",
+  "required_pull_request_reviews.present",
+  "required_pull_request_reviews.required_approving_review_count",
+  "required_pull_request_reviews.dismiss_stale_reviews",
+  "required_pull_request_reviews.require_code_owner_reviews",
+  "required_pull_request_reviews.require_last_push_approval",
+  "required_pull_request_reviews.bypass_pull_request_allowances",
+]);
+
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -196,6 +210,15 @@ export function validateBranchProtectionPolicy(policy) {
       issues.push(`documented exception field is duplicated: ${exception.field}`);
     }
     exceptionTargets.add(exception.field);
+    const dynamicAuditedField =
+      exception.field.startsWith("required_status_checks.checks.app_id:") ||
+      exception.field.startsWith("required_pull_request_reviews.bypass_pull_request_allowances.");
+    if (!auditedExceptionFields.has(exception.field) && !dynamicAuditedField) {
+      issues.push(`documented exception names unaudited field: ${exception.field}`);
+    }
+    if (weakPostures.has(exception.field) && !Object.is(exception.value, weakPostures.get(exception.field))) {
+      issues.push(`documented exception for ${exception.field} does not describe its registered weak posture`);
+    }
     let resolved = resolveField(expected, exception.field);
     if (exception.field.startsWith("required_status_checks.checks.app_id:")) {
       const context = exception.field.slice("required_status_checks.checks.app_id:".length);

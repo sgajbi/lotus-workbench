@@ -13,7 +13,7 @@ permissions:
   actions: read
 
 jobs:
-  audit:
+  coverage-audit:
     name: Audit / Every Main Commit Has A Gate Verdict
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -30,8 +30,14 @@ jobs:
           python scripts/audit_main_gate_coverage.py \
             --baseline 43f9335b8ca5e903a0fab848b248d54132db0ad6 \
             --fail-on-gap
+
+  protection-audit:
+    name: Audit / Live Branch Protection Matches Policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
       - name: Compare live branch protection against policy (fail closed)
-        if: ${{ !cancelled() }}
         env:
           # The workflow token cannot read branch protection. This intentionally
           # fails closed until an administration:read repository token is approved.
