@@ -120,6 +120,39 @@ describe("branch protection governance", () => {
     );
   });
 
+  it("rejects a documented exception for a strong policy value", () => {
+    const policy = loadPolicy();
+    policy.documented_exceptions.push({
+      field: "enforce_admins",
+      value: true,
+      reason: "not a weakness",
+      compensating_controls: "none",
+      retires_when: "never",
+    });
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("does not describe its registered weak posture")]),
+    );
+  });
+
+  it("rejects an exception bound to an unaudited invented field", () => {
+    const policy = loadPolicy() as BranchProtectionPolicy & {
+      expected: Record<string, unknown>;
+    };
+    policy.expected.invented_control = false;
+    policy.documented_exceptions.push({
+      field: "invented_control",
+      value: false,
+      reason: "not measured",
+      compensating_controls: "none",
+      retires_when: "never",
+    });
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("unaudited field")]),
+    );
+  });
+
   it.each(["users", "teams", "apps"] as const)(
     "rejects an undocumented %s review bypass",
     (category) => {
@@ -181,8 +214,11 @@ describe("branch protection governance", () => {
       join(repositoryRoot, "scripts", "audit_main_gate_coverage.py"),
       "utf8",
     );
-    expect(auditSource).toMatch(/"--status",\s+"success",\s+"--branch",\s+"main"/);
-    expect(workflow).toContain("if: ${{ !cancelled() }}");
+    expect(auditSource).toMatch(/"--branch",\s+"main"/);
+    expect(auditSource).toContain('job.get("name") == "Audit / Every Main Commit Has A Gate Verdict"');
+    expect(workflow).toContain("coverage-audit:");
+    expect(workflow).toContain("protection-audit:");
+    expect(workflow).not.toContain("if: ${{ !cancelled() }}");
     expect(workflow).toContain("GH_TOKEN: ${{ secrets.LOTUS_AUTOMERGE_TOKEN }}");
     expect(workflow).toMatch(
       /node scripts\/quality\/check-branch-protection-policy-document\.mjs\r?\n\s+python scripts\/check_branch_protection_policy\.py/,

@@ -68,8 +68,8 @@ def _run_conclusions(sha: str) -> list[str] | None:
     return [str(run.get("conclusion") or run.get("status") or "") for run in runs]
 
 
-def _previous_successful_audit_head() -> str | None:
-    """Return the head recorded by the latest successful audit workflow run."""
+def _previous_successful_coverage_head() -> str | None:
+    """Return the newest main head whose coverage-audit job succeeded."""
 
     completed = subprocess.run(
         [
@@ -78,30 +78,53 @@ def _previous_successful_audit_head() -> str | None:
             "list",
             "--workflow",
             "main-gate-coverage-audit.yml",
-            "--status",
-            "success",
             "--branch",
             "main",
             "--limit",
-            "1",
+            "20",
             "--json",
-            "headSha",
+            "databaseId,headSha",
         ],
         capture_output=True,
         text=True,
     )
     if completed.returncode != 0:
-        raise RuntimeError("could not list successful coverage-audit runs")
+        raise RuntimeError("could not list prior coverage-audit runs")
     try:
         runs: list[dict[str, Any]] = json.loads(completed.stdout or "[]")
     except json.JSONDecodeError as error:
         raise RuntimeError("coverage-audit run listing was not valid JSON") from error
-    if not runs:
-        return None
-    head = runs[0].get("headSha")
-    if not isinstance(head, str) or not head.strip():
-        raise RuntimeError("latest successful coverage-audit run has no usable head SHA")
-    return head
+    for run in runs:
+        database_id = run.get("databaseId")
+        if not isinstance(database_id, int):
+            raise RuntimeError("coverage-audit run listing has no usable database ID")
+        viewed = subprocess.run(
+            ["gh", "run", "view", str(database_id), "--json", "jobs"],
+            capture_output=True,
+            text=True,
+        )
+        if viewed.returncode != 0:
+            raise RuntimeError(f"could not inspect coverage-audit run {database_id}")
+        try:
+            details: dict[str, Any] = json.loads(viewed.stdout or "{}")
+        except json.JSONDecodeError as error:
+            raise RuntimeError(
+                f"coverage-audit run {database_id} details were not valid JSON"
+            ) from error
+        coverage_succeeded = any(
+            isinstance(job, dict)
+            and job.get("name") == "Audit / Every Main Commit Has A Gate Verdict"
+            and job.get("conclusion") == "success"
+            for job in details.get("jobs", [])
+        )
+        if coverage_succeeded:
+            head = run.get("headSha")
+            if not isinstance(head, str) or not head.strip():
+                raise RuntimeError(
+                    f"successful coverage-audit run {database_id} has no usable head SHA"
+                )
+            return head
+    return None
 
 
 def _is_ancestor(checkpoint: str) -> bool:
@@ -138,7 +161,9 @@ def main() -> int:
         return 1 if arguments.fail_on_gap else 0
 
     try:
-        checkpoint = arguments.checkpoint or _previous_successful_audit_head() or arguments.baseline
+        checkpoint = (
+            arguments.checkpoint or _previous_successful_coverage_head() or arguments.baseline
+        )
     except RuntimeError as error:
         print(f"UNKNOWN  previous audit checkpoint ({error})")
         return 1 if arguments.fail_on_gap else 0
