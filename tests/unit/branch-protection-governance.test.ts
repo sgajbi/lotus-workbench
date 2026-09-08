@@ -53,6 +53,51 @@ describe("branch protection governance", () => {
     );
   });
 
+  it("rejects the retired unbound status-check contexts field", () => {
+    const policy = loadPolicy() as BranchProtectionPolicy & {
+      expected: {
+        required_status_checks: BranchProtectionPolicy["expected"]["required_status_checks"] & {
+          contexts?: string[];
+        };
+      };
+    };
+    policy.expected.required_status_checks.contexts = ["PR Merge Gate / Workflow Lint"];
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("contexts is retired")]),
+    );
+  });
+
+  it("accepts an exception documenting an omitted required context", () => {
+    const policy = loadPolicy();
+    policy.documented_exceptions.push({
+      field: "required_status_checks.checks",
+      value: "PR Merge Gate / Deliberately Omitted Control",
+      reason: "temporary owner migration",
+      compensating_controls: "manual exact-head verification",
+      retires_when: "the owning workflow is app-bound",
+    });
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual([]);
+  });
+
+  it("retires an omitted-context exception when that context becomes required", () => {
+    const policy = loadPolicy();
+    const context = "PR Merge Gate / Deliberately Omitted Control";
+    policy.expected.required_status_checks.checks.push({ context, app_id: 15368 });
+    policy.documented_exceptions.push({
+      field: "required_status_checks.checks",
+      value: context,
+      reason: "temporary owner migration",
+      compensating_controls: "manual exact-head verification",
+      retires_when: "the owning workflow is app-bound",
+    });
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("value does not match")]),
+    );
+  });
+
   it("rejects removal of the single-developer zero-approval exception", () => {
     const policy = loadPolicy();
     policy.documented_exceptions = [];
