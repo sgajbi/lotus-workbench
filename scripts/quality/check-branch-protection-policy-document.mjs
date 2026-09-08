@@ -182,6 +182,14 @@ export function validateBranchProtectionPolicy(policy) {
     for (const category of ["users", "teams", "apps"]) {
       if (!isObject(bypass) || !Array.isArray(bypass[category])) {
         issues.push(`bypass_pull_request_allowances.${category} must be a list`);
+        continue;
+      }
+      const principals = bypass[category];
+      if (!principals.every((principal) => typeof principal === "string" && principal.trim())) {
+        issues.push(`bypass_pull_request_allowances.${category} must contain non-empty strings`);
+      }
+      if (new Set(principals).size !== principals.length) {
+        issues.push(`bypass_pull_request_allowances.${category} must not contain duplicates`);
       }
     }
   }
