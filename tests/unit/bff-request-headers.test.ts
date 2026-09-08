@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   buildGatewayBffRequestHeaders,
   FORWARDABLE_BROWSER_GATEWAY_REQUEST_HEADERS,
+  readWorkbenchSessionAuthorization,
 } from "@/features/workbench/bff-request-headers";
 import { FORBIDDEN_BROWSER_AUTHORITY_HEADERS } from "@/features/workbench/caller-context";
 
@@ -22,6 +23,15 @@ describe("Gateway BFF request-header boundary", () => {
     } else {
       process.env.LOTUS_ENVIRONMENT = originalEnvironment;
     }
+  });
+
+  it("terminates the browser session credential without forwarding it", () => {
+    const request = new Request("https://workbench.test/api/bff/portfolio", {
+      headers: { Authorization: "Bearer signed-session" },
+    });
+
+    expect(readWorkbenchSessionAuthorization(request)).toBe("Bearer signed-session");
+    expect(buildGatewayBffRequestHeaders(request.headers).get("Authorization")).toBeNull();
   });
 
   it("forwards only the governed browser header allowlist", () => {
