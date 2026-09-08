@@ -186,6 +186,13 @@ export function validateBranchProtectionPolicy(policy) {
       }
     }
     const bypass = reviews.bypass_pull_request_allowances;
+    if (isObject(bypass)) {
+      for (const category of Object.keys(bypass)) {
+        if (!bypassPrincipalCategories.has(category)) {
+          issues.push(`bypass_pull_request_allowances contains unsupported category: ${category}`);
+        }
+      }
+    }
     for (const category of ["users", "teams", "apps"]) {
       if (!isObject(bypass) || !Array.isArray(bypass[category])) {
         issues.push(`bypass_pull_request_allowances.${category} must be a list`);
@@ -234,6 +241,15 @@ export function validateBranchProtectionPolicy(policy) {
     if (!auditedExceptionFields.has(exception.field) && !dynamicAuditedField) {
       issues.push(`documented exception names unaudited field: ${exception.field}`);
     }
+    if (
+      exception.field.startsWith("required_pull_request_reviews.") &&
+      exception.field !== "required_pull_request_reviews.present" &&
+      reviews?.present !== true
+    ) {
+      issues.push(
+        `documented exception names ${exception.field} while required_pull_request_reviews.present is not true`,
+      );
+    }
     if (weakPostures.has(exception.field) && !Object.is(exception.value, weakPostures.get(exception.field))) {
       issues.push(`documented exception for ${exception.field} does not describe its registered weak posture`);
     }
@@ -244,6 +260,18 @@ export function validateBranchProtectionPolicy(policy) {
         ? checks.find((candidate) => isObject(candidate) && candidate.context === context)
         : undefined;
       resolved = check ? { found: true, value: check.app_id } : { found: false, value: undefined };
+      if (check && (check.app_id !== null || exception.value !== null)) {
+        issues.push(
+          `documented exception for ${exception.field} must describe the current unpinned null binding`,
+        );
+      }
+    } else if (typeof bypassCategory === "string" && bypassPrincipalCategories.has(bypassCategory)) {
+      const allowance = isObject(reviews?.bypass_pull_request_allowances)
+        ? reviews.bypass_pull_request_allowances[bypassCategory]
+        : undefined;
+      if (!Array.isArray(allowance) || allowance.length === 0) {
+        issues.push(`documented exception for ${exception.field} has no active review bypass`);
+      }
     } else if (exception.field === "required_status_checks.checks") {
       const omittedContext = exception.value;
       if (typeof omittedContext !== "string" || !omittedContext.trim()) {
