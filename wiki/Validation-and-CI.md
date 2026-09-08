@@ -32,11 +32,12 @@ PR auto-merge uses the repository `LOTUS_AUTOMERGE_TOKEN` secret for rebase auto
 resulting main update is not suppressed as a default `GITHUB_TOKEN` push. When the secret is absent,
 the workflow records a warning and skips queueing auto-merge instead of making a false readiness
 claim. A merged-PR dispatcher first verifies that repository merge policy remains rebase-only, then
-enumerates every revision the PR landed on `main`. It creates or verifies an immutable
-`main-releasability-<sha>` tag and dispatches `main-releasability.yml` for each exact revision,
-supplying `expected_sha` and the originating PR number. Missing commit metadata, changed merge
-methods, conflicting tags, and off-main revisions fail closed. Main Releasability has no automatic
-`push` trigger: it rejects a different checkout before the remaining gate chain starts. Its
+enumerates every revision the PR landed on `main`. It dispatches `main-releasability.yml` from
+`main` for each revision, supplying `expected_sha` and the originating PR number. Every job checks
+out that exact SHA, while a stable
+run title lets the coverage audit bind the verdict to it without creating repository refs. Missing
+commit metadata, changed merge methods, and off-main revisions fail closed. Main Releasability has
+no automatic `push` trigger: it rejects a different checkout before the remaining gate chain starts. Its
 concurrency key uses the expected SHA (or `github.sha` for a manual operator dispatch), and evidence
 runs queue rather than cancel, so a retry cannot erase or masquerade as another revision's verdict.
 
@@ -53,7 +54,7 @@ deployment environments that GitHub exposes through its GraphQL branch-protectio
 document check runs in `make lint` before merge; the scheduled live comparison additionally needs
 an approved repository secret with `administration:read`. Until that secret is provisioned, the
 live step fails closed rather than treating protection as verified. An operator should investigate
-reported historical gaps, backfill an exact immutable commit only through the documented command
+reported historical gaps, backfill an exact commit only through the documented command
 printed by the audit, and never relabel an unevaluated revision as passed. The zero-approval review
 posture is deliberate while Workbench has one accepted developer; strict required checks and
 resolved review conversations remain mandatory, and the policy requires one approval plus
