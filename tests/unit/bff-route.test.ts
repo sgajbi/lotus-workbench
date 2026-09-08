@@ -1955,6 +1955,81 @@ describe("BFF proxy route", () => {
     expect(upstreamHeaders.get("Cookie")).toBeNull();
   });
 
+  it("uses one delegated credential for verified Copilot scope and review calls", async () => {
+    process.env.LOTUS_ENVIRONMENT = "production";
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              run: {
+                run_id: "copilot_run_1",
+                proposal_id: "proposal_001",
+                portfolio_id: "PB_SG_GLOBAL_BAL_001",
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{"data":{}}', { status: 200 }));
+    vi.spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal").mockResolvedValueOnce({
+      status: "admitted",
+      principal: {
+        issuer: "https://identity.lotus.test",
+        audience: ["lotus-workbench-bff"],
+        subject: "user:advisor-001",
+        tenantId: "tenant-sg",
+        principalKind: "user",
+        credentialId: "session-001",
+        capabilities: new Set(["advisory.copilot.review"]),
+        portfolioScope: new Set(["PB_SG_GLOBAL_BAL_001"]),
+      },
+      gatewayCredential: "delegated.copilot.signature",
+    });
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-copilot/actions/copilot_run_1/reviews",
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer verified-session-credential",
+            "content-type": "application/json",
+            "X-Actor-Id": "browser-actor",
+            "X-Authorized-Portfolio-Id": "PB_NOT_ENTITLED",
+          },
+          body: JSON.stringify({ body: { action: "APPROVE_FOR_INTERNAL_USE" } }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "api",
+            "v1",
+            "advisory-copilot",
+            "actions",
+            "copilot_run_1",
+            "reviews",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const call of fetchMock.mock.calls) {
+      const callHeaders = call[1]?.headers as Headers;
+      expect(callHeaders.get("Authorization")).toBe(
+        "Bearer delegated.copilot.signature",
+      );
+      expect(callHeaders.get("X-Actor-Id")).toBeNull();
+      expect(callHeaders.get("X-Authorized-Portfolio-Id")).toBeNull();
+      expect(callHeaders.get("X-Caller-Capabilities")).toBeNull();
+    }
+  });
+
   it("rejects Advisory Copilot review when Gateway run scope is outside server entitlement", async () => {
     process.env.WORKBENCH_ADVISORY_COPILOT_PORTFOLIO_IDS =
       "PB_SG_GLOBAL_BAL_001";

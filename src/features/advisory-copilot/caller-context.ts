@@ -4,6 +4,7 @@ import {
   resolveDefaultCallerContext,
   stripBrowserSuppliedAuthorityHeaders,
 } from "@/features/workbench/caller-context";
+import type { ResolvedPrincipal } from "@/features/workbench/principal-credential";
 
 const ADVISORY_COPILOT_AUTH_MODE_ENV = "WORKBENCH_ADVISORY_COPILOT_AUTH_MODE";
 const ADVISORY_COPILOT_PORTFOLIO_IDS_ENV =
@@ -43,7 +44,10 @@ type AdvisoryCopilotAuthorityRejection =
 
 export type AdvisoryCopilotAuthorityResolution =
   | { status: "not_applicable" }
-  | { status: "applied"; mode: "development_configured" }
+  | {
+      status: "applied";
+      mode: "development_configured" | "authenticated_session";
+    }
   | { status: "rejected"; reason: AdvisoryCopilotAuthorityRejection };
 
 export async function applyAdvisoryCopilotCallerContextHeaders(
@@ -53,6 +57,8 @@ export async function applyAdvisoryCopilotCallerContextHeaders(
     upstreamPath: string;
     bodyText?: string;
     gatewayBaseUrl: string;
+    verifiedPrincipal?: ResolvedPrincipal;
+    gatewayCredential?: string;
   },
 ): Promise<AdvisoryCopilotAuthorityResolution> {
   if (!isAdvisoryCopilotReviewRoute(request.method, request.upstreamPath)) {
@@ -64,15 +70,25 @@ export async function applyAdvisoryCopilotCallerContextHeaders(
     return { status: "rejected", reason: "invalid_advisory_copilot_request" };
   }
 
-  const authorityMode = resolveConfiguredAuthorityMode(ADVISORY_COPILOT_AUTH_MODE_ENV);
-  if (authorityMode !== "development_configured") {
-    return authorityMode === "authenticated_session"
-      ? { status: "rejected", reason: "authenticated_principal_required" }
-      : { status: "rejected", reason: authorityMode };
+  const authorityMode = resolveAdvisoryCopilotAuthorityMode();
+  if (
+    authorityMode !== "development_configured" &&
+    authorityMode !== "authenticated_session"
+  ) {
+    return { status: "rejected", reason: authorityMode };
+  }
+  if (
+    authorityMode === "authenticated_session" &&
+    (!request.verifiedPrincipal || !request.gatewayCredential)
+  ) {
+    return { status: "rejected", reason: "authenticated_principal_required" };
   }
 
-  const context = resolveAdvisoryCopilotDevelopmentContext();
-  if (!context) {
+  const context =
+    authorityMode === "development_configured"
+      ? resolveAdvisoryCopilotDevelopmentContext()
+      : null;
+  if (authorityMode === "development_configured" && !context) {
     return {
       status: "rejected",
       reason: "invalid_advisory_copilot_configuration",
@@ -80,13 +96,29 @@ export async function applyAdvisoryCopilotCallerContextHeaders(
   }
 
   const scope = await resolveAdvisoryCopilotReviewScope({
-    context,
     gatewayBaseUrl: request.gatewayBaseUrl,
     upstreamPath: request.upstreamPath,
+    ...(context
+      ? { developmentContext: context }
+      : { gatewayCredential: request.gatewayCredential! }),
   });
   if (!scope) {
     return { status: "rejected", reason: "advisory_copilot_scope_not_resolved" };
   }
+
+  if (authorityMode === "authenticated_session") {
+    return request.verifiedPrincipal!.portfolioScope.has(scope.portfolioId)
+      ? { status: "applied", mode: authorityMode }
+      : { status: "rejected", reason: "advisory_copilot_scope_not_entitled" };
+  }
+
+  if (!context) {
+    return {
+      status: "rejected",
+      reason: "invalid_advisory_copilot_configuration",
+    };
+  }
+
   if (!context.portfolioIds.has(scope.portfolioId)) {
     return { status: "rejected", reason: "advisory_copilot_scope_not_entitled" };
   }
@@ -103,6 +135,22 @@ function isAdvisoryCopilotReviewRoute(method: string, upstreamPath: string): boo
     method === "POST" &&
     /^api\/v1\/advisory-copilot\/actions\/[^/]+\/reviews$/.test(upstreamPath)
   );
+}
+
+export function resolveAdvisoryCopilotAuthorityMode() {
+  return resolveConfiguredAuthorityMode(ADVISORY_COPILOT_AUTH_MODE_ENV);
+}
+
+export function resolveAdvisoryCopilotCapability({
+  method,
+  upstreamPath,
+}: {
+  method: string;
+  upstreamPath: string;
+}): string | undefined {
+  return isAdvisoryCopilotReviewRoute(method, upstreamPath)
+    ? REVIEW_CAPABILITY
+    : undefined;
 }
 
 function containsAuthorityBodyField(bodyText: string): boolean {
@@ -187,11 +235,13 @@ type AdvisoryCopilotReviewScope = {
 };
 
 async function resolveAdvisoryCopilotReviewScope({
-  context,
+  developmentContext,
+  gatewayCredential,
   gatewayBaseUrl,
   upstreamPath,
 }: {
-  context: AdvisoryCopilotDevelopmentContext;
+  developmentContext?: AdvisoryCopilotDevelopmentContext;
+  gatewayCredential?: string;
   gatewayBaseUrl: string;
   upstreamPath: string;
 }): Promise<AdvisoryCopilotReviewScope | null> {
@@ -202,7 +252,13 @@ async function resolveAdvisoryCopilotReviewScope({
 
   const headers = new Headers();
   headers.set("Accept", "application/json");
-  applyDevelopmentHeaders(headers, context, READ_CAPABILITY);
+  if (gatewayCredential) {
+    headers.set("Authorization", `Bearer ${gatewayCredential}`);
+  } else if (developmentContext) {
+    applyDevelopmentHeaders(headers, developmentContext, READ_CAPABILITY);
+  } else {
+    return null;
+  }
 
   try {
     const response = await fetch(
