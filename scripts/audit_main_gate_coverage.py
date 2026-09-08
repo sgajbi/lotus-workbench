@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 from functools import lru_cache
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -33,6 +34,18 @@ REPOSITORY = "sgajbi/lotus-workbench"
 _RUNS_PER_PAGE = 100
 _VERDICT_CONCLUSIONS = {"success", "failure"}
 _EXACT_RUN_TITLE_PREFIX = "Main Releasability · "
+_LEGACY_RUN_TITLE = "Main Releasability Gate"
+_SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+
+
+class ReleasabilityRunIdentity:
+    """Source evaluated by a run and the revision supplying its workflow."""
+
+    __slots__ = ("tested_sha", "workflow_definition_sha")
+
+    def __init__(self, tested_sha: str, workflow_definition_sha: str) -> None:
+        self.tested_sha = tested_sha
+        self.workflow_definition_sha = workflow_definition_sha
 
 
 def _git(*args: str) -> list[str]:
@@ -90,16 +103,20 @@ def _run_conclusions(sha: str) -> list[str] | None:
     all_runs = _releasability_runs()
     if all_runs is None:
         return None
-    expected_title = f"{_EXACT_RUN_TITLE_PREFIX}{sha}"
     runs = [
-        run
+        (run, identity)
         for run in all_runs
-        if run.get("head_sha") == sha or run.get("display_title") == expected_title
+        if (identity := _releasability_run_identity(run)) is not None
+        and identity.tested_sha == sha
     ]
     conclusions: list[str] = []
-    for run in runs:
-        if not isinstance(run, dict):
-            return None
+    for run, identity in runs:
+        if not _is_ancestor(identity.tested_sha):
+            conclusions.append("tested revision off main")
+            continue
+        if not _is_ancestor(identity.workflow_definition_sha):
+            conclusions.append("workflow definition off main")
+            continue
         conclusion = str(run.get("conclusion") or run.get("status") or "")
         if conclusion not in _VERDICT_CONCLUSIONS:
             conclusions.append(conclusion)
@@ -129,12 +146,49 @@ def _run_conclusions(sha: str) -> list[str] | None:
         )
         if assertion is not None and assertion.get("conclusion") == "success":
             conclusions.append(conclusion)
+            print(
+                f"EVIDENCE {sha[:8]} run {database_id} verdict {conclusion}; "
+                f"workflow definition {identity.workflow_definition_sha[:8]}"
+            )
         else:
             assertion_conclusion = (
                 assertion.get("conclusion") if isinstance(assertion, dict) else "missing"
             )
             conclusions.append(f"exact revision assertion {assertion_conclusion}")
     return conclusions
+
+
+def _releasability_run_identity(
+    run: dict[str, Any],
+) -> ReleasabilityRunIdentity | None:
+    """Resolve tested source independently from workflow-definition provenance."""
+
+    workflow_definition_sha = run.get("head_sha")
+    head_branch = run.get("head_branch")
+    display_title = run.get("display_title")
+    if not isinstance(workflow_definition_sha, str) or not _SHA_PATTERN.fullmatch(
+        workflow_definition_sha
+    ):
+        return None
+    if not isinstance(head_branch, str) or not isinstance(display_title, str):
+        return None
+
+    if display_title.startswith(_EXACT_RUN_TITLE_PREFIX):
+        tested_sha = display_title.removeprefix(_EXACT_RUN_TITLE_PREFIX)
+        if head_branch != "main" or not _SHA_PATTERN.fullmatch(tested_sha):
+            return None
+        return ReleasabilityRunIdentity(
+            tested_sha=tested_sha,
+            workflow_definition_sha=workflow_definition_sha,
+        )
+
+    legacy_ref = f"main-releasability-{workflow_definition_sha}"
+    if display_title == _LEGACY_RUN_TITLE and head_branch == legacy_ref:
+        return ReleasabilityRunIdentity(
+            tested_sha=workflow_definition_sha,
+            workflow_definition_sha=workflow_definition_sha,
+        )
+    return None
 
 
 def _previous_successful_coverage_head() -> str | None:

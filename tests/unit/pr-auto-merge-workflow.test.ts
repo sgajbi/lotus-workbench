@@ -52,6 +52,9 @@ describe("PR auto-merge workflow", () => {
     expect(dispatchWorkflow).toContain("fetch-depth: 0");
     expect(dispatchWorkflow).toContain("node scripts/dispatch-main-releasability.mjs");
     expect(dispatchWorkflow).toContain(
+      "BASE_COMMIT_SHA: ${{ github.event.pull_request.base.sha }}",
+    );
+    expect(dispatchWorkflow).toContain(
       "MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}",
     );
     expect(dispatchWorkflow).toContain(
