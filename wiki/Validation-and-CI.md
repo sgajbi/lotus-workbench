@@ -38,9 +38,12 @@ it rejects a different checkout before the remaining gate chain starts. Its conc
 the expected merge SHA (or `github.sha` for manual operator dispatch), preventing one revision's
 retry from cancelling or masquerading as another revision's evidence.
 
-The daily `Main Gate Coverage Audit` checks two distinct controls. First, it fails when any of the
-latest 60 `main` commits has no verdict-bearing Main Releasability run, including intermediate
-commits introduced by a multi-commit rebase merge. Second, it compares live `main` branch
+The daily `Main Gate Coverage Audit` checks two distinct controls. First, it fails when any `main`
+commit after the latest successful audit checkpoint has no verdict-bearing Main Releasability run,
+including intermediate commits introduced by a multi-commit rebase merge. The first run starts from
+the explicitly declared, already-proven pre-adoption main revision; a missing, malformed, or
+non-ancestor checkpoint fails closed, so a high-volume day cannot fall outside a fixed suffix.
+Second, it compares live `main` branch
 protection field by field with `quality/branch_protection_policy.v1.json`, including required
 deployment environments that GitHub exposes through its GraphQL branch-protection rule. The repository-native
 document check runs in `make lint` before merge; the scheduled live comparison additionally needs

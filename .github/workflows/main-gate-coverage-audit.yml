@@ -27,7 +27,9 @@ jobs:
         run: |
           set -euo pipefail
           git fetch origin main --quiet
-          python scripts/audit_main_gate_coverage.py --limit 60 --fail-on-gap
+          python scripts/audit_main_gate_coverage.py \
+            --baseline 43f9335b8ca5e903a0fab848b248d54132db0ad6 \
+            --fail-on-gap
       - name: Compare live branch protection against policy (fail closed)
         if: ${{ !cancelled() }}
         env:

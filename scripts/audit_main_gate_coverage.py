@@ -25,6 +25,7 @@ import json
 import shutil
 import subprocess
 import sys
+from typing import Any
 
 WORKFLOW = "main-releasability.yml"
 _VERDICT_CONCLUSIONS = {"success", "failure"}
@@ -67,13 +68,58 @@ def _run_conclusions(sha: str) -> list[str] | None:
     return [str(run.get("conclusion") or run.get("status") or "") for run in runs]
 
 
+def _previous_successful_audit_head() -> str | None:
+    """Return the head recorded by the latest successful audit workflow run."""
+
+    completed = subprocess.run(
+        [
+            "gh",
+            "run",
+            "list",
+            "--workflow",
+            "main-gate-coverage-audit.yml",
+            "--status",
+            "success",
+            "--limit",
+            "1",
+            "--json",
+            "headSha",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        raise RuntimeError("could not list successful coverage-audit runs")
+    try:
+        runs: list[dict[str, Any]] = json.loads(completed.stdout or "[]")
+    except json.JSONDecodeError as error:
+        raise RuntimeError("coverage-audit run listing was not valid JSON") from error
+    if not runs:
+        return None
+    head = runs[0].get("headSha")
+    if not isinstance(head, str) or not head.strip():
+        raise RuntimeError("latest successful coverage-audit run has no usable head SHA")
+    return head
+
+
+def _is_ancestor(checkpoint: str) -> bool:
+    completed = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", checkpoint, "origin/main"],
+        capture_output=True,
+        text=True,
+    )
+    return completed.returncode == 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--limit",
-        type=int,
-        default=60,
-        help="how many commits of origin/main history to audit",
+        "--baseline",
+        help="first-run checkpoint already proven by a Main Releasability verdict",
+    )
+    parser.add_argument(
+        "--checkpoint",
+        help="explicit checkpoint override for a bounded operator diagnostic",
     )
     parser.add_argument(
         "--fail-on-gap",
@@ -89,7 +135,27 @@ def main() -> int:
         print("gh is not available; cannot ask which commits the gate evaluated.")
         return 1 if arguments.fail_on_gap else 0
 
-    commits = _git("log", f"-{arguments.limit}", "--format=%H %h %s", "origin/main")
+    try:
+        checkpoint = arguments.checkpoint or _previous_successful_audit_head() or arguments.baseline
+    except RuntimeError as error:
+        print(f"UNKNOWN  previous audit checkpoint ({error})")
+        return 1 if arguments.fail_on_gap else 0
+    if not checkpoint:
+        print("UNKNOWN  no successful prior audit or explicit first-run baseline exists")
+        return 1 if arguments.fail_on_gap else 0
+    if not _is_ancestor(checkpoint):
+        print(
+            f"UNKNOWN  checkpoint {checkpoint} is not an ancestor of origin/main; "
+            "refusing to skip rewritten or unrelated history"
+        )
+        return 1 if arguments.fail_on_gap else 0
+
+    commits = _git(
+        "log",
+        "--reverse",
+        "--format=%H %h %s",
+        f"{checkpoint}..origin/main",
+    )
     ungated: list[str] = []
     unknown: list[str] = []
 
@@ -113,7 +179,7 @@ def main() -> int:
         print(f"UNGATED  {short}  {subject[:70]}")
 
     print(
-        f"\naudited {len(commits)} commit(s) on main; "
+        f"\naudited {len(commits)} commit(s) after checkpoint {checkpoint}; "
         f"{len(ungated)} with no verdict-bearing {WORKFLOW} run; "
         f"{len(unknown)} unverifiable."
     )
