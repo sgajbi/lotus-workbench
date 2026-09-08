@@ -54,6 +54,7 @@ def _git(*args: str) -> list[str]:
         check=True,
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     return [line for line in completed.stdout.splitlines() if line.strip()]
 
@@ -79,6 +80,7 @@ def _releasability_runs() -> list[dict[str, Any]] | None:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         if completed.returncode != 0:
             return None
@@ -128,6 +130,7 @@ def _run_conclusions(sha: str) -> list[str] | None:
             ["gh", "run", "view", str(database_id), "--json", "jobs"],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         if viewed.returncode != 0:
             return None
@@ -212,6 +215,7 @@ def _previous_successful_coverage_head() -> str | None:
             ],
             capture_output=True,
             text=True,
+            encoding="utf-8",
         )
         if completed.returncode != 0:
             raise RuntimeError(f"could not list coverage-audit runs page {page}")
@@ -236,6 +240,7 @@ def _previous_successful_coverage_head() -> str | None:
                 ["gh", "run", "view", str(database_id), "--json", "jobs"],
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
             )
             if viewed.returncode != 0:
                 raise RuntimeError(f"could not inspect coverage-audit run {database_id}")
@@ -268,6 +273,7 @@ def _is_ancestor(checkpoint: str) -> bool:
         ["git", "merge-base", "--is-ancestor", checkpoint, "origin/main"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
     )
     return completed.returncode == 0
 

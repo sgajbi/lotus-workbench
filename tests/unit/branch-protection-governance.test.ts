@@ -414,6 +414,7 @@ describe("branch protection governance", () => {
     expect(auditSource).toContain(`f"repos/{REPOSITORY}/actions/workflows/{WORKFLOW}/runs"`);
     expect(auditSource).toContain("@lru_cache(maxsize=1)");
     expect(auditSource).toContain('database_id = run.get("id")');
+    expect(auditSource.match(/encoding="utf-8"/g)).toHaveLength(6);
     expect(auditSource).toContain('job.get("name") == "Audit / Every Main Commit Has A Gate Verdict"');
     expect(auditSource).toContain('job.get("name") == "Main Releasability / Exact Revision Assertion"');
     expect(workflow).toContain("coverage-audit:");
@@ -454,6 +455,7 @@ assertion_conclusion = ["success"]
 
 def inspect_run(arguments, **kwargs):
     assert arguments == ["gh", "run", "view", "321", "--json", "jobs"]
+    assert kwargs["encoding"] == "utf-8"
     payload = {"jobs": [{
         "name": "Main Releasability / Exact Revision Assertion",
         "conclusion": assertion_conclusion[0],
