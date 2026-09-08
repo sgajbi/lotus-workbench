@@ -80,6 +80,8 @@ def _previous_successful_audit_head() -> str | None:
             "main-gate-coverage-audit.yml",
             "--status",
             "success",
+            "--branch",
+            "main",
             "--limit",
             "1",
             "--json",

@@ -73,6 +73,17 @@ export function validateBranchProtectionPolicy(policy) {
     issues.push("protected_branch must be main");
   }
 
+  const reviewAuthority = policy.review_authority;
+  if (!isObject(reviewAuthority)) {
+    issues.push("review_authority must be an object");
+  } else {
+    for (const field of ["review_lead", "mergeable_meaning", "escalation"]) {
+      if (typeof reviewAuthority[field] !== "string" || !reviewAuthority[field].trim()) {
+        issues.push(`review_authority.${field} must be a non-empty string`);
+      }
+    }
+  }
+
   const expected = policy.expected;
   if (!isObject(expected)) {
     issues.push("expected must be an object");

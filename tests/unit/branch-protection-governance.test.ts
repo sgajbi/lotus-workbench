@@ -8,6 +8,11 @@ import { validateBranchProtectionPolicy } from "../../scripts/quality/check-bran
 const repositoryRoot = join(__dirname, "..", "..");
 type BranchProtectionPolicy = {
   repository: string;
+  review_authority: {
+    review_lead: string;
+    mergeable_meaning: string;
+    escalation: string;
+  };
   expected: {
     required_status_checks: { strict: boolean; checks: Array<{ context: string; app_id: number | null }> };
     required_deployments: { present: boolean; environments: string[] };
@@ -138,6 +143,18 @@ describe("branch protection governance", () => {
     );
   });
 
+  it.each(["review_lead", "mergeable_meaning", "escalation"] as const)(
+    "rejects missing review authority %s before merge",
+    (field) => {
+      const policy = loadPolicy();
+      policy.review_authority[field] = " ";
+
+      expect(validateBranchProtectionPolicy(policy)).toEqual(
+        expect.arrayContaining([expect.stringContaining(`review_authority.${field}`)]),
+      );
+    },
+  );
+
   it.each(["", "release", 42])(
     "refuses to redirect the protection audit away from main with %j",
     (protectedBranch) => {
@@ -160,6 +177,11 @@ describe("branch protection governance", () => {
       /python scripts\/audit_main_gate_coverage\.py \\\r?\n\s+--baseline 43f9335b8ca5e903a0fab848b248d54132db0ad6 \\\r?\n\s+--fail-on-gap/,
     );
     expect(workflow).not.toContain("--limit");
+    const auditSource = readFileSync(
+      join(repositoryRoot, "scripts", "audit_main_gate_coverage.py"),
+      "utf8",
+    );
+    expect(auditSource).toMatch(/"--status",\s+"success",\s+"--branch",\s+"main"/);
     expect(workflow).toContain("if: ${{ !cancelled() }}");
     expect(workflow).toContain("GH_TOKEN: ${{ secrets.LOTUS_AUTOMERGE_TOKEN }}");
     expect(workflow).toMatch(
