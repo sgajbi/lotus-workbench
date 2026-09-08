@@ -31,12 +31,14 @@ while integrated product support requires canonical runtime evidence and green r
 PR auto-merge uses the repository `LOTUS_AUTOMERGE_TOKEN` secret for rebase auto-merge so the
 resulting main update is not suppressed as a default `GITHUB_TOKEN` push. When the secret is absent,
 the workflow records a warning and skips queueing auto-merge instead of making a false readiness
-claim. A merged-PR dispatcher triggers `main-releasability.yml` for exact-main evidence, and the
-dispatcher creates or verifies an immutable `main-releasability-<merge_sha>` tag before supplying
-`expected_sha` and the originating PR number. Main Releasability has no automatic `push` trigger:
-it rejects a different checkout before the remaining gate chain starts. Its concurrency key uses
-the expected merge SHA (or `github.sha` for manual operator dispatch), preventing one revision's
-retry from cancelling or masquerading as another revision's evidence.
+claim. A merged-PR dispatcher first verifies that repository merge policy remains rebase-only, then
+enumerates every revision the PR landed on `main`. It creates or verifies an immutable
+`main-releasability-<sha>` tag and dispatches `main-releasability.yml` for each exact revision,
+supplying `expected_sha` and the originating PR number. Missing commit metadata, changed merge
+methods, conflicting tags, and off-main revisions fail closed. Main Releasability has no automatic
+`push` trigger: it rejects a different checkout before the remaining gate chain starts. Its
+concurrency key uses the expected SHA (or `github.sha` for a manual operator dispatch), and evidence
+runs queue rather than cancel, so a retry cannot erase or masquerade as another revision's verdict.
 
 The daily `Main Gate Coverage Audit` checks two distinct controls. First, it fails when any `main`
 commit after the latest successful audit checkpoint has no verdict-bearing Main Releasability run,
