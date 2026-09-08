@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   applyAdvisoryCopilotCallerContextHeaders,
-  resolveAdvisoryCopilotAuthorityMode,
-  resolveAdvisoryCopilotCapability,
 } from "@/features/advisory-copilot/caller-context";
 import {
   applyAdvisorBookCallerContextHeaders,
-  resolveAdvisorBookAuthorityMode,
-  resolveAdvisorBookRouteCapability,
 } from "@/features/advisor-book/caller-context";
 import {
   applyAdvisorCockpitCallerContextHeaders,
-  resolveAdvisorCockpitAuthorityMode,
-  resolveAdvisorCockpitCapability,
 } from "@/features/advisor-cockpit/caller-context";
 import {
   createGatewayRequestSignal,
@@ -23,11 +17,6 @@ import {
   applyIdeaRouteCallerContextHeaders,
   applyReportOrderingRouteCallerContextHeaders,
   matchesIdeaPresentationReceiptTenantAuthority,
-  resolveIdeaAuthorityMode,
-  resolveIdeaRouteCapability,
-  resolveReportingAuthorityMode,
-  resolveReportingRequestedPortfolioIds,
-  resolveReportingRouteCapability,
 } from "@/features/workbench/caller-context";
 import { requiresAuthenticatedSessionPrincipal } from "@/features/workbench/authority-mode";
 import { buildGatewayBffRequestHeaders } from "@/features/workbench/bff-request-headers";
@@ -41,6 +30,7 @@ import {
 } from "@/features/workbench/bff-authority-rejections";
 import { authorizeConfiguredBffPrincipal } from "@/features/workbench/configured-bff-principal";
 import type { ResolvedPrincipal } from "@/features/workbench/principal-credential";
+import { resolveVerifiedBffRouteRequirement } from "@/features/workbench/verified-bff-route";
 
 const BFF_PATH_PREFIX = "/api/bff/";
 
@@ -59,48 +49,16 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
   let verifiedPrincipal: ResolvedPrincipal | undefined;
   let verifiedGatewayCredential: string | undefined;
   if (request.headers.has("authorization")) {
-    const ideaCapability =
-      resolveIdeaAuthorityMode() === "authenticated_session"
-        ? resolveIdeaRouteCapability({ method: request.method, upstreamPath })
-        : undefined;
-    const advisorBookCapability =
-      resolveAdvisorBookAuthorityMode() === "authenticated_session"
-        ? resolveAdvisorBookRouteCapability({ method: request.method, upstreamPath })
-        : undefined;
-    const advisorCockpitCapability =
-      resolveAdvisorCockpitAuthorityMode() === "authenticated_session"
-        ? resolveAdvisorCockpitCapability({ method: request.method, upstreamPath })
-        : undefined;
-    const reportingCapability =
-      resolveReportingAuthorityMode() === "authenticated_session"
-        ? resolveReportingRouteCapability({ method: request.method, upstreamPath })
-        : undefined;
-    const advisoryCopilotCapability =
-      resolveAdvisoryCopilotAuthorityMode() === "authenticated_session"
-        ? resolveAdvisoryCopilotCapability({ method: request.method, upstreamPath })
-        : undefined;
-    const requiredCapability =
-      ideaCapability ??
-      advisorBookCapability ??
-      advisorCockpitCapability ??
-      reportingCapability ??
-      advisoryCopilotCapability;
-    if (requiredCapability) {
-      const requestedPortfolioIds = reportingCapability
-        ? resolveReportingRequestedPortfolioIds({
-            upstreamPath,
-            searchParams: request.nextUrl.searchParams,
-            bodyText: requestBody,
-          })
-        : advisorCockpitCapability
-          ? request.nextUrl.searchParams
-              .getAll("portfolio_id")
-              .map((portfolioId) => portfolioId.trim())
-              .filter(Boolean)
-          : [];
+    const routeRequirement = resolveVerifiedBffRouteRequirement({
+      method: request.method,
+      upstreamPath,
+      searchParams: request.nextUrl.searchParams,
+      bodyText: requestBody,
+    });
+    if (routeRequirement) {
       const principalAuthority = await authorizeConfiguredBffPrincipal(
         request.headers.get("authorization"),
-        { requiredCapabilities: [requiredCapability], requestedPortfolioIds },
+        routeRequirement,
       );
       if (principalAuthority.status === "denied") {
         return NextResponse.json(
