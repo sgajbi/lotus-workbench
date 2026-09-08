@@ -288,14 +288,18 @@ export function buildPerformanceRiskViewModel({
       drawdown.payload?.periods.length ||
       rolling.payload?.periods.length
   );
-  const moduleStates = [
+  const primaryModuleStates = [
     summary.state,
     concentration.state,
     drawdown.state,
     rolling.state,
+  ];
+  const moduleStates = [
+    ...primaryModuleStates,
     ...(settledAttributionState ? [settledAttributionState] : []),
   ];
-  const isPermissionBlocked = !hasPayload && moduleStates.some((moduleState) => moduleState === "blocked");
+  const isPermissionBlocked =
+    !hasPayload && primaryModuleStates.some((moduleState) => moduleState === "blocked");
   const state = isPermissionBlocked
     ? "permission_blocked"
     : !hasPayload

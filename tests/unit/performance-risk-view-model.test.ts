@@ -510,6 +510,24 @@ describe("buildPerformanceRiskViewModel", () => {
     expect(viewModel.attributionState).toBe("blocked");
   });
 
+  it("does not reinterpret a blocked attribution selection as denied workspace access", () => {
+    const scenario = buildSupportedPerformanceScenario();
+
+    const viewModel = buildPerformanceRiskViewModel({
+      workspace: scenario.workspace,
+      period: "YTD",
+      detailBasis: "NET",
+      riskAttribution: buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET", {
+        attributionType: "ACTIVE_RISK",
+        groupingDimension: "ISSUER",
+      }),
+    });
+
+    expect(viewModel.attributionState).toBe("blocked");
+    expect(viewModel.state).toBe("unavailable");
+    expect(viewModel.title).toBe("Risk unavailable");
+  });
+
   it("normalizes attribution percentages when upstream returns already-scaled percentage values", () => {
     const scenario = buildSupportedPerformanceScenario();
     const attribution = buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET");
