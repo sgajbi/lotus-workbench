@@ -6,16 +6,27 @@ import {
   buildFixtureRiskAttribution,
   buildPerformanceRiskViewModel,
 } from "../../src/apps/performance/risk-workspace-view-model";
+import type { WorkbenchRiskAttributionResponse } from "../../src/features/workbench/types";
 import { buildSupportedPerformanceScenario } from "../fixtures/performance-workspace-fixtures";
 
-function buildRiskViewModel() {
+function buildRiskViewModel(
+  state: WorkbenchRiskAttributionResponse["state"] = "ready",
+) {
   const scenario = buildSupportedPerformanceScenario();
+  const attribution = buildFixtureRiskAttribution(
+    scenario.workspace,
+    "YTD",
+    "NET",
+  );
 
   return buildPerformanceRiskViewModel({
     workspace: scenario.workspace,
     period: "YTD",
     detailBasis: "NET",
-    riskAttribution: buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET"),
+    riskAttribution: {
+      ...attribution,
+      state,
+    },
   });
 }
 
@@ -38,6 +49,7 @@ describe("RiskAttributionPanel", () => {
     expect(container.querySelector(".performance-risk-analytical-table-compact")).toBeTruthy();
     expect(container.querySelector(".performance-risk-attribution-detail-table")).toBeTruthy();
     expect(container.querySelectorAll(".performance-risk-share-bar")).not.toHaveLength(0);
+    expect(container.querySelectorAll(".performance-risk-share-bar-track")).not.toHaveLength(0);
     expect(container.querySelector(".performance-risk-attribution-toolbar")).toBeTruthy();
     expect(screen.getAllByRole("radiogroup")).toHaveLength(2);
     expect(screen.queryByText("Attribution reconciliation")).not.toBeInTheDocument();
@@ -45,6 +57,37 @@ describe("RiskAttributionPanel", () => {
     expect(screen.queryByText("Largest visible component effect at 5.83%.")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Historical Risk Attribution methodology and coverage" })).toBeInTheDocument();
   });
+
+  it.each([
+    ["clean proxy", []],
+    ["mixed calculation failure", ["One review period has insufficient observations."]],
+  ])(
+    "keeps exact %s facts but withholds unsupported magnitude tracks",
+    (_caseName, warnings) => {
+      const viewModel = buildRiskViewModel("partial");
+      viewModel.attributionWarnings = warnings;
+      const { container } = render(
+        <RiskAttributionPanel
+          viewModel={viewModel}
+          onSelectAttribution={vi.fn()}
+        />,
+      );
+
+      expect(screen.getByText("Attribution is indicative")).toBeInTheDocument();
+      expect(screen.getByLabelText("Historical risk attribution table")).toHaveTextContent(
+        "Technology",
+      );
+      expect(screen.getByLabelText("Historical risk attribution table")).toHaveTextContent(
+        "41.00%",
+      );
+      expect(container.querySelectorAll(".performance-risk-share-bar")).not.toHaveLength(0);
+      expect(container.querySelectorAll(".performance-risk-share-bar-track")).toHaveLength(0);
+      expect(screen.queryByText("group_return_series_unavailable")).not.toBeInTheDocument();
+      for (const warning of warnings) {
+        expect(screen.getByText(warning)).toBeInTheDocument();
+      }
+    },
+  );
 
   it("keeps reconciled sum and evidence posture in the methodology drawer instead of the main panel", () => {
     const viewModel = buildRiskViewModel();

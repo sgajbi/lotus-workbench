@@ -1,5 +1,6 @@
 import {
   ScreenStatePanel,
+  WorkbenchContextNotice,
   WorkbenchChoiceGroup,
   WorkbenchStatusRow,
 } from "@/design-system";
@@ -79,6 +80,13 @@ export default function RiskAttributionPanel({
             ) : null
           }
         >
+          {viewModel.attributionState === "partial" ? (
+            <WorkbenchContextNotice
+              eyebrow={riskAttributionPanelCopy.partialEyebrow}
+              title={riskAttributionPanelCopy.partialTitle}
+              body={riskAttributionPanelCopy.partialBody}
+            />
+          ) : null}
           {viewModel.attributionState === "loading" ? (
             <ScreenStatePanel
               kind="loading"
