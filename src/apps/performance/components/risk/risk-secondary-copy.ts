@@ -27,6 +27,10 @@ export const riskAttributionPanelCopy = {
   blockedHint: "Choose a supported attribution type and grouping combination to continue.",
   unavailableTitle: "Historical risk attribution unavailable",
   unavailableBody: "Historical risk attribution is not available for the selected portfolio context.",
+  partialEyebrow: "Evidence posture",
+  partialTitle: "Attribution is indicative",
+  partialBody:
+    "Contributor values use a qualified proxy calculation. Exact values remain visible for review; magnitude bars are withheld until the source reports the attribution as ready.",
   tableAriaLabel: "Historical risk attribution table",
   tableEmptyState: {
     title: "No attribution contributors",
