@@ -528,6 +528,40 @@ describe("buildPerformanceRiskViewModel", () => {
     expect(viewModel.title).toBe("Risk unavailable");
   });
 
+  it("keeps shell and source coverage ready while non-blocking attribution is pending", () => {
+    const scenario = buildSupportedPerformanceScenario();
+    const riskSummary = buildFixtureRiskSummary(scenario.workspace, "YTD", "NET");
+    const riskConcentration = buildFixtureRiskConcentration(scenario.workspace, "YTD");
+    const riskDrawdown = buildFixtureRiskDrawdown(scenario.workspace, "YTD", "NET");
+    const riskRolling = buildFixtureRiskRolling(scenario.workspace, "YTD", "NET");
+    for (const response of [riskSummary, riskConcentration, riskDrawdown, riskRolling]) {
+      response.state = "ready";
+      for (const evidence of response.supportability) {
+        evidence.state = "ready";
+        evidence.reason = null;
+      }
+    }
+
+    const viewModel = buildPerformanceRiskViewModel({
+      workspace: scenario.workspace,
+      period: "YTD",
+      detailBasis: "NET",
+      riskSummary,
+      riskConcentration,
+      riskDrawdown,
+      riskRolling,
+      isAttributionLoading: true,
+    });
+
+    expect(viewModel.state).toBe("ready");
+    expect(viewModel.attributionState).toBe("loading");
+    expect(viewModel.workspaceOverview).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Source coverage", value: "Ready" }),
+      ]),
+    );
+  });
+
   it("normalizes attribution percentages when upstream returns already-scaled percentage values", () => {
     const scenario = buildSupportedPerformanceScenario();
     const attribution = buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET");

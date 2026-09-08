@@ -327,9 +327,8 @@ export function buildPerformanceRiskViewModel({
       summary,
       concentration,
       drawdown,
-      rolling,
-      attribution: admittedAttribution,
       supportability,
+      moduleStates,
     }),
     mandateComparison: buildRiskMandateComparisonViewModel({
       portfolioRisk: summary.mandate_comparison,
@@ -1362,29 +1361,21 @@ function buildRiskWorkspaceOverview({
   summary,
   concentration,
   drawdown,
-  rolling,
-  attribution,
   supportability,
+  moduleStates,
 }: {
   summary: WorkbenchRiskSummaryResponse;
   concentration: WorkbenchRiskConcentrationResponse;
   drawdown: WorkbenchRiskDrawdownResponse;
-  rolling: WorkbenchRiskRollingResponse;
-  attribution: WorkbenchRiskAttributionResponse | null;
   supportability: Array<{
     key: string;
     label: string;
     state: WorkbenchRiskModuleState;
     reason?: string | null;
   }>;
+  moduleStates: WorkbenchRiskModuleState[];
 }): PerformanceRiskOverviewItem[] {
-  const supportabilityPosture = resolveRiskEvidencePosture(supportability, [
-    summary.state,
-    concentration.state,
-    drawdown.state,
-    rolling.state,
-    attribution?.state ?? "unavailable",
-  ]);
+  const supportabilityPosture = resolveRiskEvidencePosture(supportability, moduleStates);
 
   return [
     {
