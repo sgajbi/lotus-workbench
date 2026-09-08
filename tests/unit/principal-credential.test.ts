@@ -13,6 +13,11 @@ import {
   verifyPrincipalCredential,
   type PrincipalGrantResolver,
 } from "@/features/workbench/principal-credential";
+import {
+  PLATFORM_PRINCIPAL_DENIAL_VECTORS,
+  PLATFORM_PRINCIPAL_JWKS,
+  PLATFORM_PRINCIPAL_VALID_USER,
+} from "../fixtures/platform-principal-credential-vectors";
 
 const NOW = new Date("2026-09-07T12:00:00Z");
 const ISSUER = "https://identity.lotus.test/realms/lotus";
@@ -84,6 +89,30 @@ function grantResolver(overrides: Partial<PrincipalGrantResolver> = {}): Princip
 }
 
 describe("principal credential verification", () => {
+  it("conforms to Platform #850's published signed credential vectors", () => {
+    const platformInputs = {
+      expectedIssuer: ISSUER,
+      expectedAudience: AUDIENCE,
+      jwks: PLATFORM_PRINCIPAL_JWKS,
+      now: NOW,
+    };
+
+    expect(
+      verifyPrincipalCredential(PLATFORM_PRINCIPAL_VALID_USER, platformInputs),
+    ).toEqual(expect.objectContaining({ credentialId: "cred-0001" }));
+
+    for (const [vectorId, token, denialClass] of PLATFORM_PRINCIPAL_DENIAL_VECTORS) {
+      expect(
+        verifyPrincipalCredential(token, {
+          ...platformInputs,
+          revokedCredentialIds:
+            vectorId === "revoked_principal" ? new Set(["cred-revoked"]) : undefined,
+        }),
+        vectorId,
+      ).toEqual({ status: "denied", denialClass, unauthenticated: true });
+    }
+  });
+
   it("accepts only an exact bearer credential", () => {
     expect(readBearerCredential("Bearer signed.value.here")).toBe("signed.value.here");
     expect(readBearerCredential("Basic abc")).toBeNull();
