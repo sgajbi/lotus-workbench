@@ -34,4 +34,6 @@ jobs:
           # The workflow token cannot read branch protection. This intentionally
           # fails closed until an administration:read repository token is approved.
           GH_TOKEN: ${{ secrets.LOTUS_AUTOMERGE_TOKEN }}
-        run: python scripts/check_branch_protection_policy.py
+        run: |
+          node scripts/quality/check-branch-protection-policy-document.mjs
+          python scripts/check_branch_protection_policy.py

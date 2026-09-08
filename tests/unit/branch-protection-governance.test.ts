@@ -74,6 +74,18 @@ describe("branch protection governance", () => {
     );
   });
 
+  it.each(["", "release", 42])(
+    "refuses to redirect the protection audit away from main with %j",
+    (protectedBranch) => {
+      const policy = loadPolicy() as BranchProtectionPolicy & { protected_branch: unknown };
+      policy.protected_branch = protectedBranch;
+
+      expect(validateBranchProtectionPolicy(policy)).toEqual(
+        expect.arrayContaining([expect.stringContaining("protected_branch must be main")]),
+      );
+    },
+  );
+
   it("keeps the daily audit fail-closed without widening the default workflow token", () => {
     const workflow = readFileSync(
       join(repositoryRoot, ".github", "workflows", "main-gate-coverage-audit.yml"),
@@ -83,6 +95,9 @@ describe("branch protection governance", () => {
     expect(workflow).toContain("python scripts/audit_main_gate_coverage.py --limit 60 --fail-on-gap");
     expect(workflow).toContain("if: ${{ !cancelled() }}");
     expect(workflow).toContain("GH_TOKEN: ${{ secrets.LOTUS_AUTOMERGE_TOKEN }}");
+    expect(workflow).toMatch(
+      /node scripts\/quality\/check-branch-protection-policy-document\.mjs\r?\n\s+python scripts\/check_branch_protection_policy\.py/,
+    );
     expect(workflow).not.toContain("continue-on-error");
     expect(workflow).toMatch(/permissions:\r?\n  contents: read\r?\n  actions: read/);
   });
