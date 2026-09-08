@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 
 import { describe, expect, it } from "vitest";
 
@@ -409,6 +410,7 @@ describe("branch protection governance", () => {
     expect(auditSource).toContain('run.get("head_sha") == sha');
     expect(auditSource).toContain(`f"repos/{REPOSITORY}/actions/workflows/{WORKFLOW}/runs"`);
     expect(auditSource).toContain("@lru_cache(maxsize=1)");
+    expect(auditSource).toContain('database_id = run.get("id")');
     expect(auditSource).toContain('job.get("name") == "Audit / Every Main Commit Has A Gate Verdict"');
     expect(auditSource).toContain('job.get("name") == "Main Releasability / Exact Revision Assertion"');
     expect(workflow).toContain("coverage-audit:");
@@ -420,6 +422,46 @@ describe("branch protection governance", () => {
     );
     expect(workflow).not.toContain("continue-on-error");
     expect(workflow).toMatch(/permissions:\r?\n  contents: read\r?\n  actions: read/);
+  });
+
+  it("accepts a REST-shaped exact-title run only after its revision assertion succeeds", () => {
+    const sha = "a".repeat(40);
+    const python = `
+import importlib.util
+import json
+import subprocess
+from pathlib import Path
+
+path = Path("scripts/audit_main_gate_coverage.py").resolve()
+spec = importlib.util.spec_from_file_location("main_gate_audit", path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module._releasability_runs = lambda: [{
+    "id": 321,
+    "head_sha": "b" * 40,
+    "display_title": "Main Releasability · ${sha}",
+    "conclusion": "success",
+    "status": "completed",
+}]
+
+def inspect_run(arguments, **kwargs):
+    assert arguments == ["gh", "run", "view", "321", "--json", "jobs"]
+    payload = {"jobs": [{
+        "name": "Main Releasability / Exact Revision Assertion",
+        "conclusion": "success",
+    }]}
+    return subprocess.CompletedProcess(arguments, 0, json.dumps(payload), "")
+
+module.subprocess.run = inspect_run
+assert module._run_conclusions("${sha}") == ["success"]
+`;
+    const result = spawnSync("python", ["-c", python], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+      env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },
+    });
+
+    expect(result.status, result.stderr).toBe(0);
   });
 
   it("runs policy shape validation in the blocking repository lint chain", () => {

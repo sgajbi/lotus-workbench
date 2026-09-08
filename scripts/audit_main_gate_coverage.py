@@ -104,7 +104,7 @@ def _run_conclusions(sha: str) -> list[str] | None:
         if conclusion not in _VERDICT_CONCLUSIONS:
             conclusions.append(conclusion)
             continue
-        database_id = run.get("databaseId")
+        database_id = run.get("id")
         if not isinstance(database_id, int):
             return None
         viewed = subprocess.run(
