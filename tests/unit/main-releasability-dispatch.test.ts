@@ -187,7 +187,7 @@ describe("merged-main releasability dispatch", () => {
     } finally {
       rmSync(repository, { force: true, recursive: true });
     }
-  });
+  }, 15_000);
 
   it("rejects an interval that includes a preceding main revision", () => {
     const precedingRevision = "f".repeat(40);

@@ -32,6 +32,23 @@ describe("Docker CI parity governance", () => {
     expect(compose).not.toContain("--no-file-parallelism");
   });
 
+  it("keeps audit tools in the CI-only stage rather than the production runtime", () => {
+    const dockerfile = readRepositoryFile("Dockerfile");
+    const compose = readRepositoryFile("docker-compose.ci-local.yml");
+    const ciTools = dockerfile.slice(
+      dockerfile.indexOf("FROM ci-base AS ci-tools"),
+      dockerfile.indexOf("FROM ci-base AS deps"),
+    );
+    const runner = dockerfile.slice(dockerfile.indexOf("FROM ci-base AS runner"));
+
+    expect(compose).toContain("target: ci-tools");
+    expect(ciTools).toContain(
+      "apt-get install --no-install-recommends --yes git python-is-python3 python3",
+    );
+    expect(runner).not.toContain("apt-get");
+    expect(runner).not.toContain("python3");
+  });
+
   it("masks developer-local environment values with a tracked empty fixture", () => {
     const compose = readRepositoryFile("docker-compose.ci-local.yml");
     const ciEnvironment = readRepositoryFile("scripts", "testing", "ci-empty.env");

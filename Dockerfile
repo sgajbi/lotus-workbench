@@ -4,6 +4,11 @@ ARG WORKBENCH_DEPLOYMENT_ID
 FROM ${NODE_BASE_IMAGE} AS ci-base
 WORKDIR /app
 
+FROM ci-base AS ci-tools
+RUN apt-get update \
+    && apt-get install --no-install-recommends --yes git python-is-python3 python3 \
+    && rm -rf /var/lib/apt/lists/*
+
 FROM ci-base AS deps
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund

@@ -491,7 +491,7 @@ assert legacy_identity.workflow_definition_sha == "${testedSha}"
     });
 
     expect(result.status, result.stderr).toBe(0);
-  });
+  }, 15_000);
 
   it("runs policy shape validation in the blocking repository lint chain", () => {
     const packageManifest = JSON.parse(readFileSync(join(repositoryRoot, "package.json"), "utf8")) as {

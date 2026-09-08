@@ -2,7 +2,7 @@ services:
   ci-local:
     build:
       context: .
-      target: ci-base
+      target: ci-tools
       labels:
         com.lotus.repository.checkout: "${PWD:?Docker Compose must resolve the Workbench checkout path}"
     working_dir: /app
