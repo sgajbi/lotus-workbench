@@ -634,6 +634,7 @@ describe("buildPerformanceRiskViewModel", () => {
       riskRolling: buildFixtureRiskRolling(scenario.workspace, "YTD", "NET"),
     });
 
+    expect(viewModel.state).toBe("partial");
     expect(viewModel.attributionMethodologyRows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -711,6 +712,7 @@ describe("buildPerformanceRiskViewModel", () => {
     });
 
     expect(viewModel.attributionState).toBe("unavailable");
+    expect(viewModel.state).toBe("partial");
     expect(viewModel.attributionControls).toBeNull();
     expect(viewModel.attributionRows).toEqual([]);
     expect(viewModel.attributionMethodologyRows).toEqual([]);
