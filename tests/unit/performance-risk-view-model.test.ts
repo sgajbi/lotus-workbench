@@ -8,6 +8,7 @@ import {
   buildFixtureRiskSummary,
   buildPerformanceRiskViewModel,
 } from "../../src/apps/performance/risk-workspace-view-model";
+import type { WorkbenchRiskAttributionResponse } from "../../src/features/workbench/types";
 import { buildBenchmarkUnassignedPerformanceScenario, buildSupportedPerformanceScenario } from "../fixtures/performance-workspace-fixtures";
 
 describe("buildPerformanceRiskViewModel", () => {
@@ -544,4 +545,32 @@ describe("buildPerformanceRiskViewModel", () => {
       contributionShare: "19.56%",
     });
   });
+
+  it.each([
+    { sourceState: "ready", expectedState: "ready", expectedRows: 2, expectedScale: 41 },
+    { sourceState: "partial", expectedState: "partial", expectedRows: 2, expectedScale: 0 },
+    { sourceState: "unavailable", expectedState: "unavailable", expectedRows: 0, expectedScale: 0 },
+    { sourceState: "blocked", expectedState: "blocked", expectedRows: 0, expectedScale: 0 },
+    { sourceState: "unexpected", expectedState: "unavailable", expectedRows: 0, expectedScale: 0 },
+  ])(
+    "maps $sourceState attribution without promoting unsupported evidence",
+    ({ sourceState, expectedState, expectedRows, expectedScale }) => {
+      const scenario = buildSupportedPerformanceScenario();
+      const attribution = {
+        ...buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET"),
+        state: sourceState,
+      } as WorkbenchRiskAttributionResponse;
+
+      const viewModel = buildPerformanceRiskViewModel({
+        workspace: scenario.workspace,
+        period: "YTD",
+        detailBasis: "NET",
+        riskAttribution: attribution,
+      });
+
+      expect(viewModel.attributionState).toBe(expectedState);
+      expect(viewModel.attributionRows).toHaveLength(expectedRows);
+      expect(viewModel.attributionMaxContributionShareAbsPct).toBe(expectedScale);
+    },
+  );
 });
