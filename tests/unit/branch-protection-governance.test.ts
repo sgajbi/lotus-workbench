@@ -1,21 +1,12 @@
-import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import {
-  cpSync,
-  mkdtempSync,
-  mkdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
+
+import { validateBranchProtectionPolicy } from "../../scripts/quality/check-branch-protection-policy-document.mjs";
 
 const repositoryRoot = join(__dirname, "..", "..");
-const temporaryRoots: string[] = [];
-
 function gitBlobSha(source: Buffer): string {
   const header = Buffer.from(`blob ${source.byteLength}\0`, "utf8");
   return createHash("sha1").update(header).update(source).digest("hex");
@@ -36,32 +27,6 @@ function loadPolicy(): BranchProtectionPolicy {
   ) as BranchProtectionPolicy;
 }
 
-function runOfflinePolicy(policy: BranchProtectionPolicy) {
-  const fixtureRoot = mkdtempSync(join(tmpdir(), "workbench-branch-protection-"));
-  temporaryRoots.push(fixtureRoot);
-  mkdirSync(join(fixtureRoot, "scripts"));
-  mkdirSync(join(fixtureRoot, "quality"));
-  cpSync(
-    join(repositoryRoot, "scripts", "check_branch_protection_policy.py"),
-    join(fixtureRoot, "scripts", "check_branch_protection_policy.py"),
-  );
-  writeFileSync(
-    join(fixtureRoot, "quality", "branch_protection_policy.v1.json"),
-    `${JSON.stringify(policy, null, 2)}\n`,
-  );
-
-  return spawnSync("python", [join(fixtureRoot, "scripts", "check_branch_protection_policy.py"), "--offline"], {
-    encoding: "utf8",
-    env: { ...process.env, GITHUB_REPOSITORY: "sgajbi/lotus-workbench" },
-  });
-}
-
-afterEach(() => {
-  for (const root of temporaryRoots.splice(0)) {
-    rmSync(root, { recursive: true, force: true });
-  }
-});
-
 describe("branch protection governance", () => {
   it("keeps the lifted estate audit implementations byte-identical to their reviewed blobs", () => {
     expect(
@@ -72,52 +37,41 @@ describe("branch protection governance", () => {
     ).toBe("ea58e186d4ada25d077e3044b7c1295541f8d126");
   });
 
-  it(
-    "accepts the checked-in Workbench policy and its five app-bound merge checks",
-    () => {
-      const policy = loadPolicy();
-      const result = runOfflinePolicy(policy);
+  it("accepts the checked-in Workbench policy and its five app-bound merge checks", () => {
+    const policy = loadPolicy();
 
-      expect(result.status).toBe(0);
-      expect(result.stdout).toContain("Branch-protection policy gate passed");
-      expect(policy.expected.required_status_checks.checks).toHaveLength(5);
-      expect(
-        policy.expected.required_status_checks.checks.every(
-          (check) => check.app_id === 15368,
-        ),
-      ).toBe(true);
-    },
-    10_000,
-  );
+    expect(validateBranchProtectionPolicy(policy)).toEqual([]);
+    expect(policy.expected.required_status_checks.checks).toHaveLength(5);
+    expect(
+      policy.expected.required_status_checks.checks.every((check) => check.app_id === 15368),
+    ).toBe(true);
+  });
 
   it("rejects a policy with no required checks", () => {
     const policy = loadPolicy();
     policy.expected.required_status_checks.checks = [];
 
-    const result = runOfflinePolicy(policy);
-
-    expect(result.status).toBe(1);
-    expect(result.stdout).toContain("checks is empty");
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("non-empty list")]),
+    );
   });
 
   it("rejects removal of the single-developer zero-approval exception", () => {
     const policy = loadPolicy();
     policy.documented_exceptions = [];
 
-    const result = runOfflinePolicy(policy);
-
-    expect(result.status).toBe(1);
-    expect(result.stdout).toContain("without a documented exception");
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("must have a documented exception")]),
+    );
   });
 
   it("refuses to validate a policy copied from another repository", () => {
     const policy = loadPolicy();
     policy.repository = "sgajbi/lotus-gateway";
 
-    const result = runOfflinePolicy(policy);
-
-    expect(result.status).toBe(1);
-    expect(result.stdout).toContain("policy declares repository");
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("repository must identify")]),
+    );
   });
 
   it("keeps the daily audit fail-closed without widening the default workflow token", () => {
@@ -139,7 +93,7 @@ describe("branch protection governance", () => {
     };
 
     expect(packageManifest.scripts["quality:branch-protection"]).toBe(
-      "python scripts/check_branch_protection_policy.py --offline",
+      "node scripts/quality/check-branch-protection-policy-document.mjs",
     );
     expect(packageManifest.scripts.lint).toMatch(/^npm run quality:branch-protection &&/);
   });

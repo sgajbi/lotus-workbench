@@ -28,7 +28,7 @@
     "lint:css-global": "node scripts/quality/check-css-global-governance.mjs",
     "lint:risk-architecture": "node scripts/quality/check-risk-architecture.mjs",
     "quality:screen-docs": "node scripts/quality/check-workbench-screen-documentation.mjs",
-    "quality:branch-protection": "python scripts/check_branch_protection_policy.py --offline",
+    "quality:branch-protection": "node scripts/quality/check-branch-protection-policy-document.mjs",
     "quality:runtime-support": "node scripts/quality/check-runtime-support-policy.mjs",
     "quality:runtime-state": "node scripts/quality/check-runtime-state-inventory.mjs",
     "quality:bff-header-boundary": "node scripts/quality/check-bff-header-boundary.mjs",
