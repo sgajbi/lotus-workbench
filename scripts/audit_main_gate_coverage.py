@@ -44,7 +44,7 @@ def _git(*args: str) -> list[str]:
 
 
 def _run_conclusions(sha: str) -> list[str] | None:
-    """Conclusions of every gate run for one commit, or None when unknowable."""
+    """Conclusions of exact-revision-qualified runs, or None when unknowable."""
 
     completed = subprocess.run(
         [
@@ -56,7 +56,7 @@ def _run_conclusions(sha: str) -> list[str] | None:
             "--commit",
             sha,
             "--json",
-            "conclusion,status",
+            "databaseId,conclusion,status",
         ],
         capture_output=True,
         text=True,
@@ -67,7 +67,45 @@ def _run_conclusions(sha: str) -> list[str] | None:
         runs = json.loads(completed.stdout or "[]")
     except json.JSONDecodeError:
         return None
-    return [str(run.get("conclusion") or run.get("status") or "") for run in runs]
+    conclusions: list[str] = []
+    for run in runs:
+        if not isinstance(run, dict):
+            return None
+        conclusion = str(run.get("conclusion") or run.get("status") or "")
+        if conclusion not in _VERDICT_CONCLUSIONS:
+            conclusions.append(conclusion)
+            continue
+        database_id = run.get("databaseId")
+        if not isinstance(database_id, int):
+            return None
+        viewed = subprocess.run(
+            ["gh", "run", "view", str(database_id), "--json", "jobs"],
+            capture_output=True,
+            text=True,
+        )
+        if viewed.returncode != 0:
+            return None
+        try:
+            details: dict[str, Any] = json.loads(viewed.stdout or "{}")
+        except json.JSONDecodeError:
+            return None
+        assertion = next(
+            (
+                job
+                for job in details.get("jobs", [])
+                if isinstance(job, dict)
+                and job.get("name") == "Main Releasability / Exact Revision Assertion"
+            ),
+            None,
+        )
+        if assertion is not None and assertion.get("conclusion") == "success":
+            conclusions.append(conclusion)
+        else:
+            assertion_conclusion = (
+                assertion.get("conclusion") if isinstance(assertion, dict) else "missing"
+            )
+            conclusions.append(f"exact revision assertion {assertion_conclusion}")
+    return conclusions
 
 
 def _previous_successful_coverage_head() -> str | None:

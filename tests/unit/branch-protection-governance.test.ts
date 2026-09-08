@@ -153,6 +153,30 @@ describe("branch protection governance", () => {
     );
   });
 
+  it("rejects an exception for a non-GitHub review-bypass category", () => {
+    const policy = loadPolicy() as BranchProtectionPolicy & {
+      expected: {
+        required_pull_request_reviews: {
+          bypass_pull_request_allowances: Record<string, string[]>;
+        };
+      };
+    };
+    policy.expected.required_pull_request_reviews.bypass_pull_request_allowances.administrators = [
+      "operations",
+    ];
+    policy.documented_exceptions.push({
+      field: "required_pull_request_reviews.bypass_pull_request_allowances.administrators",
+      value: ["operations"],
+      reason: "not a GitHub protection category",
+      compensating_controls: "none",
+      retires_when: "immediately",
+    });
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("unaudited field")]),
+    );
+  });
+
   it.each(["users", "teams", "apps"] as const)(
     "rejects an undocumented %s review bypass",
     (category) => {
@@ -241,6 +265,7 @@ describe("branch protection governance", () => {
     expect(auditSource).toContain("page += 1");
     expect(auditSource).not.toContain('"--limit"');
     expect(auditSource).toContain('job.get("name") == "Audit / Every Main Commit Has A Gate Verdict"');
+    expect(auditSource).toContain('job.get("name") == "Main Releasability / Exact Revision Assertion"');
     expect(workflow).toContain("coverage-audit:");
     expect(workflow).toContain("protection-audit:");
     expect(workflow).not.toContain("if: ${{ !cancelled() }}");
