@@ -15,9 +15,11 @@ a recommendation, publish client material, or initiate an order.
 | Supported scope | One entitled portfolio and its Advise-owned action, readiness, supportability, and preparation evidence |
 | Primary next action | Review the named evidence and record the bounded review acknowledgement when source evidence is confirmed |
 
-The current local and canonical runtime uses a bounded development principal. Production access
-remains closed until the authenticated-session principal contract is implemented. This guide does
-not claim unrestricted production entitlement or advisor-book aggregation.
+The local canonical runtime uses a bounded development principal. The verified source path requires
+the signed principal's exact read or acknowledgement capability and selected portfolio scope, then
+sends only a delegated Gateway credential. The configured path remains closed while the production
+grant authority is absent. This guide does not claim live identity deployment, unrestricted
+entitlement, or advisor-book aggregation.
 
 ## Business Purpose
 

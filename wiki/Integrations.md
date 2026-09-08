@@ -62,11 +62,12 @@ must travel through Gateway-shaped contracts.
    portfolio entitlement from server configuration. Reporting query scope is single-valued:
    missing or repeated `scopeType`, `scopeId`, `portfolioId`, or `reportType` values are rejected
    before Gateway is called, and the upstream request is built from the exact normalized scope the
-   BFF admitted. Other environments fail closed until an authenticated-principal resolver is
-   available.
+   BFF admitted. Verified posture resolves the same exact scope from current grants and forwards no
+   authority headers.
 9. Generic BFF routes and direct server-rendered Gateway reads add static caller authority only in
    explicit development environments. Promoted and unconfigured environments stop before Gateway;
-   they never downgrade to configured headers while authenticated principal resolution is absent.
+   specialized verified routes never downgrade to configured headers when credential or grant
+   resolution fails.
 10. Structured report data and governed PDF readiness are independent source states. Report-data
    completion does not mean archive, advisor approval, client delivery, or communication.
 11. Workbench can submit an explicit portfolio bundle and read its source-owned status only when

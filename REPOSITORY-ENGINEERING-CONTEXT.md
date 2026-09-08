@@ -40,11 +40,11 @@ facts; it must not invent reassuring defaults, thresholds, authority, or success
   business-context keys, explicit source admission, and bounded freshness policy.
 - Product reads and commands call same-origin `/api/bff/**` routes. Those routes strip
   browser-supplied authority. Static server-owned caller context is added only in an explicit
-  development environment; promoted and unconfigured environments fail before Gateway until a
-  verified principal resolver is available.
-- The current server caller context is a bounded local/development posture, not production identity.
-  Authenticated actor, tenant, entitlement, expiry, and revocation authority remain owned by
-  [#436](https://github.com/sgajbi/lotus-workbench/issues/436) with Platform #563/#775.
+  development environment. Specialized Idea, Adviser Book, Adviser Cockpit, Advisory Copilot, and
+  Report Centre routes have a source-implemented verified posture: Ed25519 credential verification,
+  injected grant resolution, exact route/scope admission, delegated Gateway credentials, and
+  principal-change Query invalidation. The configured runtime fails closed because no production
+  grant resolver exists; local fixtures remain non-certifying.
 - Active routes, modes, source owners, screen guides, and evidence expectations are registered in
   `docs/documentation/workbench-screen-registry.v1.json` and enforced by `quality:screen-docs`.
 - Repo-local `wiki/` is the authored business and operator source; the GitHub wiki is its published
@@ -107,9 +107,14 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 - Every BFF request enters Gateway through `buildGatewayBffRequestHeaders`. Browser authorization,
   cookies, forwarding aliases, roles, capabilities, service identity, and tenant scope are not
   trusted inputs.
-- Generic BFF routes and direct server-rendered Gateway reads refuse non-development requests while
-  authenticated principal resolution is unavailable. Do not restore configured development
-  headers as a production fallback; RFC-0109 requires verified delegated authority instead.
+- Generic BFF routes and direct server-rendered Gateway reads refuse non-development requests.
+  Specialized verified routes never forward browser authority headers: they verify the session,
+  resolve current grants, admit exact route and portfolio scope, and send only the delegated
+  credential. The browser observes an opaque authority-context digest; a change cancels and clears
+  Query state, and a late response from the previous authority is rejected.
+- The configured verified path deliberately returns `grant_store_unavailable` until the production
+  tenant-membership and grant authority exists. Do not infer IAM grants from portfolio-party data or
+  restore configured development headers as a fallback.
 - A BFF that narrows query scope must reject missing or repeated required values and forward the
   exact admitted representation. Gateway remains the final object-authorization authority.
 - The BFF describes emitted bytes: it requests identity encoding, removes hop-by-hop and stale
@@ -277,9 +282,11 @@ policy; it is not the default first read for a bounded Workbench change.
 
 ## Known Constraints And Implementation Notes
 
-- Production principal/session resolution is not implemented. Browser headers, local caller
-  fixtures, and canonical local QA are not production attribution; generic BFF and direct
-  server-to-Gateway paths fail closed outside explicit development environments.
+- Production credential verification and delegation are source-implemented for five specialized
+  BFF families, but not deployment-certified. Browser headers, local caller fixtures, and canonical
+  local QA are not production attribution. The configured path remains unavailable until an owning
+  grant resolver, live IdP, managed keys, and operator certification exist; generic and direct
+  server-to-Gateway paths continue to fail closed outside explicit development environments.
 - Some top-level advisory/proposal capabilities remain bounded or disabled. Check Supported Features
   before claiming availability.
 - `quality:feature-transport` has a closed baseline for historical raw-fetch owners pending #791;

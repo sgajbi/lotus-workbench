@@ -16,7 +16,7 @@ inventory is in the [Screen Guide Catalogue](Screen-Guide-Catalogue).
 
 | Theme | Current limitation | Durable owner |
 | --- | --- | --- |
-| Production principal and session | Local configured callers are non-certifying development fixtures; promoted and unconfigured environments stop before Gateway while verified principal and delegated-grant resolution remain unavailable | [#436](https://github.com/sgajbi/lotus-workbench/issues/436) and [lotus-platform #563/#775](https://github.com/sgajbi/lotus-platform/issues/775) |
+| Production principal and session | Verified session/delegation source behavior exists for five specialized BFF families and fails closed elsewhere; live grant authority, IdP, managed keys, Gateway enforcement, and deployment certification remain | [#436](https://github.com/sgajbi/lotus-workbench/issues/436) and [lotus-platform #775](https://github.com/sgajbi/lotus-platform/issues/775) |
 | Capability promotion | Implemented advisory/proposal routes do not yet imply unrestricted shell access or production entitlement | Capability-specific issues and [Supported Features](Supported-Features) |
 | CSS ownership | Legacy global selectors and CSS Module escapes still require incremental, evidenced migration | [#492](https://github.com/sgajbi/lotus-workbench/issues/492) |
 | Evidence retention | Repository-retained rendered packs need enforceable size, replacement, and retirement policy | [#830](https://github.com/sgajbi/lotus-workbench/issues/830) |

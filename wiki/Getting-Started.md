@@ -91,13 +91,15 @@ WORKBENCH_BFF_BOOKING_CENTER_CODE=SG
 WORKBENCH_BFF_ROLE=advisor
 ```
 
-The BFF always removes browser-supplied authority. It derives configured server context only when
-The governed `make run` / `npm run dev` path supplies `dev` when the variable is absent. Other
-startup paths must ensure `LOTUS_ENVIRONMENT` explicitly names `dev`, `development`, `local`, or
-`test`. Use server-side
-overrides for scenario-specific development validation that needs a named actor, tenant, region,
+The BFF always removes browser-supplied authority. The governed `make run` / `npm run dev` path
+supplies `dev` when the variable is absent. Other startup paths must ensure `LOTUS_ENVIRONMENT`
+explicitly names `dev`, `development`, `local`, or `test` before the BFF derives configured server
+context. Use server-side overrides for scenario-specific development validation that needs a named actor, tenant, region,
 booking centre, or role; browser headers never override them. Promoted and unconfigured
-environments fail before Gateway while authenticated principal resolution remains unavailable.
+environments fail before Gateway unless a specialized route verifies a signed session and resolves
+its grant. The source path exists for Idea, Adviser Book, Adviser Cockpit, Advisory Copilot, and
+Report Centre, but the configured path returns `grant_store_unavailable` because no production
+grant authority exists. Do not substitute fixture keys or portfolio-party relationships.
 
 ### Lotus Idea local authority fixture
 
@@ -119,8 +121,9 @@ The BFF discards browser-supplied Idea authority headers and may use the configu
 role, tenant, book, portfolio, and client scope only in explicitly declared `dev`, `development`,
 `local`, or `test`. The defaults above match the governed canonical Idea candidate fixture; use
 server-side overrides together when validating a different scoped fixture.
-The fixture is rejected when the environment is unset or differs. Until the tracked authenticated session and token-claims resolver
-is implemented, non-development Idea requests fail closed with `401` before Gateway is called.
+The fixture is rejected when the environment is unset or differs. Non-development Idea requests
+require the verified route path and fail before Gateway when the credential, grant authority,
+capability, or scope cannot be established.
 
 Canonical startup gives each run a fresh, provenance-bound synthetic source observation and Idea
 candidate so a prior browser conversion cannot leave the next run without a reviewable item. A
@@ -146,7 +149,7 @@ NEXT_PUBLIC_WORKBENCH_ADVISOR_BOOK_AS_OF_DATE=2026-04-10
 
 The BFF discards browser-supplied authority and adds only `advisor.book.read`. Development caller
 authority is rejected outside `dev`, `development`, `local`, or `test`; UAT and production require
-the future authenticated principal resolver tracked by Workbench #436. The public as-of value is an
+verified principal and current grant resolution tracked by Workbench #436. The public as-of value is an
 explicitly configured local request-date fixture: an explicit URL date takes precedence, invalid
 input does not fall back to it, and a missing valid date blocks the own-book request until the user
 selects one.
@@ -171,8 +174,8 @@ principal posture, or entitlement. Workbench derives the advisor from the server
 checks the portfolio against the configured entitlement list, and supplies only the read or
 acknowledgement capability needed by the exact allowlisted route. Authority in browser headers,
 query parameters, or the acknowledgement body is rejected. The fixture is rejected outside
-`dev`, `development`, `local`, or `test`; UAT and production require Workbench #436 and the
-platform authenticated-principal contract in #563.
+`dev`, `development`, `local`, or `test`; other environments require the verified route and current
+grant resolution tracked by Workbench #436 and Platform #775.
 
 ### Advisory Copilot local review authority fixture
 
