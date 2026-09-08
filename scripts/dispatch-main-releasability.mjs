@@ -25,11 +25,15 @@ function runRequired(run, command, args, context) {
 }
 
 function readInputs(environment) {
+  const baseCommitSha = environment.BASE_COMMIT_SHA ?? "";
   const mergeCommitSha = environment.MERGE_COMMIT_SHA ?? "";
   const commitCountText = environment.COMMIT_COUNT ?? "";
   const pullRequestNumber = environment.PR_NUMBER ?? "";
   const repository = environment.GITHUB_REPOSITORY ?? "";
 
+  if (!SHA_PATTERN.test(baseCommitSha)) {
+    throw new Error("pull_request.base.sha must be a full lowercase commit SHA");
+  }
   if (!SHA_PATTERN.test(mergeCommitSha)) {
     throw new Error("pull_request.merge_commit_sha must be a full lowercase commit SHA");
   }
@@ -49,6 +53,7 @@ function readInputs(environment) {
   }
 
   return {
+    baseCommitSha,
     commitCount,
     mergeCommitSha,
     pullRequestNumber,
@@ -85,10 +90,21 @@ export function dispatchMainReleasability({ environment = process.env, run = com
     ["checkout", "--quiet", "--detach", "FETCH_HEAD"],
     "Unable to inspect current main",
   );
+  runRequired(
+    run,
+    "git",
+    ["merge-base", "--is-ancestor", inputs.baseCommitSha, inputs.mergeCommitSha],
+    `Merged PR base ${inputs.baseCommitSha} is not an ancestor of tip ${inputs.mergeCommitSha}`,
+  );
   const revisionOutput = runRequired(
     run,
     "git",
-    ["rev-list", "-n", String(inputs.commitCount), "--reverse", inputs.mergeCommitSha],
+    [
+      "rev-list",
+      "--reverse",
+      "--first-parent",
+      `${inputs.baseCommitSha}..${inputs.mergeCommitSha}`,
+    ],
     "Unable to enumerate merged revisions",
   );
   const revisions = revisionOutput === "" ? [] : revisionOutput.split(/\r?\n/);

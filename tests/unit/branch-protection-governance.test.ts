@@ -406,8 +406,11 @@ describe("branch protection governance", () => {
     expect(auditSource).toContain("page += 1");
     expect(auditSource).not.toContain('"--limit"');
     expect(auditSource).toContain('_EXACT_RUN_TITLE_PREFIX = "Main Releasability · "');
-    expect(auditSource).toContain('run.get("display_title") == expected_title');
-    expect(auditSource).toContain('run.get("head_sha") == sha');
+    expect(auditSource).toContain("def _releasability_run_identity(");
+    expect(auditSource).toContain("tested_sha=tested_sha");
+    expect(auditSource).toContain("workflow_definition_sha=workflow_definition_sha");
+    expect(auditSource).toContain('head_branch != "main"');
+    expect(auditSource).toContain('legacy_ref = f"main-releasability-{workflow_definition_sha}"');
     expect(auditSource).toContain(`f"repos/{REPOSITORY}/actions/workflows/{WORKFLOW}/runs"`);
     expect(auditSource).toContain("@lru_cache(maxsize=1)");
     expect(auditSource).toContain('database_id = run.get("id")');
@@ -424,8 +427,9 @@ describe("branch protection governance", () => {
     expect(workflow).toMatch(/permissions:\r?\n  contents: read\r?\n  actions: read/);
   });
 
-  it("accepts a REST-shaped exact-title run only after its revision assertion succeeds", () => {
-    const sha = "a".repeat(40);
+  it("binds REST evidence to tested source independently from workflow provenance", () => {
+    const testedSha = "a".repeat(40);
+    const workflowSha = "b".repeat(40);
     const python = `
 import importlib.util
 import json
@@ -436,24 +440,49 @@ path = Path("scripts/audit_main_gate_coverage.py").resolve()
 spec = importlib.util.spec_from_file_location("main_gate_audit", path)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-module._releasability_runs = lambda: [{
+exact_run = {
     "id": 321,
-    "head_sha": "b" * 40,
-    "display_title": "Main Releasability · ${sha}",
+    "head_sha": "${workflowSha}",
+    "head_branch": "main",
+    "display_title": "Main Releasability · ${testedSha}",
     "conclusion": "success",
     "status": "completed",
-}]
+}
+module._releasability_runs = lambda: [exact_run]
+module._is_ancestor = lambda sha: True
+assertion_conclusion = ["success"]
 
 def inspect_run(arguments, **kwargs):
     assert arguments == ["gh", "run", "view", "321", "--json", "jobs"]
     payload = {"jobs": [{
         "name": "Main Releasability / Exact Revision Assertion",
-        "conclusion": "success",
+        "conclusion": assertion_conclusion[0],
     }]}
     return subprocess.CompletedProcess(arguments, 0, json.dumps(payload), "")
 
 module.subprocess.run = inspect_run
-assert module._run_conclusions("${sha}") == ["success"]
+assert module._run_conclusions("${testedSha}") == ["success"]
+assert module._run_conclusions("${workflowSha}") == []
+assertion_conclusion[0] = "failure"
+assert module._run_conclusions("${testedSha}") == ["exact revision assertion failure"]
+assertion_conclusion[0] = "skipped"
+assert module._run_conclusions("${testedSha}") == ["exact revision assertion skipped"]
+
+exact_identity = module._releasability_run_identity(exact_run)
+assert exact_identity.tested_sha == "${testedSha}"
+assert exact_identity.workflow_definition_sha == "${workflowSha}"
+assert module._releasability_run_identity({**exact_run, "display_title": "Main Releasability · short"}) is None
+assert module._releasability_run_identity({**exact_run, "head_branch": None}) is None
+
+legacy_run = {
+    **exact_run,
+    "head_sha": "${testedSha}",
+    "head_branch": "main-releasability-${testedSha}",
+    "display_title": "Main Releasability Gate",
+}
+legacy_identity = module._releasability_run_identity(legacy_run)
+assert legacy_identity.tested_sha == "${testedSha}"
+assert legacy_identity.workflow_definition_sha == "${testedSha}"
 `;
     const result = spawnSync("python", ["-c", python], {
       cwd: repositoryRoot,
