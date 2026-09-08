@@ -14,7 +14,9 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.expected_sha || github.sha }}
-  cancel-in-progress: true
+  # A releasability run is durable evidence for one exact main revision. A
+  # duplicate dispatch must queue rather than erase an in-flight verdict.
+  cancel-in-progress: false
 
 permissions:
   contents: read
