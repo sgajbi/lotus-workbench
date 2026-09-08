@@ -1520,7 +1520,11 @@ function resolveRiskEvidencePosture(
       tone: "danger" as const,
     };
   }
-  if (!blockedOrUnavailable.length && !partial.length) {
+  if (
+    !blockedOrUnavailable.length &&
+    !partial.length &&
+    moduleStates.every((state) => state === "ready")
+  ) {
     return {
       label: "Ready",
       support: "Cross-panel evidence is complete enough for first-line review.",
