@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { applyAdvisoryCopilotCallerContextHeaders } from "@/features/advisory-copilot/caller-context";
-import { applyAdvisorBookCallerContextHeaders } from "@/features/advisor-book/caller-context";
+import {
+  applyAdvisorBookCallerContextHeaders,
+  resolveAdvisorBookAuthorityMode,
+  resolveAdvisorBookRouteCapability,
+} from "@/features/advisor-book/caller-context";
 import { applyAdvisorCockpitCallerContextHeaders } from "@/features/advisor-cockpit/caller-context";
 import {
   createGatewayRequestSignal,
@@ -34,17 +38,18 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
     request.method === "GET" || request.method === "HEAD"
       ? undefined
       : await request.text();
-  let verifiedIdeaPrincipal: ResolvedPrincipal | undefined;
+  let verifiedPrincipal: ResolvedPrincipal | undefined;
   let verifiedGatewayCredential: string | undefined;
-  if (
-    upstreamPath.startsWith("api/v1/ideas/") &&
-    request.headers.has("authorization") &&
-    resolveIdeaAuthorityMode() === "authenticated_session"
-  ) {
-    const requiredCapability = resolveIdeaRouteCapability({
-      method: request.method,
-      upstreamPath,
-    });
+  if (request.headers.has("authorization")) {
+    const ideaCapability =
+      resolveIdeaAuthorityMode() === "authenticated_session"
+        ? resolveIdeaRouteCapability({ method: request.method, upstreamPath })
+        : undefined;
+    const advisorBookCapability =
+      resolveAdvisorBookAuthorityMode() === "authenticated_session"
+        ? resolveAdvisorBookRouteCapability({ method: request.method, upstreamPath })
+        : undefined;
+    const requiredCapability = ideaCapability ?? advisorBookCapability;
     if (requiredCapability) {
       const principalAuthority = await authorizeConfiguredBffPrincipal(
         request.headers.get("authorization"),
@@ -59,13 +64,14 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
           },
         );
       }
-      verifiedIdeaPrincipal = principalAuthority.principal;
+      verifiedPrincipal = principalAuthority.principal;
       verifiedGatewayCredential = principalAuthority.gatewayCredential;
     }
   }
   const advisorBookAuthority = applyAdvisorBookCallerContextHeaders(headers, {
     method: request.method,
     upstreamPath,
+    verifiedPrincipal,
   });
   if (advisorBookAuthority.status === "rejected") {
     const rejection = advisorBookAuthorityRejection(
@@ -80,7 +86,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
     method: request.method,
     upstreamPath,
     bodyText: requestBody,
-    verifiedPrincipal: verifiedIdeaPrincipal,
+    verifiedPrincipal,
   });
   if (ideaAuthority.status === "rejected") {
     const rejection = ideaAuthorityRejection(ideaAuthority.reason);
@@ -151,7 +157,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       { status: rejection.status, headers: { "cache-control": "no-store" } },
     );
   }
-  if (requiresAuthenticatedSessionPrincipal() && !verifiedIdeaPrincipal) {
+  if (requiresAuthenticatedSessionPrincipal() && !verifiedPrincipal) {
     return NextResponse.json(
       {
         code: "workbench_authenticated_principal_required",
