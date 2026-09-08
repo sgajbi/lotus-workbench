@@ -1,5 +1,6 @@
 import { resolveConfiguredAuthorityMode } from "./authority-mode";
 import { prepareIdeaExplanationBody } from "./idea-explanation-request-authority";
+import type { ResolvedPrincipal } from "./principal-credential";
 
 const DEFAULT_CALLER_CONTEXT_HEADERS = {
   "X-Actor-Id": "workbench-system",
@@ -132,7 +133,7 @@ type IdeaAuthorityResolution =
   | { status: "not_applicable" }
   | {
       status: "applied";
-      mode: "development_configured";
+      mode: "development_configured" | "authenticated_session";
       bodyText?: string;
       presentationReceiptTenantId?: string;
     }
@@ -261,7 +262,12 @@ export function applyDefaultCallerContextHeaders(headers: Headers) {
 
 export function applyIdeaRouteCallerContextHeaders(
   headers: Headers,
-  request: { method: string; upstreamPath: string; bodyText?: string },
+  request: {
+    method: string;
+    upstreamPath: string;
+    bodyText?: string;
+    verifiedPrincipal?: ResolvedPrincipal;
+  },
 ): IdeaAuthorityResolution {
   if (!request.upstreamPath.startsWith("api/v1/ideas/")) {
     return { status: "not_applicable" };
@@ -275,13 +281,19 @@ export function applyIdeaRouteCallerContextHeaders(
   }
 
   const authorityMode = resolveIdeaAuthorityMode();
-  if (authorityMode !== "development_configured") {
-    return authorityMode === "authenticated_session"
-      ? { status: "rejected", reason: "authenticated_principal_required" }
-      : { status: "rejected", reason: authorityMode };
+  if (
+    authorityMode !== "development_configured" &&
+    authorityMode !== "authenticated_session"
+  ) {
+    return { status: "rejected", reason: authorityMode };
+  }
+  if (authorityMode === "authenticated_session" && !request.verifiedPrincipal) {
+    return { status: "rejected", reason: "authenticated_principal_required" };
   }
 
-  const tenantIds = configuredIdeaCallerTenantIds();
+  const tenantIds = request.verifiedPrincipal
+    ? [request.verifiedPrincipal.tenantId]
+    : configuredIdeaCallerTenantIds();
   const preparedBody = prepareIdeaRouteBody(
     request,
     tenantIds,
@@ -289,6 +301,15 @@ export function applyIdeaRouteCallerContextHeaders(
   );
   if (preparedBody.status === "rejected") {
     return preparedBody;
+  }
+
+  if (authorityMode === "authenticated_session") {
+    return {
+      status: "applied",
+      mode: authorityMode,
+      bodyText: preparedBody.bodyText,
+      presentationReceiptTenantId: preparedBody.presentationReceiptTenantId,
+    };
   }
 
   const defaultContext = resolveDefaultCallerContext();
@@ -478,7 +499,7 @@ export function applyReportOrderingRouteCallerContextHeaders(
   };
 }
 
-function resolveIdeaAuthorityMode():
+export function resolveIdeaAuthorityMode():
   | "development_configured"
   | "authenticated_session"
   | "development_authority_not_allowed"
@@ -653,7 +674,7 @@ function readSubmittedPortfolioIds(bodyText: string | undefined): string[] | nul
   }
 }
 
-function resolveIdeaRouteCapability({
+export function resolveIdeaRouteCapability({
   method,
   upstreamPath,
 }: {

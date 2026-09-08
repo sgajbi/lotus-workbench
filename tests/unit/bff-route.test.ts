@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 import { GET, POST } from "@/app/api/bff/[...path]/route";
+import * as configuredPrincipal from "@/features/workbench/configured-bff-principal";
 import {
   BFF_PRINCIPAL_SESSION_CONTRACT_POSTURE,
   FORBIDDEN_BROWSER_AUTHORITY_HEADERS,
@@ -107,6 +108,84 @@ describe("BFF proxy route", () => {
         "X-Session-Id",
       ]),
     );
+  });
+
+  it("denies a verified-posture Idea request before Gateway when principal resolution fails", async () => {
+    process.env.LOTUS_ENVIRONMENT = "production";
+    const fetchMock = vi.mocked(fetch);
+    vi.spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal").mockResolvedValueOnce({
+      status: "denied",
+      denialClass: "present_but_unverified",
+      httpStatus: 401,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/ideas/review-queues/advisor",
+        {
+          headers: {
+            Authorization: "Bearer signed-but-untrusted",
+            "X-Caller-Capabilities": "idea.review.record,manage.write",
+            "X-Tenant-Id": "browser-tenant",
+          },
+        },
+      ),
+      { params: Promise.resolve({ path: ["api", "v1", "ideas", "review-queues", "advisor"] }) },
+    );
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      code: "present_but_unverified",
+      status: "rejected",
+    });
+  });
+
+  it("forwards only a delegated credential after verified Idea admission", async () => {
+    process.env.LOTUS_ENVIRONMENT = "production";
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue(new Response('{"items":[]}', { status: 200 }));
+    vi.spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal").mockResolvedValueOnce({
+      status: "admitted",
+      principal: {
+        issuer: "https://identity.lotus.test",
+        audience: ["lotus-workbench-bff"],
+        subject: "user:advisor-001",
+        tenantId: "tenant-sg",
+        principalKind: "user",
+        credentialId: "session-001",
+        capabilities: new Set(["idea.review.queue.read"]),
+        portfolioScope: new Set(["PB_SG_GLOBAL_BAL_001"]),
+      },
+      gatewayCredential: "delegated.credential.signature",
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/ideas/review-queues/advisor",
+        {
+          headers: {
+            Authorization: "Bearer verified-session-credential",
+            Cookie: "lotus_session=browser-controlled",
+            "X-Actor-Id": "browser-actor",
+            "X-Caller-Capabilities": "manage.write",
+            "X-Tenant-Id": "browser-tenant",
+          },
+        },
+      ),
+      { params: Promise.resolve({ path: ["api", "v1", "ideas", "review-queues", "advisor"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const upstreamHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(upstreamHeaders.get("Authorization")).toBe(
+      "Bearer delegated.credential.signature",
+    );
+    expect(upstreamHeaders.get("Cookie")).toBeNull();
+    expect(upstreamHeaders.get("X-Actor-Id")).toBeNull();
+    expect(upstreamHeaders.get("X-Caller-Capabilities")).toBeNull();
+    expect(upstreamHeaders.get("X-Tenant-Id")).toBeNull();
   });
 
   it("forwards GET requests to the configured upstream without the host header", async () => {

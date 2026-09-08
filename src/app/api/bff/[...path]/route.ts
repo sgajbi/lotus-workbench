@@ -11,10 +11,14 @@ import {
   applyIdeaRouteCallerContextHeaders,
   applyReportOrderingRouteCallerContextHeaders,
   matchesIdeaPresentationReceiptTenantAuthority,
+  resolveIdeaAuthorityMode,
+  resolveIdeaRouteCapability,
 } from "@/features/workbench/caller-context";
 import { requiresAuthenticatedSessionPrincipal } from "@/features/workbench/authority-mode";
 import { buildGatewayBffRequestHeaders } from "@/features/workbench/bff-request-headers";
 import { readGatewayBffResponse } from "@/features/workbench/bff-response";
+import { authorizeConfiguredBffPrincipal } from "@/features/workbench/configured-bff-principal";
+import type { ResolvedPrincipal } from "@/features/workbench/principal-credential";
 
 const BFF_PATH_PREFIX = "/api/bff/";
 
@@ -30,6 +34,35 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
     request.method === "GET" || request.method === "HEAD"
       ? undefined
       : await request.text();
+  let verifiedIdeaPrincipal: ResolvedPrincipal | undefined;
+  let verifiedGatewayCredential: string | undefined;
+  if (
+    upstreamPath.startsWith("api/v1/ideas/") &&
+    request.headers.has("authorization") &&
+    resolveIdeaAuthorityMode() === "authenticated_session"
+  ) {
+    const requiredCapability = resolveIdeaRouteCapability({
+      method: request.method,
+      upstreamPath,
+    });
+    if (requiredCapability) {
+      const principalAuthority = await authorizeConfiguredBffPrincipal(
+        request.headers.get("authorization"),
+        { requiredCapabilities: [requiredCapability], requestedPortfolioIds: [] },
+      );
+      if (principalAuthority.status === "denied") {
+        return NextResponse.json(
+          { code: principalAuthority.denialClass, status: "rejected" },
+          {
+            status: principalAuthority.httpStatus,
+            headers: { "cache-control": "no-store" },
+          },
+        );
+      }
+      verifiedIdeaPrincipal = principalAuthority.principal;
+      verifiedGatewayCredential = principalAuthority.gatewayCredential;
+    }
+  }
   const advisorBookAuthority = applyAdvisorBookCallerContextHeaders(headers, {
     method: request.method,
     upstreamPath,
@@ -47,6 +80,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
     method: request.method,
     upstreamPath,
     bodyText: requestBody,
+    verifiedPrincipal: verifiedIdeaPrincipal,
   });
   if (ideaAuthority.status === "rejected") {
     const rejection = ideaAuthorityRejection(ideaAuthority.reason);
@@ -117,7 +151,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       { status: rejection.status, headers: { "cache-control": "no-store" } },
     );
   }
-  if (requiresAuthenticatedSessionPrincipal()) {
+  if (requiresAuthenticatedSessionPrincipal() && !verifiedIdeaPrincipal) {
     return NextResponse.json(
       {
         code: "workbench_authenticated_principal_required",
@@ -125,6 +159,9 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       },
       { status: 401, headers: { "cache-control": "no-store" } },
     );
+  }
+  if (verifiedGatewayCredential) {
+    headers.set("Authorization", `Bearer ${verifiedGatewayCredential}`);
   }
   const upstreamSearch =
     reportingAuthority.status === "applied"
