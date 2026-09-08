@@ -178,6 +178,26 @@ The implemented active-risk support matrix is:
 
 `ACTIVE_RISK + ISSUER` remains blocked until upstream benchmark issuer exposure semantics exist.
 
+These values describe whether a control combination can be requested. They do not certify the
+readiness of a returned decomposition.
+
+## Attribution evidence presentation
+
+Gateway owns the Workbench attribution state. Workbench preserves its four-state vocabulary:
+`ready`, `partial`, `unavailable`, and `blocked`.
+
+- `ready` contributor evidence may use a magnitude track alongside the exact contribution share.
+- `partial` contributor evidence keeps supported text values and controls visible, adds a qualified
+  evidence notice, and withholds magnitude tracks. This applies both to a clean proxy result and to
+  a proxy result carrying a higher-priority calculation limitation.
+- `unavailable` and `blocked` states do not render contributor rows.
+- an unrecognized runtime state follows the unavailable path; it is never promoted to ready.
+
+The presentation gate uses the state, not a reason code or degraded-metric count. Risk may preserve
+a more actionable failure reason ahead of the structural proxy limitation, so absence of one named
+reason is not readiness evidence. Workbench does not recalculate the contribution, infer a missing
+group return, or assume contribution share equals portfolio weight.
+
 ## Supportability states
 
 Every risk module returns explicit supportability items normalized to:

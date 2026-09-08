@@ -141,6 +141,9 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   drawer, and export must not duplicate or reinterpret the projection.
 - Risk Review renders exact Gateway/Risk measures and Gateway-composed Manage mandate comparison.
   Workbench never calculates thresholds, headroom, breaches, all-clear states, or fallback policy.
+- Risk attribution renders magnitude tracks only for exact Gateway `ready` evidence. A `partial`
+  response may retain exact contributor facts, but it must remain visibly qualified and must not
+  regain a ready visual through query-error recovery; unknown runtime states fail closed.
 - Idea explanations are source-bound to the displayed candidate evidence identity. Explanation
   loading or failure never changes review, feedback, conversion, or other candidate actions.
 - Report ordering accepts only receipts bound to the exact submitted request and preserves the

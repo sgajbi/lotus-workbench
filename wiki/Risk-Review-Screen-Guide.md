@@ -100,6 +100,9 @@ mandate-waiver authority, investment advice, order approval, or client-publicati
   series detail; it does not extrapolate a missing series.
 - Presents source-admitted total- or active-risk attribution controls and contributor evidence. A
   disabled source option stays disabled with its reason.
+- Uses magnitude tracks only when Gateway marks attribution evidence **Ready**. **Partial**
+  attribution keeps exact contributor values and controls available with an indicative-evidence
+  notice, but withholds the visual ranking. An unfamiliar state cannot fall through to Ready.
 - Preserves ready, partial, unavailable, blocked, warning, partial-failure, methodology-version,
   cache, and correlation posture from the Gateway/Risk contract family.
 - Reuses exact source-admitted Risk evidence for a brief return to the screen through the governed
@@ -156,6 +159,7 @@ ownership remains in [Integrations](Integrations).
 | Measure unavailable | Approved limit and source reason remain visible without a fabricated value | Investigate the named source measure before deciding |
 | Review state or cadence unavailable | Supplied review dates remain visible; unknown state is warning evidence and absent cadence is **Not reported** | Confirm review policy with the mandate authority; do not infer a schedule |
 | Partial | Usable modules remain visible with named source limitations, warnings, and partial failures | Qualify any discussion and inspect the affected module |
+| Attribution partial | Exact contributor values and supported controls remain visible; an indicative-evidence notice replaces unsupported magnitude tracks | Use the figures as qualified evidence and inspect the accompanying source notes |
 | Unavailable | Risk source evidence is not available for the selected context | Confirm portfolio/context and use the approved support path |
 | Access restricted | Explicit permission-blocked posture without restricted data | Use an entitled role or approved access-support process |
 | Deferred detail idle | Headline evidence remains visible; no unrequested detail is fabricated | Request detail only when needed |
@@ -216,6 +220,9 @@ bank approval or competitor superiority.
 - A raw-context field matrix proves that display formatting cannot hide differences; bilateral
   absence, one-sided absence, unknown review/constraint states, and nullable cadence are all
   independently covered.
+- Attribution state tests cover ready, partial proxy, mixed partial failure, unavailable, blocked,
+  and unfamiliar runtime values. Browser proof requires ready magnitude tracks and partial exact
+  values to coexist without a magnitude track.
 - A deterministic source-authority guard prohibits retired threshold helpers and policy placeholders
   from returning and requires stable comparison evidence attributes.
 - The primary constraint row carries a stable source-and-key identity; progressive disclosure uses
