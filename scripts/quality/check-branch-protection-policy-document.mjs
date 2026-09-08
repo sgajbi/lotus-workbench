@@ -115,6 +115,11 @@ export function validateBranchProtectionPolicy(policy) {
   if (!isObject(statusChecks) || typeof statusChecks.strict !== "boolean") {
     issues.push("expected.required_status_checks.strict must be a boolean");
   }
+  if (isObject(statusChecks) && "contexts" in statusChecks) {
+    issues.push(
+      "expected.required_status_checks.contexts is retired; declare app-bound checks instead",
+    );
+  }
   const checks = isObject(statusChecks) ? statusChecks.checks : undefined;
   if (!Array.isArray(checks) || checks.length === 0) {
     issues.push("expected.required_status_checks.checks must be a non-empty list");
@@ -239,6 +244,18 @@ export function validateBranchProtectionPolicy(policy) {
         ? checks.find((candidate) => isObject(candidate) && candidate.context === context)
         : undefined;
       resolved = check ? { found: true, value: check.app_id } : { found: false, value: undefined };
+    } else if (exception.field === "required_status_checks.checks") {
+      const omittedContext = exception.value;
+      if (typeof omittedContext !== "string" || !omittedContext.trim()) {
+        resolved = { found: false, value: undefined };
+      } else {
+        const contextIsRequired = Array.isArray(checks) && checks.some(
+          (check) => isObject(check) && check.context === omittedContext,
+        );
+        resolved = contextIsRequired
+          ? { found: true, value: checks }
+          : { found: true, value: omittedContext };
+      }
     }
     if (!resolved.found) {
       issues.push(`documented exception is bound to no expected field: ${exception.field}`);
