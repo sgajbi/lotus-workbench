@@ -35,10 +35,11 @@ ownership to an authorized human or release actor.
 
 After a PR merges to `main`, `.github/workflows/merged-pr-main-releasability.yml` verifies that the
 repository remains rebase-only, enumerates every revision landed by the PR, and dispatches
-`main-releasability.yml` once per revision. Each dispatch uses a created-or-verified immutable
-`main-releasability-<sha>` tag and passes the exact expected SHA plus originating PR number. The
-dispatcher refuses missing commit metadata, changed merge methods, conflicting tags, or revisions
-that are not reachable from current `main`.
+`main-releasability.yml` once per revision. Each dispatch starts from the existing `main` ref and
+passes the exact expected SHA plus originating PR number. Every gate job checks out that expected
+SHA, and the stable run title carries the same identity for coverage auditing. The dispatcher needs
+read-only repository contents plus workflow-dispatch permission; it refuses missing commit metadata,
+changed merge methods, or revisions that are not reachable from current `main`.
 
 The gate has no automatic `push` trigger and rejects a different checkout before Workflow Lint and
 the quality chain start. Concurrency is revision-aware and never cancels an in-flight evidence run:
