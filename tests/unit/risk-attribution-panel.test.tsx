@@ -76,7 +76,7 @@ describe("RiskAttributionPanel", () => {
       expect(screen.getByText("Attribution is indicative")).toBeInTheDocument();
       expect(
         screen.getByText(
-          "Source evidence is incomplete. Exact contributor values remain visible for review; magnitude bars are withheld until the source reports the attribution as ready.",
+          "Source evidence is incomplete. When contributor values are available, they are shown without magnitude bars until the source reports the attribution as ready.",
         ),
       ).toBeInTheDocument();
       expect(screen.queryByText(/proxy calculation/i)).not.toBeInTheDocument();
@@ -94,6 +94,23 @@ describe("RiskAttributionPanel", () => {
       }
     },
   );
+
+  it("does not promise contributor values when partial evidence has no rows", () => {
+    const viewModel = buildRiskViewModel("partial");
+    viewModel.attributionRows = [];
+
+    render(
+      <RiskAttributionPanel viewModel={viewModel} onSelectAttribution={vi.fn()} />,
+    );
+
+    expect(
+      screen.getByText(
+        "Source evidence is incomplete. When contributor values are available, they are shown without magnitude bars until the source reports the attribution as ready.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/values remain visible/i)).not.toBeInTheDocument();
+    expect(screen.getByText("No attribution contributors")).toBeInTheDocument();
+  });
 
   it("keeps reconciled sum and evidence posture in the methodology drawer instead of the main panel", () => {
     const viewModel = buildRiskViewModel();
