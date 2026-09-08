@@ -173,7 +173,13 @@ export type PerformanceRiskViewModel = {
   }>;
   attributionMaxContributionShareAbsPct: number;
   attributionMethodologyRows: PerformanceRiskContextRow[];
-  attributionState: "idle" | "loading" | "ready" | "blocked" | "unavailable";
+  attributionState:
+    | "idle"
+    | "loading"
+    | "ready"
+    | "partial"
+    | "blocked"
+    | "unavailable";
   attributionWarnings: string[];
   supportability: Array<{
     key: string;
@@ -2890,7 +2896,12 @@ function mapSupportabilityGroup(
 }
 
 function mapAttributionControls(response: WorkbenchRiskAttributionResponse | null) {
-  if (!response?.payload) {
+  if (
+    !response?.payload ||
+    (response.state !== "ready" &&
+      response.state !== "partial" &&
+      response.state !== "blocked")
+  ) {
     return null;
   }
   return {
@@ -2912,6 +2923,12 @@ function mapAttributionControls(response: WorkbenchRiskAttributionResponse | nul
 }
 
 function mapAttributionRows(response: WorkbenchRiskAttributionResponse | null) {
+  if (
+    !response ||
+    (response.state !== "ready" && response.state !== "partial")
+  ) {
+    return [];
+  }
   const selectedSet = response?.payload?.periods[0]?.attribution_sets[0];
   if (!selectedSet) {
     return [];
@@ -2936,6 +2953,9 @@ function mapAttributionRows(response: WorkbenchRiskAttributionResponse | null) {
 }
 
 function mapAttributionMaxContributionShareAbsPct(response: WorkbenchRiskAttributionResponse | null) {
+  if (response?.state !== "ready") {
+    return 0;
+  }
   const selectedSet = response?.payload?.periods[0]?.attribution_sets[0];
   if (!selectedSet) {
     return 0;
@@ -3090,18 +3110,23 @@ function resolveAttributionState({
 }: {
   attribution: WorkbenchRiskAttributionResponse | null;
   isAttributionLoading: boolean;
-}): "idle" | "loading" | "ready" | "blocked" | "unavailable" {
+}): "idle" | "loading" | "ready" | "partial" | "blocked" | "unavailable" {
   if (isAttributionLoading) {
     return "loading";
   }
   if (!attribution) {
     return "idle";
   }
-  if (attribution.state === "blocked") {
-    return "blocked";
+  switch (attribution.state) {
+    case "ready":
+      return "ready";
+    case "partial":
+      return "partial";
+    case "blocked":
+      return "blocked";
+    case "unavailable":
+      return "unavailable";
+    default:
+      return "unavailable";
   }
-  if (attribution.state === "unavailable") {
-    return "unavailable";
-  }
-  return "ready";
 }
