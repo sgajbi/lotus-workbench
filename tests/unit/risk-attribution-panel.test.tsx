@@ -74,6 +74,12 @@ describe("RiskAttributionPanel", () => {
       );
 
       expect(screen.getByText("Attribution is indicative")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Source evidence is incomplete. Exact contributor values remain visible for review; magnitude bars are withheld until the source reports the attribution as ready.",
+        ),
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/proxy calculation/i)).not.toBeInTheDocument();
       expect(screen.getByLabelText("Historical risk attribution table")).toHaveTextContent(
         "Technology",
       );

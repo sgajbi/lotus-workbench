@@ -30,7 +30,7 @@ export const riskAttributionPanelCopy = {
   partialEyebrow: "Evidence posture",
   partialTitle: "Attribution is indicative",
   partialBody:
-    "Contributor values use a qualified proxy calculation. Exact values remain visible for review; magnitude bars are withheld until the source reports the attribution as ready.",
+    "Source evidence is incomplete. Exact contributor values remain visible for review; magnitude bars are withheld until the source reports the attribution as ready.",
   tableAriaLabel: "Historical risk attribution table",
   tableEmptyState: {
     title: "No attribution contributors",
