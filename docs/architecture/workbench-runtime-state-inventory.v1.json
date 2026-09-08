@@ -2,8 +2,8 @@
   "contract": "workbench-runtime-state-inventory.v1",
   "owner": "lotus-workbench",
   "governedByIssue": 619,
-  "reviewedOn": "2026-08-10",
-  "nextReviewBy": "2026-09-10",
+  "reviewedOn": "2026-09-09",
+  "nextReviewBy": "2026-09-30",
   "architecturePosture": "engineering-scale-proof-passed",
   "durableBusinessStateOwner": "upstream-source-services",
   "durableSessionStateOwner": "production-identity-platform-not-yet-certified",
@@ -176,6 +176,17 @@
       "purpose": "Closed development-only authority environment vocabulary.",
       "bounds": "Fixed source constants at module load.",
       "replicaBehavior": "Identical in every build replica.",
+      "businessAuthority": false,
+      "sessionAuthority": false
+    },
+    {
+      "id": "workbench-client-authority-context",
+      "file": "src/features/workbench/client-authority-context.ts",
+      "symbols": ["activeAuthorityContext", "authorityChangeListeners"],
+      "classification": "browser_ephemeral",
+      "purpose": "Opaque browser-realm marker and listeners used to clear protected Query state when verified server authority changes.",
+      "bounds": "One fixed-length authority digest and one listener per mounted Workbench provider in the browser realm.",
+      "replicaBehavior": "Browser-local only; the marker carries no principal claims and cannot admit a request.",
       "businessAuthority": false,
       "sessionAuthority": false
     },
