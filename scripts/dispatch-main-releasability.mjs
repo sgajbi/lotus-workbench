@@ -63,26 +63,6 @@ function readInputs(environment) {
 
 export function dispatchMainReleasability({ environment = process.env, run = commandRunner } = {}) {
   const inputs = readInputs(environment);
-  const policyJson = runRequired(
-    run,
-    "gh",
-    ["api", `repos/${inputs.repository}`],
-    "Unable to read repository merge policy",
-  );
-  let policy;
-  try {
-    policy = JSON.parse(policyJson);
-  } catch {
-    throw new Error("Repository merge policy response was not valid JSON");
-  }
-  if (
-    policy.allow_squash_merge !== false ||
-    policy.allow_merge_commit !== false ||
-    policy.allow_rebase_merge !== true
-  ) {
-    throw new Error("Repository merge methods changed; per-revision dispatch requires rebase-only merging");
-  }
-
   runRequired(run, "git", ["fetch", "origin", "main", "--quiet"], "Unable to fetch current main");
   runRequired(
     run,

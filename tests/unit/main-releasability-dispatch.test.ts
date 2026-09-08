@@ -32,15 +32,6 @@ function createRunner(overrides: Partial<Record<string, CommandResult>> = {}) {
   return vi.fn<CommandRunner>((command, args) => {
     const identity = `${command} ${args.join(" ")}`;
     if (overrides[identity]) return overrides[identity];
-    if (identity === "gh api repos/sgajbi/lotus-workbench") {
-      return success(
-        JSON.stringify({
-          allow_merge_commit: false,
-          allow_rebase_merge: true,
-          allow_squash_merge: false,
-        }),
-      );
-    }
     if (identity.startsWith("git rev-list ")) return success(`${firstRevision}\n${secondRevision}\n`);
     return success();
   });
@@ -60,6 +51,7 @@ describe("merged-main releasability dispatch", () => {
       `git rev-list --reverse --first-parent ${baseRevision}..${secondRevision}`,
     );
     expect(calls.some((call) => call.startsWith("git rev-list -n"))).toBe(false);
+    expect(calls.some((call) => call === "gh api repos/sgajbi/lotus-workbench")).toBe(false);
     expect(calls.filter((call) => call.startsWith("gh workflow run main-releasability.yml"))).toEqual([
       expect.stringContaining(`--ref main -f expected_sha=${firstRevision}`),
       expect.stringContaining(`--ref main -f expected_sha=${secondRevision}`),
@@ -82,33 +74,6 @@ describe("merged-main releasability dispatch", () => {
       dispatchMainReleasability({ environment: createEnvironment(override), run }),
     ).toThrow();
     expect(run).not.toHaveBeenCalled();
-  });
-
-  it("fails closed when repository merge policy is no longer rebase-only", () => {
-    const run = createRunner({
-      "gh api repos/sgajbi/lotus-workbench": success(
-        JSON.stringify({
-          allow_merge_commit: false,
-          allow_rebase_merge: true,
-          allow_squash_merge: true,
-        }),
-      ),
-    });
-
-    expect(() => dispatchMainReleasability({ environment: createEnvironment(), run })).toThrow(
-      "requires rebase-only",
-    );
-    expect(run.mock.calls.some(([command, args]) => `${command} ${args.join(" ")}`.startsWith("git "))).toBe(false);
-  });
-
-  it("fails closed when repository merge policy is not valid JSON", () => {
-    const run = createRunner({
-      "gh api repos/sgajbi/lotus-workbench": success("not-json"),
-    });
-
-    expect(() => dispatchMainReleasability({ environment: createEnvironment(), run })).toThrow(
-      "not valid JSON",
-    );
   });
 
   it("rejects revision enumeration shorter than the merged PR commit count", () => {
@@ -150,15 +115,6 @@ describe("merged-main releasability dispatch", () => {
 
       const dispatches: string[] = [];
       const run: CommandRunner = (command, args) => {
-        if (command === "gh" && args[0] === "api") {
-          return success(
-            JSON.stringify({
-              allow_merge_commit: false,
-              allow_rebase_merge: true,
-              allow_squash_merge: false,
-            }),
-          );
-        }
         if (command === "gh") {
           dispatches.push(args.join(" "));
           return success();
