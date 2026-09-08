@@ -2632,6 +2632,32 @@ describe("BFF proxy route", () => {
     });
   });
 
+  it("does not reveal reporting portfolio scope before principal authentication", async () => {
+    process.env.LOTUS_ENVIRONMENT = "production";
+    process.env.WORKBENCH_REPORTING_CALLER_PORTFOLIO_IDS = "PB_SG_GLOBAL_BAL_001";
+    const fetchMock = vi.mocked(fetch);
+
+    for (const portfolioId of ["PB_SG_GLOBAL_BAL_001", "UNENTITLED_PORTFOLIO"]) {
+      const response = await GET(
+        new NextRequest(
+          `http://localhost:3000/api/bff/api/v1/report-ordering/options?scopeType=portfolio&scopeId=${portfolioId}`,
+        ),
+        {
+          params: Promise.resolve({
+            path: ["api", "v1", "report-ordering", "options"],
+          }),
+        },
+      );
+
+      expect(response.status).toBe(401);
+      await expect(response.json()).resolves.toEqual({
+        code: "reporting_authenticated_principal_required",
+        status: "rejected",
+      });
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("binds verified reporting admission to the exact requested portfolio", async () => {
     process.env.LOTUS_ENVIRONMENT = "production";
     const fetchMock = vi.mocked(fetch);
