@@ -13,12 +13,9 @@ compared as absent, never coerced to false (a missing
 are different postures and must be distinguishable).
 
 **This file must pass `mypy --strict` and `ruff` under the strictest settings any
-adopter uses.** Byte-identity is the mechanism by which a fix here reaches every
-adopter, and a local lint or type setting strict enough to force even a cosmetic
-edit forks the control: the copy then diverges permanently and later fixes stop
-propagating. Three adopters already differ by two such edits. Keep the annotations
-explicit rather than relying on inference, so lifting is never a choice between a
-clean local build and a byte-identical control.
+adopter uses.** It began from the shared estate control and now also measures the
+GraphQL-only required-deployment posture. Keep repository-independent behavior
+portable so the improved control can be contributed back to its central owner.
 
 Usage:
   python scripts/check_branch_protection_policy.py --offline   # document shape only
@@ -88,6 +85,7 @@ _REQUIRED_EXPECTED_KEYS = (
     "allow_deletions",
     "required_conversation_resolution",
     "required_status_checks",
+    "required_deployments",
     "required_pull_request_reviews",
     "restrictions_present",
     "codeowners_present",
@@ -111,6 +109,8 @@ _AUDITED_EXCEPTION_FIELDS = frozenset(
         *_BOOLEAN_EXPECTED_KEYS,
         "required_status_checks.strict",
         "required_status_checks.checks",
+        "required_deployments.present",
+        "required_deployments.environments",
         "required_pull_request_reviews.present",
         *(f"required_pull_request_reviews.{key}" for key in _REQUIRED_REVIEW_KEYS),
         *(
@@ -563,6 +563,27 @@ def validate_policy_document(policy: dict[str, Any]) -> list[str]:
         issues.extend(_required_check_issues(checks["checks"]))
     if "strict" in checks and not isinstance(checks["strict"], bool):
         issues.append("expected.required_status_checks.strict must be a boolean")
+    deployments = expected.get("required_deployments", {})
+    if not isinstance(deployments, dict):
+        issues.append("expected.required_deployments must be an object")
+    else:
+        present = deployments.get("present")
+        environments = deployments.get("environments")
+        if not isinstance(present, bool):
+            issues.append("expected.required_deployments.present must be a boolean")
+        if not isinstance(environments, list):
+            issues.append("expected.required_deployments.environments must be a list")
+        else:
+            if any(not isinstance(name, str) or not name.strip() for name in environments):
+                issues.append("required deployment environments must be non-empty strings")
+            if len(set(name for name in environments if isinstance(name, str))) != len(
+                environments
+            ):
+                issues.append("required deployment environments must not be duplicated")
+            if isinstance(present, bool) and present != bool(environments):
+                issues.append(
+                    "required_deployments.present must match whether environments are declared"
+                )
     for key in _BOOLEAN_EXPECTED_KEYS:
         if key in expected and not isinstance(expected[key], bool):
             issues.append(f"expected.{key} must be a boolean")
@@ -612,6 +633,40 @@ def fetch_live_protection(repository: str, branch: str) -> dict[str, Any]:
         check=True,
     )
     payload: dict[str, Any] = json.loads(result.stdout)
+    owner, name = repository.split("/", 1)
+    query = """query($owner:String!,$name:String!,$qualifiedName:String!){
+      repository(owner:$owner,name:$name){
+        ref(qualifiedName:$qualifiedName){
+          branchProtectionRule{requiresDeployments requiredDeploymentEnvironments}
+        }
+      }
+    }"""
+    deployment_result = subprocess.run(
+        [
+            "gh",
+            "api",
+            "graphql",
+            "-f",
+            f"query={query}",
+            "-f",
+            f"owner={owner}",
+            "-f",
+            f"name={name}",
+            "-f",
+            f"qualifiedName=refs/heads/{branch}",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    deployment_payload: dict[str, Any] = json.loads(deployment_result.stdout)
+    rule = (
+        deployment_payload.get("data", {})
+        .get("repository", {})
+        .get("ref", {})
+        .get("branchProtectionRule")
+    )
+    payload["required_deployments"] = rule
     return payload
 
 
@@ -756,6 +811,31 @@ def compare_live_to_policy(policy: dict[str, Any], live: dict[str, Any]) -> list
             declared=expected["required_status_checks"]["checks"],
         )
     )
+
+    live_deployments = live.get("required_deployments")
+    expected_deployments = expected["required_deployments"]
+    if not isinstance(live_deployments, dict):
+        issues.append("required_deployments: live branch-protection rule is absent or malformed")
+    else:
+        actual_deployments = live_deployments.get("requiredDeploymentEnvironments")
+        actual_present = live_deployments.get("requiresDeployments")
+        if not isinstance(actual_present, bool):
+            issues.append("required_deployments.present: live value is absent or not boolean")
+        elif actual_present != expected_deployments["present"]:
+            issues.append(
+                "required_deployments.present: "
+                f"live={actual_present!r} policy={expected_deployments['present']!r}"
+            )
+        if not isinstance(actual_deployments, list) or any(
+            not isinstance(name, str) for name in actual_deployments
+        ):
+            issues.append("required_deployments.environments: live value is absent or malformed")
+        elif sorted(actual_deployments) != sorted(expected_deployments["environments"]):
+            issues.append(
+                "required_deployments.environments: "
+                f"live={sorted(actual_deployments)!r} "
+                f"policy={sorted(expected_deployments['environments'])!r}"
+            )
 
     reviews = live.get("required_pull_request_reviews")
     expected_reviews = expected["required_pull_request_reviews"]

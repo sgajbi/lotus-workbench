@@ -41,7 +41,8 @@ retry from cancelling or masquerading as another revision's evidence.
 The daily `Main Gate Coverage Audit` checks two distinct controls. First, it fails when any of the
 latest 60 `main` commits has no verdict-bearing Main Releasability run, including intermediate
 commits introduced by a multi-commit rebase merge. Second, it compares live `main` branch
-protection field by field with `quality/branch_protection_policy.v1.json`. The repository-native
+protection field by field with `quality/branch_protection_policy.v1.json`, including required
+deployment environments that GitHub exposes through its GraphQL branch-protection rule. The repository-native
 document check runs in `make lint` before merge; the scheduled live comparison additionally needs
 an approved repository secret with `administration:read`. Until that secret is provisioned, the
 live step fails closed rather than treating protection as verified. An operator should investigate

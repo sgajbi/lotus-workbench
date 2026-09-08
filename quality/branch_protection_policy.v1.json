@@ -24,6 +24,10 @@
         { "context": "PR Merge Gate / CI Local Docker Parity", "app_id": 15368 }
       ]
     },
+    "required_deployments": {
+      "present": false,
+      "environments": []
+    },
     "required_pull_request_reviews": {
       "present": true,
       "required_approving_review_count": 0,

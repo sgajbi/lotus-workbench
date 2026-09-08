@@ -31,6 +31,18 @@ const exceptionFields = [
   "retires_when",
 ];
 
+const weakPostures = new Map([
+  ["enforce_admins", false],
+  ["required_linear_history", false],
+  ["allow_force_pushes", true],
+  ["allow_deletions", true],
+  ["required_conversation_resolution", false],
+  ["required_status_checks.strict", false],
+  ["required_pull_request_reviews.present", false],
+  ["required_pull_request_reviews.dismiss_stale_reviews", false],
+  ["required_pull_request_reviews.required_approving_review_count", 0],
+]);
+
 function isObject(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -96,6 +108,35 @@ export function validateBranchProtectionPolicy(policy) {
     }
   }
 
+  const requiredDeployments = expected.required_deployments;
+  if (!isObject(requiredDeployments)) {
+    issues.push("expected.required_deployments must be an object");
+  } else {
+    if (typeof requiredDeployments.present !== "boolean") {
+      issues.push("expected.required_deployments.present must be a boolean");
+    }
+    if (!Array.isArray(requiredDeployments.environments)) {
+      issues.push("expected.required_deployments.environments must be a list");
+    } else {
+      const environments = requiredDeployments.environments;
+      const validNames = environments.every(
+        (environment) => typeof environment === "string" && environment.trim(),
+      );
+      if (!validNames) {
+        issues.push("required deployment environments must be non-empty strings");
+      }
+      if (new Set(environments).size !== environments.length) {
+        issues.push("required deployment environments must not be duplicated");
+      }
+      if (
+        typeof requiredDeployments.present === "boolean" &&
+        requiredDeployments.present !== (environments.length > 0)
+      ) {
+        issues.push("required_deployments.present must match whether environments are declared");
+      }
+    }
+  }
+
   const reviews = expected.required_pull_request_reviews;
   if (!isObject(reviews) || typeof reviews.present !== "boolean") {
     issues.push("expected.required_pull_request_reviews.present must be a boolean");
@@ -144,10 +185,21 @@ export function validateBranchProtectionPolicy(policy) {
       issues.push(`documented exception field is duplicated: ${exception.field}`);
     }
     exceptionTargets.add(exception.field);
-    const resolved = resolveField(expected, exception.field);
+    let resolved = resolveField(expected, exception.field);
+    if (exception.field.startsWith("required_status_checks.checks.app_id:")) {
+      const context = exception.field.slice("required_status_checks.checks.app_id:".length);
+      const check = Array.isArray(checks)
+        ? checks.find((candidate) => isObject(candidate) && candidate.context === context)
+        : undefined;
+      resolved = check ? { found: true, value: check.app_id } : { found: false, value: undefined };
+    }
     if (!resolved.found) {
       issues.push(`documented exception is bound to no expected field: ${exception.field}`);
-    } else if (resolved.value !== exception.value) {
+    } else if (
+      Array.isArray(resolved.value) && Array.isArray(exception.value)
+        ? JSON.stringify([...resolved.value].sort()) !== JSON.stringify([...exception.value].sort())
+        : !Object.is(resolved.value, exception.value)
+    ) {
       issues.push(`documented exception value does not match expected.${exception.field}`);
     }
     for (const field of ["reason", "compensating_controls", "retires_when"]) {
@@ -157,13 +209,23 @@ export function validateBranchProtectionPolicy(policy) {
     }
   }
 
-  if (
-    isObject(reviews) &&
-    reviews.present &&
-    reviews.required_approving_review_count === 0 &&
-    !exceptionTargets.has("required_pull_request_reviews.required_approving_review_count")
-  ) {
-    issues.push("zero required approvals must have a documented exception");
+  for (const [field, weakValue] of weakPostures) {
+    const resolved = resolveField(expected, field);
+    if (resolved.found && Object.is(resolved.value, weakValue) && !exceptionTargets.has(field)) {
+      issues.push(`weak posture expected.${field}=${JSON.stringify(weakValue)} must have a documented exception`);
+    }
+  }
+  if (Array.isArray(checks)) {
+    for (const check of checks) {
+      if (
+        isObject(check) &&
+        typeof check.context === "string" &&
+        check.app_id === null &&
+        !exceptionTargets.has(`required_status_checks.checks.app_id:${check.context}`)
+      ) {
+        issues.push(`required check ${check.context} with app_id null must have a documented exception`);
+      }
+    }
   }
   if (isObject(reviews) && isObject(reviews.bypass_pull_request_allowances)) {
     for (const category of ["users", "teams", "apps"]) {

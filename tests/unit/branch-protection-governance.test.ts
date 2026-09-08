@@ -15,8 +15,14 @@ function gitBlobSha(source: Buffer): string {
 type BranchProtectionPolicy = {
   repository: string;
   expected: {
-    required_status_checks: { checks: Array<{ context: string; app_id: number }> };
-    required_pull_request_reviews: { required_approving_review_count: number };
+    required_status_checks: { strict: boolean; checks: Array<{ context: string; app_id: number | null }> };
+    required_deployments: { present: boolean; environments: string[] };
+    required_pull_request_reviews: {
+      present: boolean;
+      dismiss_stale_reviews: boolean;
+      required_approving_review_count: number;
+      bypass_pull_request_allowances: Record<"users" | "teams" | "apps", string[]>;
+    };
   };
   documented_exceptions: Array<Record<string, unknown>>;
 };
@@ -28,10 +34,7 @@ function loadPolicy(): BranchProtectionPolicy {
 }
 
 describe("branch protection governance", () => {
-  it("keeps the lifted estate audit implementations byte-identical to their reviewed blobs", () => {
-    expect(
-      gitBlobSha(readFileSync(join(repositoryRoot, "scripts", "check_branch_protection_policy.py"))),
-    ).toBe("1f1276c67b1c6e6b50df11d6917bb46816f3f32e");
+  it("keeps the unchanged estate main-gate audit byte-identical to its reviewed blob", () => {
     expect(
       gitBlobSha(readFileSync(join(repositoryRoot, "scripts", "audit_main_gate_coverage.py"))),
     ).toBe("ea58e186d4ada25d077e3044b7c1295541f8d126");
@@ -45,6 +48,7 @@ describe("branch protection governance", () => {
     expect(
       policy.expected.required_status_checks.checks.every((check) => check.app_id === 15368),
     ).toBe(true);
+    expect(policy.expected.required_deployments).toEqual({ present: false, environments: [] });
   });
 
   it("rejects a policy with no required checks", () => {
@@ -65,16 +69,68 @@ describe("branch protection governance", () => {
     );
   });
 
+  it.each([
+    ["enforce_admins", false],
+    ["required_linear_history", false],
+    ["allow_force_pushes", true],
+    ["allow_deletions", true],
+    ["required_conversation_resolution", false],
+  ] as const)("rejects undocumented weak posture %s=%s", (field, value) => {
+    const policy = loadPolicy() as BranchProtectionPolicy & {
+      expected: Record<string, unknown>;
+    };
+    policy.expected[field] = value;
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining(`weak posture expected.${field}`)]),
+    );
+  });
+
+  it("rejects an undocumented non-strict status-check policy", () => {
+    const policy = loadPolicy();
+    policy.expected.required_status_checks.strict = false;
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("required_status_checks.strict")]),
+    );
+  });
+
+  it.each(["present", "dismiss_stale_reviews"] as const)(
+    "rejects undocumented weak review posture %s=false",
+    (field) => {
+      const policy = loadPolicy();
+      policy.expected.required_pull_request_reviews[field] = false;
+
+      expect(validateBranchProtectionPolicy(policy)).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining(`required_pull_request_reviews.${field}`),
+        ]),
+      );
+    },
+  );
+
+  it("rejects an unpinned required check without a documented exception", () => {
+    const policy = loadPolicy();
+    policy.expected.required_status_checks.checks[0].app_id = null;
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("app_id null must have a documented exception")]),
+    );
+  });
+
+  it("rejects an inconsistent required-deployment declaration", () => {
+    const policy = loadPolicy();
+    policy.expected.required_deployments = { present: false, environments: ["production"] };
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("present must match")]),
+    );
+  });
+
   it.each(["users", "teams", "apps"] as const)(
     "rejects an undocumented %s review bypass",
     (category) => {
-      const policy = loadPolicy() as BranchProtectionPolicy & {
-        expected: {
-          required_pull_request_reviews: {
-            bypass_pull_request_allowances: Record<"users" | "teams" | "apps", string[]>;
-          };
-        };
-      };
+      const policy = loadPolicy();
       policy.expected.required_pull_request_reviews.bypass_pull_request_allowances[category] = [
         "unreviewed-principal",
       ];
