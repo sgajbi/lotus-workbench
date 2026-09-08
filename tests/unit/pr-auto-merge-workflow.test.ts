@@ -31,7 +31,7 @@ describe("PR auto-merge workflow", () => {
     expect(workflow).not.toContain("GH_TOKEN: ${{ github.token }}");
   });
 
-  it("dispatches main releasability after merged pull requests", () => {
+  it("dispatches main releasability for every revision landed by a rebase merge", () => {
     const dispatchWorkflow = readFileSync(
       join(repositoryRoot, ".github", "workflows", "merged-pr-main-releasability.yml"),
       "utf8",
@@ -48,18 +48,42 @@ describe("PR auto-merge workflow", () => {
     expect(dispatchWorkflow).toContain("permissions:");
     expect(dispatchWorkflow).toContain("actions: write");
     expect(dispatchWorkflow).toContain("contents: write");
+    expect(dispatchWorkflow).toContain("fetch-depth: 0");
     expect(dispatchWorkflow).toContain("gh workflow run main-releasability.yml");
     expect(dispatchWorkflow).toContain(
       "MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}",
     );
-    expect(dispatchWorkflow).toContain('dispatch_ref="main-releasability-${MERGE_COMMIT_SHA}"');
-    expect(dispatchWorkflow).toContain('-f expected_sha="$MERGE_COMMIT_SHA"');
+    expect(dispatchWorkflow).toContain(
+      "COMMIT_COUNT: ${{ github.event.pull_request.commits }}",
+    );
+    expect(dispatchWorkflow).toContain('[[ "$COMMIT_COUNT" =~ ^[1-9][0-9]*$ ]]');
+    expect(dispatchWorkflow).toContain("allow_squash_merge");
+    expect(dispatchWorkflow).toContain('"$merge_methods" != "false,false,true"');
+    expect(dispatchWorkflow).toContain(
+      'mapfile -t revisions < <(git rev-list -n "$COMMIT_COUNT" "$MERGE_COMMIT_SHA" | tac)',
+    );
+    expect(dispatchWorkflow).toContain('for revision in "${revisions[@]}"; do');
+    expect(dispatchWorkflow).toContain(
+      'if ! git merge-base --is-ancestor "$revision" HEAD; then',
+    );
+    expect(dispatchWorkflow).toContain('dispatch_ref="main-releasability-${revision}"');
+    expect(dispatchWorkflow).toContain('-f expected_sha="$revision"');
+
+    const ancestryGuard = dispatchWorkflow.indexOf(
+      'if ! git merge-base --is-ancestor "$revision" HEAD; then',
+    );
+    expect(ancestryGuard).toBeGreaterThan(
+      dispatchWorkflow.indexOf('for revision in "${revisions[@]}"; do'),
+    );
+    expect(ancestryGuard).toBeLessThan(
+      dispatchWorkflow.indexOf('dispatch_ref="main-releasability-${revision}"'),
+    );
 
     expect(mainReleasabilityWorkflow).toContain("concurrency:");
     expect(mainReleasabilityWorkflow).toContain(
       "group: ${{ github.workflow }}-${{ inputs.expected_sha || github.sha }}",
     );
-    expect(mainReleasabilityWorkflow).toContain("cancel-in-progress: true");
+    expect(mainReleasabilityWorkflow).toContain("cancel-in-progress: false");
     expect(mainReleasabilityWorkflow).toContain("expected_sha:");
     expect(mainReleasabilityWorkflow).toContain('actual_sha="$(git rev-parse HEAD)"');
     expect(mainReleasabilityWorkflow.split("concurrency:", 1)[0]).not.toContain("push:");
