@@ -3,6 +3,7 @@ import {
   resolveAdvisorBookDevelopmentContext,
   stripBrowserSuppliedAuthorityHeaders,
 } from "@/features/workbench/caller-context";
+import type { ResolvedPrincipal } from "@/features/workbench/principal-credential";
 
 const ADVISOR_BOOK_ROUTE = "api/v1/advisor-book/portfolios";
 const ADVISOR_BOOK_AUTH_MODE_ENV = "WORKBENCH_ADVISOR_BOOK_AUTH_MODE";
@@ -10,7 +11,10 @@ const ADVISOR_BOOK_READ_CAPABILITY = "advisor.book.read";
 
 export type AdvisorBookAuthorityResolution =
   | { status: "not_applicable" }
-  | { status: "applied"; mode: "development_configured" }
+  | {
+      status: "applied";
+      mode: "development_configured" | "authenticated_session";
+    }
   | {
       status: "rejected";
       reason:
@@ -22,7 +26,11 @@ export type AdvisorBookAuthorityResolution =
 
 export function applyAdvisorBookCallerContextHeaders(
   headers: Headers,
-  request: { method: string; upstreamPath: string },
+  request: {
+    method: string;
+    upstreamPath: string;
+    verifiedPrincipal?: ResolvedPrincipal;
+  },
 ): AdvisorBookAuthorityResolution {
   if (request.method !== "GET" || request.upstreamPath !== ADVISOR_BOOK_ROUTE) {
     return { status: "not_applicable" };
@@ -30,11 +38,17 @@ export function applyAdvisorBookCallerContextHeaders(
 
   stripBrowserSuppliedAuthorityHeaders(headers);
 
-  const authorityMode = resolveConfiguredAuthorityMode(ADVISOR_BOOK_AUTH_MODE_ENV);
-  if (authorityMode !== "development_configured") {
-    return authorityMode === "authenticated_session"
-      ? { status: "rejected", reason: "authenticated_principal_required" }
-      : { status: "rejected", reason: authorityMode };
+  const authorityMode = resolveAdvisorBookAuthorityMode();
+  if (
+    authorityMode !== "development_configured" &&
+    authorityMode !== "authenticated_session"
+  ) {
+    return { status: "rejected", reason: authorityMode };
+  }
+  if (authorityMode === "authenticated_session") {
+    return request.verifiedPrincipal
+      ? { status: "applied", mode: authorityMode }
+      : { status: "rejected", reason: "authenticated_principal_required" };
   }
 
   const context = resolveAdvisorBookDevelopmentContext();
@@ -51,4 +65,20 @@ export function applyAdvisorBookCallerContextHeaders(
   headers.set("X-Caller-Capabilities", ADVISOR_BOOK_READ_CAPABILITY);
 
   return { status: "applied", mode: authorityMode };
+}
+
+export function resolveAdvisorBookAuthorityMode() {
+  return resolveConfiguredAuthorityMode(ADVISOR_BOOK_AUTH_MODE_ENV);
+}
+
+export function resolveAdvisorBookRouteCapability({
+  method,
+  upstreamPath,
+}: {
+  method: string;
+  upstreamPath: string;
+}): string | undefined {
+  return method === "GET" && upstreamPath === ADVISOR_BOOK_ROUTE
+    ? ADVISOR_BOOK_READ_CAPABILITY
+    : undefined;
 }

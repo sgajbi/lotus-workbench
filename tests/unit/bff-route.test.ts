@@ -1457,6 +1457,55 @@ describe("BFF proxy route", () => {
     });
   });
 
+  it("uses verified advisor-book authority without forwarding browser claims", async () => {
+    process.env.LOTUS_ENVIRONMENT = "production";
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue(new Response('{"items":[]}', { status: 200 }));
+    vi.spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal").mockResolvedValueOnce({
+      status: "admitted",
+      principal: {
+        issuer: "https://identity.lotus.test",
+        audience: ["lotus-workbench-bff"],
+        subject: "user:advisor-001",
+        tenantId: "tenant-sg",
+        principalKind: "user",
+        credentialId: "session-001",
+        capabilities: new Set(["advisor.book.read"]),
+        portfolioScope: new Set(["PB_SG_GLOBAL_BAL_001"]),
+      },
+      gatewayCredential: "delegated.advisor-book.signature",
+    });
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisor-book/portfolios?asOfDate=2026-04-10",
+        {
+          headers: {
+            Authorization: "Bearer verified-session-credential",
+            "X-Actor-Id": "browser-actor",
+            "X-Caller-Capabilities": "advisor.book.write",
+            "X-Tenant-Id": "browser-tenant",
+          },
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["api", "v1", "advisor-book", "portfolios"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const upstreamHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(upstreamHeaders.get("Authorization")).toBe(
+      "Bearer delegated.advisor-book.signature",
+    );
+    expect(upstreamHeaders.get("X-Actor-Id")).toBeNull();
+    expect(upstreamHeaders.get("X-Caller-Capabilities")).toBeNull();
+    expect(upstreamHeaders.get("X-Tenant-Id")).toBeNull();
+  });
+
   it("rejects an invalid advisor-book role before proxying", async () => {
     process.env.WORKBENCH_ADVISOR_BOOK_ROLE = "AUDIT";
     const fetchMock = vi.mocked(fetch);
