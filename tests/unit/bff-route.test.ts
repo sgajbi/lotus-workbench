@@ -2554,6 +2554,53 @@ describe("BFF proxy route", () => {
     });
   });
 
+  it("binds verified reporting admission to the exact requested portfolio", async () => {
+    process.env.LOTUS_ENVIRONMENT = "production";
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue(new Response('{"items":[]}', { status: 200 }));
+    const authorize = vi
+      .spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal")
+      .mockResolvedValueOnce({
+        status: "admitted",
+        principal: {
+          issuer: "https://identity.lotus.test",
+          audience: ["lotus-workbench-bff"],
+          subject: "user:advisor-001",
+          tenantId: "tenant-sg",
+          principalKind: "user",
+          credentialId: "session-001",
+          capabilities: new Set(["advisor.book.read"]),
+          portfolioScope: new Set(["PB_SG_GLOBAL_BAL_001"]),
+        },
+        gatewayCredential: "delegated.reporting.signature",
+      });
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/report-jobs?portfolioId=PB_SG_GLOBAL_BAL_001&reportType=portfolio_review",
+        {
+          headers: {
+            Authorization: "Bearer verified-session-credential",
+            "X-Caller-Portfolio-Ids": "PB_NOT_ENTITLED",
+          },
+        },
+      ),
+      { params: Promise.resolve({ path: ["api", "v1", "report-jobs"] }) },
+    );
+
+    expect(response.status).toBe(200);
+    expect(authorize).toHaveBeenCalledWith("Bearer verified-session-credential", {
+      requiredCapabilities: ["advisor.book.read"],
+      requestedPortfolioIds: ["PB_SG_GLOBAL_BAL_001"],
+    });
+    const upstreamHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(upstreamHeaders.get("Authorization")).toBe(
+      "Bearer delegated.reporting.signature",
+    );
+    expect(upstreamHeaders.get("X-Caller-Portfolio-Ids")).toBeNull();
+    expect(upstreamHeaders.get("X-Caller-Capabilities")).toBeNull();
+  });
+
   it("uses configured caller context defaults for upstream analytics reads", async () => {
     process.env.WORKBENCH_BFF_ACTOR_ID = "automation-advisor";
     process.env.WORKBENCH_BFF_CALLER_APPLICATION = "lotus-demo-workbench";

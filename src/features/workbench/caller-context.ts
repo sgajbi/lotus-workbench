@@ -152,7 +152,7 @@ export type ReportingAuthorityResolution =
   | { status: "not_applicable" }
   | {
       status: "applied";
-      mode: "development_configured";
+      mode: "development_configured" | "authenticated_session";
       admittedSearch: string;
     }
   | {
@@ -454,6 +454,7 @@ export function applyReportOrderingRouteCallerContextHeaders(
     upstreamPath: string;
     searchParams: URLSearchParams;
     bodyText?: string;
+    verifiedPrincipal?: ResolvedPrincipal;
   },
 ): ReportingAuthorityResolution {
   if (!isReportOrderingWorkspaceRoute(request.method, request.upstreamPath)) {
@@ -462,21 +463,36 @@ export function applyReportOrderingRouteCallerContextHeaders(
 
   stripBrowserSuppliedAuthorityHeaders(headers);
 
-  const authorityMode = resolveConfiguredAuthorityMode(REPORTING_AUTH_MODE_ENV);
-  if (authorityMode !== "development_configured") {
-    return authorityMode === "authenticated_session"
-      ? { status: "rejected", reason: "authenticated_principal_required" }
-      : { status: "rejected", reason: authorityMode };
+  const authorityMode = resolveReportingAuthorityMode();
+  if (
+    authorityMode !== "development_configured" &&
+    authorityMode !== "authenticated_session"
+  ) {
+    return { status: "rejected", reason: authorityMode };
   }
 
-  const portfolioIds = configuredReportingPortfolioIds();
+  const portfolioIds = request.verifiedPrincipal
+    ? [...request.verifiedPrincipal.portfolioScope]
+    : configuredReportingPortfolioIds();
   if (portfolioIds.length === 0) {
-    return { status: "rejected", reason: "invalid_reporting_configuration" };
+    return authorityMode === "authenticated_session"
+      ? { status: "rejected", reason: "reporting_scope_not_entitled" }
+      : { status: "rejected", reason: "invalid_reporting_configuration" };
   }
 
   const requestPosture = validateReportingWorkspaceRequest(request, new Set(portfolioIds));
   if (requestPosture.status === "rejected") {
     return requestPosture;
+  }
+
+  if (authorityMode === "authenticated_session") {
+    return request.verifiedPrincipal
+      ? {
+          status: "applied",
+          mode: authorityMode,
+          admittedSearch: requestPosture.admittedSearch,
+        }
+      : { status: "rejected", reason: "authenticated_principal_required" };
   }
 
   const context = resolveReportingDevelopmentContext();
@@ -505,6 +521,41 @@ export function resolveIdeaAuthorityMode():
   | "development_authority_not_allowed"
   | "invalid_authority_mode" {
   return resolveConfiguredAuthorityMode(IDEA_AUTH_MODE_ENV);
+}
+
+export function resolveReportingAuthorityMode() {
+  return resolveConfiguredAuthorityMode(REPORTING_AUTH_MODE_ENV);
+}
+
+export function resolveReportingRouteCapability({
+  method,
+  upstreamPath,
+}: {
+  method: string;
+  upstreamPath: string;
+}): string | undefined {
+  return isReportOrderingWorkspaceRoute(method, upstreamPath)
+    ? ADVISOR_BOOK_READ_CAPABILITY
+    : undefined;
+}
+
+export function resolveReportingRequestedPortfolioIds(request: {
+  upstreamPath: string;
+  searchParams: URLSearchParams;
+  bodyText?: string;
+}): string[] {
+  if (request.upstreamPath === "api/v1/report-ordering/options") {
+    return request.searchParams.getAll("scopeId").map((value) => value.trim()).filter(Boolean);
+  }
+  if (request.upstreamPath === "api/v1/report-jobs") {
+    return request.searchParams
+      .getAll("portfolioId")
+      .map((value) => value.trim())
+      .filter(Boolean);
+  }
+  return request.upstreamPath === "api/v1/report-batches"
+    ? (readBatchPortfolioIds(request.bodyText) ?? [])
+    : (readSubmittedPortfolioIds(request.bodyText) ?? []);
 }
 
 function isReportOrderingWorkspaceRoute(method: string, upstreamPath: string): boolean {

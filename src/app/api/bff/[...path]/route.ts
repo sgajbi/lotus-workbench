@@ -21,6 +21,9 @@ import {
   matchesIdeaPresentationReceiptTenantAuthority,
   resolveIdeaAuthorityMode,
   resolveIdeaRouteCapability,
+  resolveReportingAuthorityMode,
+  resolveReportingRequestedPortfolioIds,
+  resolveReportingRouteCapability,
 } from "@/features/workbench/caller-context";
 import { requiresAuthenticatedSessionPrincipal } from "@/features/workbench/authority-mode";
 import { buildGatewayBffRequestHeaders } from "@/features/workbench/bff-request-headers";
@@ -57,15 +60,28 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       resolveAdvisorCockpitAuthorityMode() === "authenticated_session"
         ? resolveAdvisorCockpitCapability({ method: request.method, upstreamPath })
         : undefined;
+    const reportingCapability =
+      resolveReportingAuthorityMode() === "authenticated_session"
+        ? resolveReportingRouteCapability({ method: request.method, upstreamPath })
+        : undefined;
     const requiredCapability =
-      ideaCapability ?? advisorBookCapability ?? advisorCockpitCapability;
+      ideaCapability ??
+      advisorBookCapability ??
+      advisorCockpitCapability ??
+      reportingCapability;
     if (requiredCapability) {
-      const requestedPortfolioIds = advisorCockpitCapability
-        ? request.nextUrl.searchParams
-            .getAll("portfolio_id")
-            .map((portfolioId) => portfolioId.trim())
-            .filter(Boolean)
-        : [];
+      const requestedPortfolioIds = reportingCapability
+        ? resolveReportingRequestedPortfolioIds({
+            upstreamPath,
+            searchParams: request.nextUrl.searchParams,
+            bodyText: requestBody,
+          })
+        : advisorCockpitCapability
+          ? request.nextUrl.searchParams
+              .getAll("portfolio_id")
+              .map((portfolioId) => portfolioId.trim())
+              .filter(Boolean)
+          : [];
       const principalAuthority = await authorizeConfiguredBffPrincipal(
         request.headers.get("authorization"),
         { requiredCapabilities: [requiredCapability], requestedPortfolioIds },
@@ -161,6 +177,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       upstreamPath,
       searchParams: request.nextUrl.searchParams,
       bodyText: requestBody,
+      verifiedPrincipal,
     },
   );
   if (reportingAuthority.status === "rejected") {
