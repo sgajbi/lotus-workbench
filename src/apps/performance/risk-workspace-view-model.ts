@@ -2981,6 +2981,14 @@ function resolveAttributionEvidencePosture(
   );
   const residualAbs = Math.abs(residual ?? 0);
 
+  if (response.state === "partial" && residualAbs >= 0.001) {
+    return {
+      value: "Review",
+      support:
+        "Source evidence is incomplete and a residual remains visible, so the decomposition should be checked before escalation.",
+      metadata: `Residual ${formatRiskPercentValue(residual)}`,
+    };
+  }
   if (response.state === "partial") {
     return {
       value: "Qualified",

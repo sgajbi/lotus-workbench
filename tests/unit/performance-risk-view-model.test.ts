@@ -641,6 +641,37 @@ describe("buildPerformanceRiskViewModel", () => {
     );
   });
 
+  it("preserves the stronger residual review posture for partial evidence", () => {
+    const scenario = buildSupportedPerformanceScenario();
+    const attribution = {
+      ...buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET"),
+      state: "partial",
+    } satisfies WorkbenchRiskAttributionResponse;
+    const selectedSet = attribution.payload?.periods[0]?.attribution_sets[0];
+    if (!selectedSet) {
+      throw new Error("Expected fixture attribution set.");
+    }
+    selectedSet.residual = 0.002;
+
+    const viewModel = buildPerformanceRiskViewModel({
+      workspace: scenario.workspace,
+      period: "YTD",
+      detailBasis: "NET",
+      riskAttribution: attribution,
+    });
+
+    expect(viewModel.attributionMethodologyRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "Evidence posture",
+          value: "Review",
+          support:
+            "Source evidence is incomplete and a residual remains visible, so the decomposition should be checked before escalation.",
+        }),
+      ]),
+    );
+  });
+
   it("discards every attribution-derived projection for an unknown source state", () => {
     const scenario = buildSupportedPerformanceScenario();
     const attribution = {
