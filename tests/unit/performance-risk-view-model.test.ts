@@ -627,7 +627,11 @@ describe("buildPerformanceRiskViewModel", () => {
       workspace: scenario.workspace,
       period: "YTD",
       detailBasis: "NET",
+      riskSummary: buildFixtureRiskSummary(scenario.workspace, "YTD", "NET"),
+      riskConcentration: buildFixtureRiskConcentration(scenario.workspace, "YTD"),
       riskAttribution: attribution,
+      riskDrawdown: buildFixtureRiskDrawdown(scenario.workspace, "YTD", "NET"),
+      riskRolling: buildFixtureRiskRolling(scenario.workspace, "YTD", "NET"),
     });
 
     expect(viewModel.attributionMethodologyRows).toEqual(
@@ -699,7 +703,11 @@ describe("buildPerformanceRiskViewModel", () => {
       workspace: scenario.workspace,
       period: "YTD",
       detailBasis: "NET",
+      riskSummary: buildFixtureRiskSummary(scenario.workspace, "YTD", "NET"),
+      riskConcentration: buildFixtureRiskConcentration(scenario.workspace, "YTD"),
       riskAttribution: attribution,
+      riskDrawdown: buildFixtureRiskDrawdown(scenario.workspace, "YTD", "NET"),
+      riskRolling: buildFixtureRiskRolling(scenario.workspace, "YTD", "NET"),
     });
 
     expect(viewModel.attributionState).toBe("unavailable");
@@ -716,7 +724,7 @@ describe("buildPerformanceRiskViewModel", () => {
     expect(viewModel.partialFailures).not.toContain("Unadmitted attribution failure detail");
     expect(viewModel.workspaceOverview).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ label: "Source coverage", value: "Unavailable" }),
+        expect.objectContaining({ label: "Source coverage", value: "Partial" }),
       ]),
     );
   });
