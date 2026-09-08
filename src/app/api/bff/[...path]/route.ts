@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { applyAdvisoryCopilotCallerContextHeaders } from "@/features/advisory-copilot/caller-context";
+import {
+  applyAdvisoryCopilotCallerContextHeaders,
+  resolveAdvisoryCopilotAuthorityMode,
+  resolveAdvisoryCopilotCapability,
+} from "@/features/advisory-copilot/caller-context";
 import {
   applyAdvisorBookCallerContextHeaders,
   resolveAdvisorBookAuthorityMode,
@@ -64,11 +68,16 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       resolveReportingAuthorityMode() === "authenticated_session"
         ? resolveReportingRouteCapability({ method: request.method, upstreamPath })
         : undefined;
+    const advisoryCopilotCapability =
+      resolveAdvisoryCopilotAuthorityMode() === "authenticated_session"
+        ? resolveAdvisoryCopilotCapability({ method: request.method, upstreamPath })
+        : undefined;
     const requiredCapability =
       ideaCapability ??
       advisorBookCapability ??
       advisorCockpitCapability ??
-      reportingCapability;
+      reportingCapability ??
+      advisoryCopilotCapability;
     if (requiredCapability) {
       const requestedPortfolioIds = reportingCapability
         ? resolveReportingRequestedPortfolioIds({
@@ -160,6 +169,8 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       upstreamPath,
       bodyText: requestBody,
       gatewayBaseUrl,
+      verifiedPrincipal,
+      gatewayCredential: verifiedGatewayCredential,
     });
   if (advisoryCopilotAuthority.status === "rejected") {
     const rejection = advisoryCopilotAuthorityRejection(
