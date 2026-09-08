@@ -19,6 +19,7 @@ import {
   matchesIdeaPresentationReceiptTenantAuthority,
 } from "@/features/workbench/caller-context";
 import { requiresAuthenticatedSessionPrincipal } from "@/features/workbench/authority-mode";
+import { WORKBENCH_AUTHORITY_CONTEXT_HEADER } from "@/features/workbench/authority-context-contract";
 import { buildGatewayBffRequestHeaders } from "@/features/workbench/bff-request-headers";
 import { readGatewayBffResponse } from "@/features/workbench/bff-response";
 import {
@@ -30,6 +31,7 @@ import {
 } from "@/features/workbench/bff-authority-rejections";
 import { authorizeConfiguredBffPrincipal } from "@/features/workbench/configured-bff-principal";
 import type { ResolvedPrincipal } from "@/features/workbench/principal-credential";
+import { derivePrincipalAuthorityContext } from "@/features/workbench/principal-authority-context";
 import { resolveVerifiedBffRouteRequirement } from "@/features/workbench/verified-bff-route";
 
 const BFF_PATH_PREFIX = "/api/bff/";
@@ -228,6 +230,13 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
         status: "unavailable",
       },
       { status: 502, headers: { "cache-control": "no-store" } },
+    );
+  }
+
+  if (verifiedPrincipal) {
+    responseHeaders.set(
+      WORKBENCH_AUTHORITY_CONTEXT_HEADER,
+      derivePrincipalAuthorityContext(verifiedPrincipal),
     );
   }
 

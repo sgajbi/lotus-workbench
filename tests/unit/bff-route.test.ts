@@ -177,6 +177,9 @@ describe("BFF proxy route", () => {
     );
 
     expect(response.status).toBe(200);
+    expect(response.headers.get("X-Workbench-Authority-Context")).toMatch(
+      /^[a-f0-9]{64}$/,
+    );
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const upstreamHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
     expect(upstreamHeaders.get("Authorization")).toBe(

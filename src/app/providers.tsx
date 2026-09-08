@@ -2,13 +2,14 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CssBaseline, ThemeProvider } from "@mui/material";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { createLotusMuiTheme } from "@/design-system/theme/mui-theme";
 import {
   WORKBENCH_QUERY_GC_TIME_MS,
   WORKBENCH_QUERY_STALE_TIME_MS,
 } from "@/features/platform-runtime/query-policy";
+import { subscribeToAuthorityChanges } from "@/features/workbench/client-authority-context";
 
 const theme = createLotusMuiTheme();
 
@@ -25,6 +26,15 @@ export default function Providers({ children }: { children: React.ReactNode }) {
           },
         },
       })
+  );
+
+  useEffect(
+    () =>
+      subscribeToAuthorityChanges(() => {
+        void queryClient.cancelQueries();
+        queryClient.clear();
+      }),
+    [queryClient],
   );
 
   return (

@@ -8,11 +8,16 @@ import {
   isWorkbenchPermissionBlockedError,
   WorkbenchApiError,
 } from "@/features/workbench/api-client";
+import {
+  resetClientAuthorityContextForTests,
+  StaleAuthorityResponseError,
+} from "@/features/workbench/client-authority-context";
 
 describe("workbench API error classification", () => {
   const originalEnvironment = process.env.LOTUS_ENVIRONMENT;
 
   afterEach(() => {
+    resetClientAuthorityContextForTests();
     vi.unstubAllGlobals();
     if (originalEnvironment === undefined) {
       delete process.env.LOTUS_ENVIRONMENT;
@@ -135,5 +140,44 @@ describe("workbench API error classification", () => {
     );
 
     expect(evidence).toEqual({ label: "HTTP status", value: "403" });
+  });
+
+  it("rejects a late response from the previous authenticated authority", async () => {
+    const firstAuthority = "a".repeat(64);
+    const secondAuthority = "b".repeat(64);
+    let resolveLate: ((response: Response) => void) | undefined;
+    const lateResponse = new Promise<Response>((resolve) => {
+      resolveLate = resolve;
+    });
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response('{"authority":"first"}', {
+          headers: { "X-Workbench-Authority-Context": firstAuthority },
+        }),
+      )
+      .mockReturnValueOnce(lateResponse)
+      .mockResolvedValueOnce(
+        new Response('{"authority":"second"}', {
+          headers: { "X-Workbench-Authority-Context": secondAuthority },
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchWorkbenchJson("/api/bff/initial", "initial authority");
+    const pendingOldRequest = fetchWorkbenchJson(
+      "/api/bff/old",
+      "old authority",
+    );
+    await fetchWorkbenchJson("/api/bff/new", "new authority");
+    resolveLate!(
+      new Response('{"authority":"first"}', {
+        headers: { "X-Workbench-Authority-Context": firstAuthority },
+      }),
+    );
+
+    await expect(pendingOldRequest).rejects.toBeInstanceOf(
+      StaleAuthorityResponseError,
+    );
   });
 });
