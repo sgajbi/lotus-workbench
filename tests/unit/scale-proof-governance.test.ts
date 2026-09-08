@@ -79,12 +79,15 @@ describe("Workbench scale-proof governance", () => {
     expect(runner).toContain("WORKBENCH_SCALE_BALANCER_IMAGE: scaleBalancerImage");
     expect(runner).toContain("load_balancer_image_identity: scaleBalancerImageIdentity");
 
-    for (const workflow of [
-      read(".github", "workflows", "pr-merge-gate.yml"),
-      read(".github", "workflows", "main-releasability.yml"),
-    ]) {
+    const pullRequestWorkflow = read(".github", "workflows", "pr-merge-gate.yml");
+    const mainWorkflow = read(".github", "workflows", "main-releasability.yml");
+    expect(pullRequestWorkflow).toContain("WORKBENCH_DEPLOYMENT_ID: ${{ github.");
+    expect(mainWorkflow).toContain(
+      "WORKBENCH_DEPLOYMENT_ID: ${{ inputs.expected_sha || github.sha }}",
+    );
+
+    for (const workflow of [pullRequestWorkflow, mainWorkflow]) {
       expect(workflow).toContain("SCALE_PROOF_SKIP_BUILD: \"1\"");
-      expect(workflow).toContain("WORKBENCH_DEPLOYMENT_ID: ${{ github.");
       expect(workflow).toContain(
         'docker build --label "com.lotus.repository.checkout=${{ github.workspace }}" --file scripts/scale/Dockerfile.balancer --tag lotus-workbench-scale-balancer:ci-test .',
       );
