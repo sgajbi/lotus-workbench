@@ -11,6 +11,10 @@ import {
   type ServiceRequestTarget,
 } from "@/features/platform-runtime/service-addressing";
 import { requiresAuthenticatedSessionPrincipal } from "./authority-mode";
+import {
+  captureActiveAuthorityContext,
+  reconcileResponseAuthorityContext,
+} from "./client-authority-context";
 import { applyDefaultCallerContextHeaders } from "./caller-context";
 
 export const BFF_PROXY_BASE = `${resolveBffProxyBaseUrl()}/api/v1`;
@@ -79,7 +83,9 @@ export async function fetchWorkbenchJson<T>(
   errorLabel: string,
   init?: RequestInit
 ): Promise<T> {
+  const authorityAtDispatch = captureActiveAuthorityContext();
   const response = await fetch(url, { cache: "no-store", ...init });
+  reconcileResponseAuthorityContext(response, authorityAtDispatch);
   if (!response.ok) {
     throw new WorkbenchApiError(
       errorLabel,
@@ -95,7 +101,9 @@ export async function fetchWorkbenchMutation<T>(
   errorLabel: string,
   init: RequestInit
 ): Promise<T> {
+  const authorityAtDispatch = captureActiveAuthorityContext();
   const response = await fetch(url, { cache: "no-store", ...withJsonMutationHeaders(init) });
+  reconcileResponseAuthorityContext(response, authorityAtDispatch);
   if (!response.ok) {
     throw new WorkbenchApiError(
       errorLabel,

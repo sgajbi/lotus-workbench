@@ -1,11 +1,15 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import { useQueryClient } from "@tanstack/react-query";
+import { act, render, screen } from "@testing-library/react";
+import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import RootLayout from "@/app/layout";
 import Providers from "@/app/providers";
+import {
+  reconcileResponseAuthorityContext,
+  resetClientAuthorityContextForTests,
+} from "@/features/workbench/client-authority-context";
 
 vi.mock("next/font/local", () => ({
   default: ({ variable }: { variable: string }) => ({
@@ -17,8 +21,9 @@ vi.mock("@/shell/app-shell", () => ({
   default: ({ children }: { children: React.ReactNode }) => <div data-testid="app-shell">{children}</div>,
 }));
 
-function QueryClientProbe() {
+function QueryClientProbe({ onClient }: { onClient?: (client: QueryClient) => void }) {
   const queryClient = useQueryClient();
+  onClient?.(queryClient);
   const defaultOptions = queryClient.getDefaultOptions();
 
   return (
@@ -30,6 +35,8 @@ function QueryClientProbe() {
 }
 
 describe("Providers", () => {
+  afterEach(() => resetClientAuthorityContextForTests());
+
   it("supplies the shared query client defaults to children", () => {
     render(
       <Providers>
@@ -39,6 +46,33 @@ describe("Providers", () => {
 
     expect(screen.getByTestId("query-retry")).toHaveTextContent("1");
     expect(screen.getByTestId("query-refocus")).toHaveTextContent("false");
+  });
+
+  it("removes protected query state when server authority changes", () => {
+    let queryClient: QueryClient | undefined;
+    render(
+      <Providers>
+        <QueryClientProbe onClient={(client) => (queryClient = client)} />
+      </Providers>,
+    );
+    queryClient!.setQueryData(["protected", "portfolio"], { id: "P1" });
+
+    act(() => {
+      reconcileResponseAuthorityContext(
+        new Response("{}", {
+          headers: { "X-Workbench-Authority-Context": "a".repeat(64) },
+        }),
+        null,
+      );
+      reconcileResponseAuthorityContext(
+        new Response("{}", {
+          headers: { "X-Workbench-Authority-Context": "b".repeat(64) },
+        }),
+        "a".repeat(64),
+      );
+    });
+
+    expect(queryClient!.getQueryData(["protected", "portfolio"])).toBeUndefined();
   });
 });
 
