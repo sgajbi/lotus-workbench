@@ -3,6 +3,7 @@ import {
   resolveDefaultCallerContext,
   stripBrowserSuppliedAuthorityHeaders,
 } from "@/features/workbench/caller-context";
+import type { ResolvedPrincipal } from "@/features/workbench/principal-credential";
 
 const ADVISOR_COCKPIT_ROUTE_PREFIX = "api/v1/advisor-cockpit";
 const ADVISOR_COCKPIT_AUTH_MODE_ENV = "WORKBENCH_ADVISOR_COCKPIT_AUTH_MODE";
@@ -46,7 +47,10 @@ type AdvisorCockpitAuthorityRejection =
 
 export type AdvisorCockpitAuthorityResolution =
   | { status: "not_applicable" }
-  | { status: "applied"; mode: "development_configured" }
+  | {
+      status: "applied";
+      mode: "development_configured" | "authenticated_session";
+    }
   | { status: "rejected"; reason: AdvisorCockpitAuthorityRejection };
 
 export function applyAdvisorCockpitCallerContextHeaders(
@@ -56,6 +60,7 @@ export function applyAdvisorCockpitCallerContextHeaders(
     upstreamPath: string;
     searchParams: URLSearchParams;
     bodyText?: string;
+    verifiedPrincipal?: ResolvedPrincipal;
   },
 ): AdvisorCockpitAuthorityResolution {
   if (!isAdvisorCockpitPath(request.upstreamPath)) {
@@ -85,11 +90,20 @@ export function applyAdvisorCockpitCallerContextHeaders(
     return { status: "rejected", reason: "invalid_advisor_cockpit_request" };
   }
 
-  const authorityMode = resolveConfiguredAuthorityMode(ADVISOR_COCKPIT_AUTH_MODE_ENV);
-  if (authorityMode !== "development_configured") {
-    return authorityMode === "authenticated_session"
-      ? { status: "rejected", reason: "authenticated_principal_required" }
-      : { status: "rejected", reason: authorityMode };
+  const authorityMode = resolveAdvisorCockpitAuthorityMode();
+  if (
+    authorityMode !== "development_configured" &&
+    authorityMode !== "authenticated_session"
+  ) {
+    return { status: "rejected", reason: authorityMode };
+  }
+  if (authorityMode === "authenticated_session") {
+    if (!request.verifiedPrincipal) {
+      return { status: "rejected", reason: "authenticated_principal_required" };
+    }
+    return request.verifiedPrincipal.portfolioScope.has(portfolioId)
+      ? { status: "applied", mode: authorityMode }
+      : { status: "rejected", reason: "advisor_cockpit_scope_not_entitled" };
   }
 
   const context = resolveAdvisorCockpitDevelopmentContext();
@@ -125,7 +139,7 @@ function isAdvisorCockpitPath(upstreamPath: string): boolean {
   );
 }
 
-function resolveAdvisorCockpitCapability({
+export function resolveAdvisorCockpitCapability({
   method,
   upstreamPath,
 }: {
@@ -151,6 +165,10 @@ function resolveAdvisorCockpitCapability({
     return ACKNOWLEDGE_CAPABILITY;
   }
   return undefined;
+}
+
+export function resolveAdvisorCockpitAuthorityMode() {
+  return resolveConfiguredAuthorityMode(ADVISOR_COCKPIT_AUTH_MODE_ENV);
 }
 
 function hasAuthorityQueryParameter(searchParams: URLSearchParams): boolean {
