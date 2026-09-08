@@ -28,6 +28,8 @@ import sys
 from typing import Any
 
 WORKFLOW = "main-releasability.yml"
+REPOSITORY = "sgajbi/lotus-workbench"
+_RUNS_PER_PAGE = 100
 _VERDICT_CONCLUSIONS = {"success", "failure"}
 
 
@@ -71,60 +73,73 @@ def _run_conclusions(sha: str) -> list[str] | None:
 def _previous_successful_coverage_head() -> str | None:
     """Return the newest main head whose coverage-audit job succeeded."""
 
-    completed = subprocess.run(
-        [
-            "gh",
-            "run",
-            "list",
-            "--workflow",
-            "main-gate-coverage-audit.yml",
-            "--branch",
-            "main",
-            "--limit",
-            "20",
-            "--json",
-            "databaseId,headSha",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    if completed.returncode != 0:
-        raise RuntimeError("could not list prior coverage-audit runs")
-    try:
-        runs: list[dict[str, Any]] = json.loads(completed.stdout or "[]")
-    except json.JSONDecodeError as error:
-        raise RuntimeError("coverage-audit run listing was not valid JSON") from error
-    for run in runs:
-        database_id = run.get("databaseId")
-        if not isinstance(database_id, int):
-            raise RuntimeError("coverage-audit run listing has no usable database ID")
-        viewed = subprocess.run(
-            ["gh", "run", "view", str(database_id), "--json", "jobs"],
+    page = 1
+    while True:
+        completed = subprocess.run(
+            [
+                "gh",
+                "api",
+                "--method",
+                "GET",
+                f"repos/{REPOSITORY}/actions/runs",
+                "-f",
+                "branch=main",
+                "-f",
+                f"per_page={_RUNS_PER_PAGE}",
+                "-f",
+                f"page={page}",
+            ],
             capture_output=True,
             text=True,
         )
-        if viewed.returncode != 0:
-            raise RuntimeError(f"could not inspect coverage-audit run {database_id}")
+        if completed.returncode != 0:
+            raise RuntimeError(f"could not list coverage-audit runs page {page}")
         try:
-            details: dict[str, Any] = json.loads(viewed.stdout or "{}")
+            payload: dict[str, Any] = json.loads(completed.stdout or "{}")
         except json.JSONDecodeError as error:
             raise RuntimeError(
-                f"coverage-audit run {database_id} details were not valid JSON"
+                f"coverage-audit run listing page {page} was not valid JSON"
             ) from error
-        coverage_succeeded = any(
-            isinstance(job, dict)
-            and job.get("name") == "Audit / Every Main Commit Has A Gate Verdict"
-            and job.get("conclusion") == "success"
-            for job in details.get("jobs", [])
-        )
-        if coverage_succeeded:
-            head = run.get("headSha")
-            if not isinstance(head, str) or not head.strip():
+        runs = payload.get("workflow_runs")
+        if not isinstance(runs, list):
+            raise RuntimeError(f"coverage-audit run listing page {page} has no run list")
+        for run in runs:
+            if not isinstance(run, dict):
+                raise RuntimeError("coverage-audit run listing contains an invalid run")
+            if run.get("path") != ".github/workflows/main-gate-coverage-audit.yml":
+                continue
+            database_id = run.get("id")
+            if not isinstance(database_id, int):
+                raise RuntimeError("coverage-audit run listing has no usable database ID")
+            viewed = subprocess.run(
+                ["gh", "run", "view", str(database_id), "--json", "jobs"],
+                capture_output=True,
+                text=True,
+            )
+            if viewed.returncode != 0:
+                raise RuntimeError(f"could not inspect coverage-audit run {database_id}")
+            try:
+                details: dict[str, Any] = json.loads(viewed.stdout or "{}")
+            except json.JSONDecodeError as error:
                 raise RuntimeError(
-                    f"successful coverage-audit run {database_id} has no usable head SHA"
-                )
-            return head
-    return None
+                    f"coverage-audit run {database_id} details were not valid JSON"
+                ) from error
+            coverage_succeeded = any(
+                isinstance(job, dict)
+                and job.get("name") == "Audit / Every Main Commit Has A Gate Verdict"
+                and job.get("conclusion") == "success"
+                for job in details.get("jobs", [])
+            )
+            if coverage_succeeded:
+                head = run.get("head_sha")
+                if not isinstance(head, str) or not head.strip():
+                    raise RuntimeError(
+                        f"successful coverage-audit run {database_id} has no usable head SHA"
+                    )
+                return head
+        if len(runs) < _RUNS_PER_PAGE:
+            return None
+        page += 1
 
 
 def _is_ancestor(checkpoint: str) -> bool:

@@ -167,6 +167,28 @@ describe("branch protection governance", () => {
     },
   );
 
+  it.each([
+    ["users", [123, "operator"], "non-empty strings"],
+    ["teams", ["risk-review", " "], "non-empty strings"],
+    ["apps", ["release-control", "release-control"], "duplicates"],
+  ] as const)("rejects invalid %s review-bypass principals", (category, principals, message) => {
+    const policy = loadPolicy();
+    const field = `required_pull_request_reviews.bypass_pull_request_allowances.${category}`;
+    policy.expected.required_pull_request_reviews.bypass_pull_request_allowances[category] =
+      [...principals] as unknown as string[];
+    policy.documented_exceptions.push({
+      field,
+      value: [...principals],
+      reason: "test exception",
+      compensating_controls: "test control",
+      retires_when: "test retirement",
+    });
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining(message)]),
+    );
+  });
+
   it("refuses to validate a policy copied from another repository", () => {
     const policy = loadPolicy();
     policy.repository = "sgajbi/lotus-gateway";
@@ -214,7 +236,10 @@ describe("branch protection governance", () => {
       join(repositoryRoot, "scripts", "audit_main_gate_coverage.py"),
       "utf8",
     );
-    expect(auditSource).toMatch(/"--branch",\s+"main"/);
+    expect(auditSource).toContain('"branch=main"');
+    expect(auditSource).toContain('run.get("path") != ".github/workflows/main-gate-coverage-audit.yml"');
+    expect(auditSource).toContain("page += 1");
+    expect(auditSource).not.toContain('"--limit"');
     expect(auditSource).toContain('job.get("name") == "Audit / Every Main Commit Has A Gate Verdict"');
     expect(workflow).toContain("coverage-audit:");
     expect(workflow).toContain("protection-audit:");

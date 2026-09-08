@@ -615,6 +615,25 @@ def validate_policy_document(policy: dict[str, Any]) -> list[str]:
                     "expected.required_pull_request_reviews."
                     f"bypass_pull_request_allowances.{category} must be a list"
                 )
+            else:
+                principals = bypass[category]
+                if any(
+                    not isinstance(principal, str) or not principal.strip()
+                    for principal in principals
+                ):
+                    issues.append(
+                        "expected.required_pull_request_reviews."
+                        f"bypass_pull_request_allowances.{category} must contain "
+                        "non-empty strings"
+                    )
+                string_principals = [
+                    principal for principal in principals if isinstance(principal, str)
+                ]
+                if len(set(string_principals)) != len(string_principals):
+                    issues.append(
+                        "expected.required_pull_request_reviews."
+                        f"bypass_pull_request_allowances.{category} must not contain duplicates"
+                    )
     for exception in policy.get("documented_exceptions", []):
         missing = _REQUIRED_EXCEPTION_KEYS - set(exception)
         if missing:
