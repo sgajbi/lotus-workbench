@@ -170,6 +170,23 @@ describe("principal credential verification", () => {
     ).toEqual({ status: "denied", denialClass, unauthenticated: true });
   });
 
+  it.each([null, "1788778800", 1788778800.5])(
+    "refuses a malformed not-before claim %j",
+    (notBefore) => {
+      const material = createSigningMaterial();
+      expect(
+        verifyPrincipalCredential(
+          credential(material.privateKey, { nbf: notBefore }),
+          inputs(material.jwks),
+        ),
+      ).toEqual({
+        status: "denied",
+        denialClass: "malformed_credential",
+        unauthenticated: true,
+      });
+    },
+  );
+
   it("refuses unknown keys and revoked identities", () => {
     const material = createSigningMaterial();
     const token = credential(material.privateKey);

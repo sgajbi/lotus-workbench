@@ -28,7 +28,7 @@ export type BffPrincipalAuthorityResult =
     }
   | {
       status: "denied";
-      denialClass: PrincipalDenialClass;
+      denialClass: PrincipalDenialClass | "session_principal_kind_not_admitted";
       httpStatus: 401 | 403 | 503;
     };
 
@@ -55,6 +55,13 @@ export async function authorizeBffPrincipal(
         : principal.denialClass === "grant_store_unavailable"
           ? 503
           : 403,
+    };
+  }
+  if (principal.principalKind !== "user") {
+    return {
+      status: "denied",
+      denialClass: "session_principal_kind_not_admitted",
+      httpStatus: 403,
     };
   }
   return {

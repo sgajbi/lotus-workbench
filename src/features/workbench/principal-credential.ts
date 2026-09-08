@@ -168,6 +168,9 @@ export function verifyPrincipalCredential(
   if (!Number.isInteger(claims.exp) || now > Number(claims.exp) + leeway) {
     return deny("expired_credential", true);
   }
+  if (claims.nbf !== undefined && !Number.isInteger(claims.nbf)) {
+    return deny("malformed_credential", true);
+  }
   if (Number.isInteger(claims.nbf) && now < Number(claims.nbf) - leeway) {
     return deny("expired_credential", true);
   }

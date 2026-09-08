@@ -471,6 +471,10 @@ export function applyReportOrderingRouteCallerContextHeaders(
     return { status: "rejected", reason: authorityMode };
   }
 
+  if (authorityMode === "authenticated_session" && !request.verifiedPrincipal) {
+    return { status: "rejected", reason: "authenticated_principal_required" };
+  }
+
   const portfolioIds = request.verifiedPrincipal
     ? [...request.verifiedPrincipal.portfolioScope]
     : configuredReportingPortfolioIds();
@@ -486,13 +490,11 @@ export function applyReportOrderingRouteCallerContextHeaders(
   }
 
   if (authorityMode === "authenticated_session") {
-    return request.verifiedPrincipal
-      ? {
-          status: "applied",
-          mode: authorityMode,
-          admittedSearch: requestPosture.admittedSearch,
-        }
-      : { status: "rejected", reason: "authenticated_principal_required" };
+    return {
+      status: "applied",
+      mode: authorityMode,
+      admittedSearch: requestPosture.admittedSearch,
+    };
   }
 
   const context = resolveReportingDevelopmentContext();

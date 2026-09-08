@@ -20,7 +20,10 @@ function material(kid: string) {
   };
 }
 
-function sessionCredential(privateKey: KeyObject) {
+function sessionCredential(
+  privateKey: KeyObject,
+  principalKind: "user" | "service" | "delegated" = "user",
+) {
   const header = Buffer.from(
     JSON.stringify({ alg: "EdDSA", kid: "session-key" }),
   ).toString("base64url");
@@ -30,7 +33,8 @@ function sessionCredential(privateKey: KeyObject) {
       aud: "lotus-workbench-bff",
       sub: "user:advisor-001",
       tenant: "tenant-sg",
-      principal_kind: "user",
+      principal_kind: principalKind,
+      ...(principalKind === "delegated" ? { act: "service:other-bff" } : {}),
       exp: Math.floor(NOW.getTime() / 1000) + 120,
       jti: "session-001",
     }),
@@ -152,4 +156,22 @@ describe("BFF principal authority", () => {
       denialClass: "grant_store_unavailable",
     });
   });
+
+  it.each(["service", "delegated"] as const)(
+    "rejects a %s credential as a Workbench user session before delegation",
+    async (principalKind) => {
+      const fixture = dependencies();
+      await expect(
+        authorizeBffPrincipal(
+          `Bearer ${sessionCredential(fixture.session.privateKey, principalKind)}`,
+          { requiredCapabilities: [], requestedPortfolioIds: [] },
+          fixture.value,
+        ),
+      ).resolves.toEqual({
+        status: "denied",
+        httpStatus: 403,
+        denialClass: "session_principal_kind_not_admitted",
+      });
+    },
+  );
 });
