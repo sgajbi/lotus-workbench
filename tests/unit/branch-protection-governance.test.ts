@@ -19,6 +19,8 @@ type BranchProtectionPolicy = {
     required_pull_request_reviews: {
       present: boolean;
       dismiss_stale_reviews: boolean;
+      require_code_owner_reviews: boolean;
+      require_last_push_approval: boolean;
       required_approving_review_count: number;
       bypass_pull_request_allowances: Record<"users" | "teams" | "apps", string[]>;
     };
@@ -219,6 +221,80 @@ describe("branch protection governance", () => {
 
     expect(validateBranchProtectionPolicy(policy)).toEqual(
       expect.arrayContaining([expect.stringContaining("unaudited field")]),
+    );
+  });
+
+  it("rejects an unsupported review-bypass category without an exception", () => {
+    const policy = loadPolicy() as BranchProtectionPolicy & {
+      expected: {
+        required_pull_request_reviews: {
+          bypass_pull_request_allowances: Record<string, string[]>;
+        };
+      };
+    };
+    policy.expected.required_pull_request_reviews.bypass_pull_request_allowances.administrators = [
+      "operations",
+    ];
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("unsupported category")]),
+    );
+  });
+
+  it("rejects a stale exception for an already pinned required check", () => {
+    const policy = loadPolicy();
+    const check = policy.expected.required_status_checks.checks[0];
+    policy.documented_exceptions.push({
+      field: `required_status_checks.checks.app_id:${check.context}`,
+      value: check.app_id,
+      reason: "the check is already pinned",
+      compensating_controls: "none",
+      retires_when: "immediately",
+    });
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("unpinned null binding")]),
+    );
+  });
+
+  it("rejects a stale exception for an empty review-bypass allowance", () => {
+    const policy = loadPolicy();
+    policy.documented_exceptions.push({
+      field: "required_pull_request_reviews.bypass_pull_request_allowances.users",
+      value: [],
+      reason: "no active bypass",
+      compensating_controls: "none",
+      retires_when: "immediately",
+    });
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("no active review bypass")]),
+    );
+  });
+
+  it("rejects nested review exceptions while pull-request reviews are absent", () => {
+    const policy = loadPolicy();
+    policy.expected.required_pull_request_reviews.present = false;
+    policy.expected.required_pull_request_reviews.require_code_owner_reviews = false;
+    policy.documented_exceptions = [
+      {
+        field: "required_pull_request_reviews.present",
+        value: false,
+        reason: "review block absent for test",
+        compensating_controls: "manual review",
+        retires_when: "review block restored",
+      },
+      {
+        field: "required_pull_request_reviews.require_code_owner_reviews",
+        value: false,
+        reason: "nested control cannot be observed",
+        compensating_controls: "manual review",
+        retires_when: "review block restored",
+      },
+    ];
+
+    expect(validateBranchProtectionPolicy(policy)).toEqual(
+      expect.arrayContaining([expect.stringContaining("present is not true")]),
     );
   });
 
