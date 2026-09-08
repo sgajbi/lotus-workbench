@@ -129,15 +129,15 @@ promote dormant labels into product ownership just because historical route file
   internal `/api/bff/api/v1/domain-products/*` bridge only. Catalogue failure blocks discovery;
   assurance or graph failure leaves confirmed catalogue evidence available and does not authorize
   a browser fallback or direct platform-artifact read.
-- internal browser-to-gateway traffic can flow through `/api/bff/*`. Static caller context is
-  development-only; generic BFF and direct server-rendered Gateway paths return a permission
-  failure before upstream access in promoted or unconfigured environments until verified principal
-  resolution is implemented.
+- internal browser-to-gateway traffic flows through `/api/bff/*`. Static caller context is
+  development-only. Five specialized route families have verified source behavior and forward only
+  delegated credentials; generic and direct server-rendered paths remain closed in promoted or
+  unconfigured environments.
 - `/book` consumes `GET /api/v1/advisor-book/portfolios` through the Workbench BFF. The BFF
   replaces browser-supplied actor, tenant, region, booking-centre, role, and capability headers;
   strips browser `Authorization`, browser `Cookie`, proxy authorization, session id, and upstream
-  auth identity aliases; and supports only development-configured authority. Non-development
-  runtime fails closed pending authenticated principal resolution in Workbench #436.
+  auth identity aliases. Verified posture requires `advisor.book.read`; the configured runtime
+  fails closed pending the production grant authority tracked by Workbench #436 and Platform #775.
 - `/intake` submits portfolio bundle writes through `/api/bff/api/v1/intake/portfolio-bundle`
   and forwards a bounded `X-Idempotency-Key` so Gateway/Core own safe duplicate-submit replay
   semantics
@@ -409,8 +409,8 @@ promote dormant labels into product ownership just because historical route file
   Gateway Idea endpoints. Workbench reads `GET /api/v1/ideas/review-queues/advisor`; its BFF discards
   browser-supplied Idea authority headers and applies its configured subject, role, route capability,
   and portfolio entitlement only in the explicit development fixture mode (`dev`, `development`,
-  `local`, or `test`). An unset or other environment requires an authenticated session principal and fails
-  closed before Gateway until that resolver is implemented. Only allowlisted queue, candidate-detail,
+  `local`, or `test`). An unset or other environment requires a verified, currently granted session
+  principal and fails closed before Gateway when admission cannot be established. Only allowlisted queue, candidate-detail,
   review-action, feedback, and conversion-intent routes can traverse the BFF; other Idea paths are
   rejected before Gateway. It is limited to canonical `PB_SG_GLOBAL_BAL_001` until
   authenticated portfolio entitlement is available. It renders Idea-owned rank, score, priority,

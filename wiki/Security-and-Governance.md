@@ -3,24 +3,24 @@
 ## Current Scope And Evidence Posture
 
 This page describes controls implemented in the current Workbench repository: the browser-to-BFF
-request boundary, development-only caller fixtures, route-specific authority narrowing, dependency
-and image security gates, capability-truth rules, and exact-head delivery evidence.
+request boundary, development-only caller fixtures, verified route authority, dependency and image
+security gates, capability-truth rules, and exact-head delivery evidence.
 
 These controls reduce impersonation, contract-drift, dependency, and unsupported-feature risk. They
-do **not** certify production authentication, authorization, entitlement, data privacy, operational
-resilience, regulatory compliance, or bank acceptance. Production principal/session resolution is
-still owned by [Workbench #436](https://github.com/sgajbi/lotus-workbench/issues/436) and
-[lotus-platform #563](https://github.com/sgajbi/lotus-platform/issues/563), with delegated grant
-resolution tracked by [lotus-platform #775](https://github.com/sgajbi/lotus-platform/issues/775).
-Local configured callers are non-certifying development fixtures. Generic BFF and direct
-server-to-Gateway paths fail closed outside permitted development environments.
+do **not** certify a production IdP, live grant store, managed key custody, data privacy,
+operational resilience, regulatory compliance, or bank acceptance. Workbench source now verifies
+the Platform Ed25519 credential shape and issues delegated credentials for five specialized route
+families, but the configured path fails closed because the production grant authority does not yet
+exist. [Workbench #436](https://github.com/sgajbi/lotus-workbench/issues/436) and
+[lotus-platform #775](https://github.com/sgajbi/lotus-platform/issues/775) retain that boundary.
 
 ## Control And Evidence Map
 
 | Control area | Implemented boundary | Primary evidence | Remaining boundary |
 | --- | --- | --- | --- |
 | Browser request trust | BFF rebuilds Gateway headers from a closed allowlist and discards browser-supplied authority | `quality:bff-header-boundary`, behavioral BFF tests | Not an IdP or session implementation |
-| Route authority | Server-owned development context is narrowed per route; promoted and unconfigured environments stop before Gateway while no verified principal exists | Route-family and direct-server negative tests, plus canonical local validation | Production claims await authenticated principal and delegated-grant resolution |
+| Route authority | Five specialized BFF families verify signed sessions, resolve exact capability and portfolio scope, and send only delegated credentials; every unavailable or denied path stops before its protected Gateway call | Real-signature, denial-class, hostile-header, scope, delegation, and zero-protected-call tests | Live grant authority, IdP, managed keys, Gateway enforcement, and deployment certification remain external |
+| Client authority transition | Responses carry an opaque digest of the admitted principal and scope; a change clears Query state and late prior-authority responses are refused | Client authority, provider cache, and transport race tests | Digest evidence is source behavior, not a session certification |
 | Capability truth | Disabled, unsupported, partial, and unavailable states remain explicit | `quality:screen-docs`, product-copy gate, browser scenarios | Implemented route does not imply production promotion |
 | Dependency and image risk | Direct dependency admission, `npm audit`, pinned production image, vulnerability and SBOM gates | Feature, PR, and main releasability lanes | Not a production penetration test or deployment certification |
 | Release governance | Signed commits, protected CI, exact-head review authority, exact-main validation | GitHub PR checks and Main Releasability | Green CI cannot override a blocking review finding |
@@ -55,13 +55,13 @@ The allowlist is limited to:
    `If-Unmodified-Since`, `Range`, and `If-Range`,
 4. validated support context: `X-Correlation-Id`, `X-Trace-Id`, and `traceparent`.
 
-Browser `Authorization`, cookies, proxy authorization, session identifiers, forwarding aliases,
+Browser cookies, proxy authorization, session identifiers, forwarding aliases,
 caller identity, tenant, region, booking centre, role, capability, principal status, service
-identity, and portfolio/client/book entitlements are not forwarded. The BFF writes configured
-caller context only in explicit development environments, where specialized adapters may narrow it
-for a route. Promoted and unconfigured environments receive no static replacement authority and
-are rejected before Gateway. Direct server-rendered Gateway reads follow the same environment
-fence.
+identity, and portfolio/client/book entitlements are not forwarded. In verified posture an inbound
+Bearer session credential is cryptographically checked rather than forwarded; the BFF resolves
+grants through its injected authority, then creates a short-lived Gateway-audience delegated
+credential. Static context is written only in explicit development environments. Unhandled and
+direct server-rendered paths remain rejected outside those environments.
 
 `npm run quality:bff-header-boundary` is a syntax-aware CI backstop that fails when a BFF route
 omits the shared builder, accesses browser headers outside it, or the scanner finds no BFF routes.
@@ -69,9 +69,24 @@ Behavioral regression coverage injects every forbidden authority
 header across portfolio, Performance, Risk, DPM, proposals, advisory workspaces, documents,
 Intake, lookups, and platform route families.
 
-This is a request-boundary control, not production authentication. It neither creates an IdP
-session nor certifies identity, token claims, logout, or revocation. Workbench #436 and Platform
-#563/#775 remain the owners of the authenticated principal and delegated-grant path.
+Source tests use generated keys to prove signature verification, expiry/revocation refusal,
+membership and capability resolution, delegated intersection, exact scope, and zero protected calls
+on denial. They do not create an IdP, operate the missing grant store, certify key custody, or prove
+production logout and revocation feeds.
+
+### Verified credential configuration
+
+The source adapter reads the expected session issuer and trusted public JWKS from
+`WORKBENCH_SESSION_CREDENTIAL_ISSUER` and `WORKBENCH_SESSION_CREDENTIAL_JWKS_JSON`. Delegation uses
+`WORKBENCH_DELEGATED_CREDENTIAL_ISSUER`, `WORKBENCH_DELEGATED_CREDENTIAL_KEY_ID`, and the
+secret-injected `WORKBENCH_DELEGATED_CREDENTIAL_PRIVATE_JWK_JSON`. Optional credential and subject
+revocation inputs use `WORKBENCH_REVOKED_SESSION_CREDENTIAL_IDS` and
+`WORKBENCH_REVOKED_PRINCIPAL_SUBJECTS`.
+
+No private key belongs in source control, logs, screenshots, or evidence. Configuration alone does
+not enable the route: the injected tenant-membership and grant resolver is mandatory and currently
+absent, so configured deployments return `grant_store_unavailable` rather than trusting headers or
+portfolio-party relationships.
 
 ### Query-scoped route admission
 

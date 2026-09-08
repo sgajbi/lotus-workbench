@@ -15,8 +15,11 @@ not approve advice, assess suitability, communicate with a client, or create an 
 | AI boundary | Generated output is internal working material with an output-adjacent **How this was prepared** disclosure |
 | Primary next action | Prepare one supported review task, inspect its evidence and limitations, then record internal review only when the returned run permits it |
 
-The route is not production identity, entitlement, client-publication, advice-approval, or
-bank-readiness certification. Local development caller identity is bounded proof only.
+The verified source path uses one delegated credential for the Gateway-owned proposal/portfolio
+scope lookup and the review command, then checks the returned portfolio against the resolved
+principal scope. The configured path remains unavailable until a production grant authority is
+owned and operated. This is not live identity, client-publication, advice-approval, or bank-readiness
+certification; local development identity remains bounded proof only.
 
 ## Business Purpose
 

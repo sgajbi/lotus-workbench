@@ -17,8 +17,9 @@ consolidated client, household, or book report.
 
 The portfolio-bundle option appears only when Reporting publishes the exact governed batch
 capability and submission path. Development-configured caller context is bounded to explicit local
-proof. UAT and production fail closed until an authenticated principal provides reporting and
-advisor-book authority.
+proof. The verified source path resolves `advisor.book.read` and every request-visible portfolio
+against the signed principal, then sends only a delegated Gateway credential. The configured path
+fails closed while the production grant authority is absent.
 
 ## Business Purpose
 
@@ -169,7 +170,7 @@ outcomes remain separate and never inflate completion.
 | Single-portfolio report request and acceptance | Submitted only after exact intent review; accepted only when the returned key and job/status identity bind the receipt to that reviewed request | Gateway and Lotus Report portfolio-review contract |
 | Portfolio-bundle handle, materialized portfolios, item lifecycle, attempts, failure summary, and support reference | Submitted, rehydrated, and refreshed through the BFF; no lifecycle is calculated from browser timers and no URL address is treated as source proof | Gateway and Lotus Report batch contracts |
 | Recent single-portfolio report-data job history | Presented from the source response without implying archive or delivery | Gateway and Lotus Report job contract |
-| Caller role and portfolio scope | Browser-supplied authority is removed; development context is server-configured and non-development fails closed | Governed Workbench runtime context, with Gateway as final authorization boundary |
+| Caller role and portfolio scope | Browser authority is removed; verified posture resolves the signed principal and exact request scope, while development posture remains server-configured | Workbench principal resolver and Gateway delegated authorization boundary |
 
 Shared endpoint and ownership detail remains in [API Surface](API-Surface) and
 [Integrations](Integrations).

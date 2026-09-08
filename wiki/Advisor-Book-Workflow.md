@@ -14,11 +14,12 @@ client 360, opportunity ranking, household view, or book-AUM dashboard.
 | Evidence posture | Gateway/Core membership and provenance are validated; canonical proof remains partial where tenant scope is trusted-context-only |
 | Primary next action | Open a returned portfolio in Portfolio Review |
 
-Workbench presents only the book membership returned through Gateway. UAT and production fail
-closed until [Workbench #436](https://github.com/sgajbi/lotus-workbench/issues/436) provides an
-authenticated principal; development configuration is permitted only in an explicitly
-development-scoped runtime. This page does not claim production identity, delegated-book access,
-or independently certified tenant assignment.
+Workbench presents only the book membership returned through Gateway. Its verified source path
+requires the signed principal's `advisor.book.read` grant and sends only a delegated Gateway
+credential; browser identity and capability headers are discarded. The configured deployment path
+still fails closed while the production grant authority is absent. Development configuration is
+permitted only in an explicitly development-scoped runtime. This page does not claim live IdP,
+grant-store, key-custody, or deployment certification.
 
 ## Business Purpose
 

@@ -76,11 +76,13 @@ Local product endpoints:
 
 Set `BFF_BASE_URL=http://gateway.dev.lotus` for the normal local Gateway boundary. The local caller
 fixture is development-only and is not production identity evidence. Promoted and unconfigured
-environments refuse generic BFF and direct server-to-Gateway reads until verified principal
-resolution is available. Production principal/session resolution remains tracked by
+environments refuse generic BFF and direct server-to-Gateway reads. The source implementation for
+specialized Idea, Adviser Book, Adviser Cockpit, Advisory Copilot, and Report Centre routes verifies
+Ed25519 session credentials, resolves route capability and portfolio scope, and forwards only a
+short-lived delegated credential. It fails closed while the production grant authority is absent;
+live IdP, grant-store, key-custody, and deployment certification remain tracked by
 [Workbench #436](https://github.com/sgajbi/lotus-workbench/issues/436) and
-[lotus-platform #563](https://github.com/sgajbi/lotus-platform/issues/563), with delegated grant
-resolution tracked by [lotus-platform #775](https://github.com/sgajbi/lotus-platform/issues/775).
+[lotus-platform #775](https://github.com/sgajbi/lotus-platform/issues/775).
 
 For a populated integrated run, use the governed front-office flow and canonical portfolio
 `PB_SG_GLOBAL_BAL_001` from Windows PowerShell:
