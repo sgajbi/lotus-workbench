@@ -248,6 +248,11 @@ export function buildPerformanceRiskViewModel({
   const attribution = riskAttribution ?? null;
   const admittedAttribution =
     attribution && isKnownAttributionState(attribution.state) ? attribution : null;
+  const settledAttributionState = attribution
+    ? isKnownAttributionState(attribution.state)
+      ? attribution.state
+      : "unavailable"
+    : null;
   const drawdown =
     riskDrawdown ??
     buildUnavailableRiskDrawdown({
@@ -283,7 +288,13 @@ export function buildPerformanceRiskViewModel({
       drawdown.payload?.periods.length ||
       rolling.payload?.periods.length
   );
-  const moduleStates = [summary.state, concentration.state, drawdown.state, rolling.state];
+  const moduleStates = [
+    summary.state,
+    concentration.state,
+    drawdown.state,
+    rolling.state,
+    ...(settledAttributionState ? [settledAttributionState] : []),
+  ];
   const isPermissionBlocked = !hasPayload && moduleStates.some((moduleState) => moduleState === "blocked");
   const state = isPermissionBlocked
     ? "permission_blocked"
