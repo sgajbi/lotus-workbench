@@ -246,6 +246,8 @@ export function buildPerformanceRiskViewModel({
       detail: "Risk concentration is not available from the Gateway BFF.",
     });
   const attribution = riskAttribution ?? null;
+  const admittedAttribution =
+    attribution && isKnownAttributionState(attribution.state) ? attribution : null;
   const drawdown =
     riskDrawdown ??
     buildUnavailableRiskDrawdown({
@@ -270,14 +272,14 @@ export function buildPerformanceRiskViewModel({
   const supportability = [
     ...mapSupportabilityGroup("summary", summary.supportability),
     ...mapSupportabilityGroup("concentration", concentration.supportability),
-    ...mapSupportabilityGroup("attribution", attribution?.supportability ?? []),
+    ...mapSupportabilityGroup("attribution", admittedAttribution?.supportability ?? []),
     ...mapSupportabilityGroup("drawdown", drawdown.supportability),
     ...mapSupportabilityGroup("rolling", rolling.supportability),
   ];
   const hasPayload = Boolean(
     summary.payload?.periods.length ||
       concentration.payload ||
-      attribution?.payload?.periods.length ||
+      admittedAttribution?.payload?.periods.length ||
       drawdown.payload?.periods.length ||
       rolling.payload?.periods.length
   );
@@ -311,7 +313,7 @@ export function buildPerformanceRiskViewModel({
       concentration,
       drawdown,
       rolling,
-      attribution,
+      attribution: admittedAttribution,
       supportability,
     }),
     mandateComparison: buildRiskMandateComparisonViewModel({
@@ -342,12 +344,12 @@ export function buildPerformanceRiskViewModel({
       isRollingDetailLoading,
     }),
     rollingContextRows: mapRollingContextRows(rolling),
-    attributionControls: mapAttributionControls(attribution),
-    attributionRows: mapAttributionRows(attribution),
-    attributionMaxContributionShareAbsPct: mapAttributionMaxContributionShareAbsPct(attribution),
-    attributionMethodologyRows: mapAttributionMethodologyRows(attribution),
+    attributionControls: mapAttributionControls(admittedAttribution),
+    attributionRows: mapAttributionRows(admittedAttribution),
+    attributionMaxContributionShareAbsPct: mapAttributionMaxContributionShareAbsPct(admittedAttribution),
+    attributionMethodologyRows: mapAttributionMethodologyRows(admittedAttribution),
     attributionState: resolveAttributionState({ attribution, isAttributionLoading }),
-    attributionWarnings: attribution?.warnings ?? [],
+    attributionWarnings: admittedAttribution?.warnings ?? [],
     supportability: supportability.map((item) => ({
       key: item.key,
       label: item.label,
@@ -357,7 +359,7 @@ export function buildPerformanceRiskViewModel({
     warnings: [
       ...summary.warnings,
       ...concentration.warnings,
-      ...(attribution?.warnings ?? []),
+      ...(admittedAttribution?.warnings ?? []),
       ...drawdown.warnings,
       ...rolling.warnings,
     ],
@@ -365,7 +367,7 @@ export function buildPerformanceRiskViewModel({
       new Set([
         ...summary.partial_failures.map((failure) => failure.detail),
         ...concentration.partial_failures.map((failure) => failure.detail),
-        ...(attribution?.partial_failures.map((failure) => failure.detail) ?? []),
+        ...(admittedAttribution?.partial_failures.map((failure) => failure.detail) ?? []),
         ...drawdown.partial_failures.map((failure) => failure.detail),
         ...rolling.partial_failures.map((failure) => failure.detail),
       ])
@@ -2979,6 +2981,13 @@ function resolveAttributionEvidencePosture(
   );
   const residualAbs = Math.abs(residual ?? 0);
 
+  if (response.state === "partial") {
+    return {
+      value: "Qualified",
+      support: "Review the source qualifications before using this decomposition externally.",
+      metadata: "Attribution evidence is incomplete",
+    };
+  }
   if (hasQualifiedSupportability) {
     return {
       value: "Qualified",
@@ -3135,4 +3144,8 @@ function resolveAttributionState({
     default:
       return "unavailable";
   }
+}
+
+function isKnownAttributionState(state: unknown): state is WorkbenchRiskAttributionResponse["state"] {
+  return state === "ready" || state === "partial" || state === "blocked" || state === "unavailable";
 }

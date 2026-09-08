@@ -610,4 +610,83 @@ describe("buildPerformanceRiskViewModel", () => {
       expect(viewModel.attributionMethodologyRows).toHaveLength(expectedMethodologyRows);
     },
   );
+
+  it("keeps a partial source qualification in the methodology posture", () => {
+    const scenario = buildSupportedPerformanceScenario();
+    const attribution = {
+      ...buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET"),
+      state: "partial",
+    } satisfies WorkbenchRiskAttributionResponse;
+    const selectedSet = attribution.payload?.periods[0]?.attribution_sets[0];
+    if (!selectedSet) {
+      throw new Error("Expected fixture attribution set.");
+    }
+    selectedSet.residual = 0.0005;
+
+    const viewModel = buildPerformanceRiskViewModel({
+      workspace: scenario.workspace,
+      period: "YTD",
+      detailBasis: "NET",
+      riskAttribution: attribution,
+    });
+
+    expect(viewModel.attributionMethodologyRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          label: "Evidence posture",
+          value: "Qualified",
+          support: "Review the source qualifications before using this decomposition externally.",
+        }),
+      ]),
+    );
+  });
+
+  it("discards every attribution-derived projection for an unknown source state", () => {
+    const scenario = buildSupportedPerformanceScenario();
+    const attribution = {
+      ...buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET"),
+      state: "unexpected",
+      supportability: [
+        {
+          key: "unadmitted_attribution_evidence",
+          label: "Unadmitted attribution evidence",
+          state: "ready",
+          source_service: "lotus-risk",
+        },
+      ],
+      warnings: ["UNADMITTED_ATTRIBUTION_WARNING"],
+      partial_failures: [
+        {
+          source_service: "lotus-risk",
+          error_code: "unadmitted_attribution_failure",
+          detail: "Unadmitted attribution failure detail",
+        },
+      ],
+    } as unknown as WorkbenchRiskAttributionResponse;
+
+    const viewModel = buildPerformanceRiskViewModel({
+      workspace: scenario.workspace,
+      period: "YTD",
+      detailBasis: "NET",
+      riskAttribution: attribution,
+    });
+
+    expect(viewModel.attributionState).toBe("unavailable");
+    expect(viewModel.attributionControls).toBeNull();
+    expect(viewModel.attributionRows).toEqual([]);
+    expect(viewModel.attributionMethodologyRows).toEqual([]);
+    expect(viewModel.attributionWarnings).toEqual([]);
+    expect(viewModel.supportability).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: "attribution_unadmitted_attribution_evidence" }),
+      ]),
+    );
+    expect(viewModel.warnings).not.toContain("UNADMITTED_ATTRIBUTION_WARNING");
+    expect(viewModel.partialFailures).not.toContain("Unadmitted attribution failure detail");
+    expect(viewModel.workspaceOverview).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ label: "Source coverage", value: "Unavailable" }),
+      ]),
+    );
+  });
 });
