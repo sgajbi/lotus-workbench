@@ -36,15 +36,12 @@ function createRunner(overrides: Partial<Record<string, CommandResult>> = {}) {
       );
     }
     if (identity.startsWith("git rev-list ")) return success(`${firstRevision}\n${secondRevision}\n`);
-    if (identity.includes("git/ref/tags/")) {
-      return { status: 1, stderr: "gh: Not Found (HTTP 404)", stdout: "" };
-    }
     return success();
   });
 }
 
 describe("merged-main releasability dispatch", () => {
-  it("dispatches each landed revision in order with an immutable exact-SHA ref", () => {
+  it("dispatches each landed revision in order through main with exact-SHA input", () => {
     const run = createRunner();
 
     expect(dispatchMainReleasability({ environment: createEnvironment(), run })).toEqual([
@@ -54,10 +51,10 @@ describe("merged-main releasability dispatch", () => {
 
     const calls = run.mock.calls.map(([command, args]) => `${command} ${args.join(" ")}`);
     expect(calls.filter((call) => call.startsWith("gh workflow run main-releasability.yml"))).toEqual([
-      expect.stringContaining(`--ref main-releasability-${firstRevision} -f expected_sha=${firstRevision}`),
-      expect.stringContaining(`--ref main-releasability-${secondRevision} -f expected_sha=${secondRevision}`),
+      expect.stringContaining(`--ref main -f expected_sha=${firstRevision}`),
+      expect.stringContaining(`--ref main -f expected_sha=${secondRevision}`),
     ]);
-    expect(calls.filter((call) => call.includes("git/refs -f ref=refs/tags/"))).toHaveLength(2);
+    expect(calls.some((call) => call.includes("git/ref"))).toBe(false);
   });
 
   it.each([
@@ -128,7 +125,7 @@ describe("merged-main releasability dispatch", () => {
     expect(run.mock.calls.some(([command, args]) => command === "gh" && args.includes("git/refs"))).toBe(false);
   });
 
-  it("refuses a revision that current main does not contain before creating a tag", () => {
+  it("refuses a revision that current main does not contain before dispatch", () => {
     const ancestry = `git merge-base --is-ancestor ${firstRevision} HEAD`;
     const run = createRunner({
       [ancestry]: { status: 1, stderr: "not an ancestor", stdout: "" },
@@ -140,7 +137,7 @@ describe("merged-main releasability dispatch", () => {
     expect(run.mock.calls.some(([command, args]) => command === "gh" && args.includes("workflow"))).toBe(false);
   });
 
-  it("rejects a malformed enumerated revision before creating a tag", () => {
+  it("rejects a malformed enumerated revision before dispatch", () => {
     const run = createRunner({
       [`git rev-list -n 2 --reverse ${secondRevision}`]: success(`not-a-sha\n${secondRevision}\n`),
     });
@@ -151,44 +148,8 @@ describe("merged-main releasability dispatch", () => {
     expect(run.mock.calls.some(([command, args]) => command === "gh" && args.includes("git/refs"))).toBe(false);
   });
 
-  it("rejects a conflicting immutable dispatch tag", () => {
-    const lookup = `gh api repos/sgajbi/lotus-workbench/git/ref/tags/main-releasability-${firstRevision} --jq .object.sha`;
-    const run = createRunner({ [lookup]: success("f".repeat(40)) });
-
-    expect(() => dispatchMainReleasability({ environment: createEnvironment(), run })).toThrow(
-      "points to",
-    );
-    expect(run.mock.calls.some(([command, args]) => command === "gh" && args.includes("workflow"))).toBe(false);
-  });
-
-  it("preserves an existing exact tag and still dispatches recoverable evidence", () => {
-    const firstLookup = `gh api repos/sgajbi/lotus-workbench/git/ref/tags/main-releasability-${firstRevision} --jq .object.sha`;
-    const secondLookup = `gh api repos/sgajbi/lotus-workbench/git/ref/tags/main-releasability-${secondRevision} --jq .object.sha`;
-    const run = createRunner({
-      [firstLookup]: success(firstRevision),
-      [secondLookup]: success(secondRevision),
-    });
-
-    dispatchMainReleasability({ environment: createEnvironment(), run });
-
-    expect(run.mock.calls.some(([command, args]) => command === "gh" && args.includes("git/refs"))).toBe(false);
-    expect(run.mock.calls.filter(([command, args]) => command === "gh" && args[0] === "workflow")).toHaveLength(2);
-  });
-
-  it("does not mistake a tag lookup authorization failure for an absent tag", () => {
-    const lookup = `gh api repos/sgajbi/lotus-workbench/git/ref/tags/main-releasability-${firstRevision} --jq .object.sha`;
-    const run = createRunner({
-      [lookup]: { status: 1, stderr: "gh: Resource not accessible (HTTP 403)", stdout: "" },
-    });
-
-    expect(() => dispatchMainReleasability({ environment: createEnvironment(), run })).toThrow(
-      "Unable to verify immutable dispatch ref",
-    );
-    expect(run.mock.calls.some(([command, args]) => command === "gh" && args.includes("git/refs"))).toBe(false);
-  });
-
   it("fails visibly when an exact revision cannot be dispatched", () => {
-    const dispatch = `gh workflow run main-releasability.yml --repo sgajbi/lotus-workbench --ref main-releasability-${firstRevision} -f expected_sha=${firstRevision} -f triggering_pr=1036`;
+    const dispatch = `gh workflow run main-releasability.yml --repo sgajbi/lotus-workbench --ref main -f expected_sha=${firstRevision} -f triggering_pr=1036`;
     const run = createRunner({
       [dispatch]: { status: 1, stderr: "workflow dispatch refused", stdout: "" },
     });

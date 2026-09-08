@@ -114,38 +114,6 @@ export function dispatchMainReleasability({ environment = process.env, run = com
       `Revision ${revision} is not reachable from current main; refusing to dispatch`,
     );
 
-    const dispatchRef = `main-releasability-${revision}`;
-    const tagLookup = run("gh", [
-      "api",
-      `repos/${inputs.repository}/git/ref/tags/${dispatchRef}`,
-      "--jq",
-      ".object.sha",
-    ]);
-    if (tagLookup.status === 0) {
-      const existingSha = tagLookup.stdout.trim();
-      if (existingSha !== revision) {
-        throw new Error(`Dispatch ref ${dispatchRef} points to ${existingSha}, expected ${revision}`);
-      }
-    } else if (/HTTP 404/i.test(tagLookup.stderr)) {
-      runRequired(
-        run,
-        "gh",
-        [
-          "api",
-          `repos/${inputs.repository}/git/refs`,
-          "-f",
-          `ref=refs/tags/${dispatchRef}`,
-          "-f",
-          `sha=${revision}`,
-        ],
-        `Unable to create immutable dispatch ref ${dispatchRef}`,
-      );
-    } else {
-      throw new Error(
-        `Unable to verify immutable dispatch ref ${dispatchRef}: ${tagLookup.stderr.trim() || `exit ${tagLookup.status}`}`,
-      );
-    }
-
     runRequired(
       run,
       "gh",
@@ -156,7 +124,7 @@ export function dispatchMainReleasability({ environment = process.env, run = com
         "--repo",
         inputs.repository,
         "--ref",
-        dispatchRef,
+        "main",
         "-f",
         `expected_sha=${revision}`,
         "-f",
