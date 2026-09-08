@@ -1793,6 +1793,57 @@ describe("BFF proxy route", () => {
     });
   });
 
+  it("binds verified Advisor Cockpit admission to the requested portfolio", async () => {
+    process.env.LOTUS_ENVIRONMENT = "production";
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue(new Response('{"data":{}}', { status: 200 }));
+    const authorize = vi
+      .spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal")
+      .mockResolvedValueOnce({
+        status: "admitted",
+        principal: {
+          issuer: "https://identity.lotus.test",
+          audience: ["lotus-workbench-bff"],
+          subject: "user:advisor-001",
+          tenantId: "tenant-sg",
+          principalKind: "user",
+          credentialId: "session-001",
+          capabilities: new Set(["advisory.advisor_cockpit.read"]),
+          portfolioScope: new Set(["PB_SG_GLOBAL_BAL_001"]),
+        },
+        gatewayCredential: "delegated.cockpit.signature",
+      });
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisor-cockpit/supportability?portfolio_id=PB_SG_GLOBAL_BAL_001",
+        {
+          headers: {
+            Authorization: "Bearer verified-session-credential",
+            "X-Authorized-Portfolio-Id": "PB_NOT_ENTITLED",
+          },
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["api", "v1", "advisor-cockpit", "supportability"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(authorize).toHaveBeenCalledWith("Bearer verified-session-credential", {
+      requiredCapabilities: ["advisory.advisor_cockpit.read"],
+      requestedPortfolioIds: ["PB_SG_GLOBAL_BAL_001"],
+    });
+    const upstreamHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(upstreamHeaders.get("Authorization")).toBe(
+      "Bearer delegated.cockpit.signature",
+    );
+    expect(upstreamHeaders.get("X-Authorized-Portfolio-Id")).toBeNull();
+    expect(upstreamHeaders.get("X-Caller-Capabilities")).toBeNull();
+  });
+
   it("derives Advisory Copilot review authority at the BFF instead of trusting browser headers", async () => {
     const fetchMock = vi.mocked(fetch);
     fetchMock

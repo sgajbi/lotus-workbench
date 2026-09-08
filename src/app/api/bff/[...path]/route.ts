@@ -5,7 +5,11 @@ import {
   resolveAdvisorBookAuthorityMode,
   resolveAdvisorBookRouteCapability,
 } from "@/features/advisor-book/caller-context";
-import { applyAdvisorCockpitCallerContextHeaders } from "@/features/advisor-cockpit/caller-context";
+import {
+  applyAdvisorCockpitCallerContextHeaders,
+  resolveAdvisorCockpitAuthorityMode,
+  resolveAdvisorCockpitCapability,
+} from "@/features/advisor-cockpit/caller-context";
 import {
   createGatewayRequestSignal,
   isGatewayRequestTimeout,
@@ -49,11 +53,22 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       resolveAdvisorBookAuthorityMode() === "authenticated_session"
         ? resolveAdvisorBookRouteCapability({ method: request.method, upstreamPath })
         : undefined;
-    const requiredCapability = ideaCapability ?? advisorBookCapability;
+    const advisorCockpitCapability =
+      resolveAdvisorCockpitAuthorityMode() === "authenticated_session"
+        ? resolveAdvisorCockpitCapability({ method: request.method, upstreamPath })
+        : undefined;
+    const requiredCapability =
+      ideaCapability ?? advisorBookCapability ?? advisorCockpitCapability;
     if (requiredCapability) {
+      const requestedPortfolioIds = advisorCockpitCapability
+        ? request.nextUrl.searchParams
+            .getAll("portfolio_id")
+            .map((portfolioId) => portfolioId.trim())
+            .filter(Boolean)
+        : [];
       const principalAuthority = await authorizeConfiguredBffPrincipal(
         request.headers.get("authorization"),
-        { requiredCapabilities: [requiredCapability], requestedPortfolioIds: [] },
+        { requiredCapabilities: [requiredCapability], requestedPortfolioIds },
       );
       if (principalAuthority.status === "denied") {
         return NextResponse.json(
@@ -111,6 +126,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       upstreamPath,
       searchParams: request.nextUrl.searchParams,
       bodyText: requestBody,
+      verifiedPrincipal,
     },
   );
   if (advisorCockpitAuthority.status === "rejected") {
