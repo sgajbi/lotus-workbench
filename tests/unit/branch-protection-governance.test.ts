@@ -65,6 +65,26 @@ describe("branch protection governance", () => {
     );
   });
 
+  it.each(["users", "teams", "apps"] as const)(
+    "rejects an undocumented %s review bypass",
+    (category) => {
+      const policy = loadPolicy() as BranchProtectionPolicy & {
+        expected: {
+          required_pull_request_reviews: {
+            bypass_pull_request_allowances: Record<"users" | "teams" | "apps", string[]>;
+          };
+        };
+      };
+      policy.expected.required_pull_request_reviews.bypass_pull_request_allowances[category] = [
+        "unreviewed-principal",
+      ];
+
+      expect(validateBranchProtectionPolicy(policy)).toEqual(
+        expect.arrayContaining([expect.stringContaining(`non-empty required_pull_request_reviews.bypass_pull_request_allowances.${category}`)]),
+      );
+    },
+  );
+
   it("refuses to validate a policy copied from another repository", () => {
     const policy = loadPolicy();
     policy.repository = "sgajbi/lotus-gateway";

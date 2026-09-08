@@ -165,6 +165,15 @@ export function validateBranchProtectionPolicy(policy) {
   ) {
     issues.push("zero required approvals must have a documented exception");
   }
+  if (isObject(reviews) && isObject(reviews.bypass_pull_request_allowances)) {
+    for (const category of ["users", "teams", "apps"]) {
+      const allowance = reviews.bypass_pull_request_allowances[category];
+      const field = `required_pull_request_reviews.bypass_pull_request_allowances.${category}`;
+      if (Array.isArray(allowance) && allowance.length > 0 && !exceptionTargets.has(field)) {
+        issues.push(`non-empty ${field} must have a documented exception`);
+      }
+    }
+  }
   return issues;
 }
 
