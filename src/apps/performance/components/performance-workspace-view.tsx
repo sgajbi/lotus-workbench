@@ -113,6 +113,39 @@ export default function PerformanceWorkspaceView({
       ) : null}
     </div>
   ) : undefined;
+  const refreshStatusNotice = refreshStatus ? (
+    refreshStatus.kind === "confirmed" ? (
+      <WorkbenchRefreshStatus
+        kind="confirmed"
+        eyebrow={getRefreshStatusEyebrow(refreshStatus)}
+        title={getRefreshStatusTitle(refreshStatus)}
+        confirmedContext={refreshStatus.confirmedContext}
+        className="performance-refresh-status"
+      />
+    ) : (
+      <WorkbenchRefreshStatus
+        kind={refreshStatus.kind}
+        eyebrow={getRefreshStatusEyebrow(refreshStatus)}
+        title={getRefreshStatusTitle(refreshStatus)}
+        message={getRefreshStatusMessage(refreshStatus)}
+        requestedContext={refreshStatus.requestedContext}
+        confirmedContext={refreshStatus.confirmedContext}
+        onRetry={refreshStatus.kind === "failed" ? onRetryRefresh : undefined}
+        retrying={false}
+        retryLabel={
+          refreshStatus.intent === "recheck"
+            ? PERFORMANCE_REFRESH_COPY.retryAction
+            : undefined
+        }
+        retryText={
+          refreshStatus.intent === "recheck"
+            ? PERFORMANCE_REFRESH_COPY.retryAction
+            : undefined
+        }
+        className="performance-refresh-status"
+      />
+    )
+  ) : null;
 
   const modePanel = !workspace ? null : mode === "summary" ? (
     <PerformanceSummaryMode
@@ -192,6 +225,7 @@ export default function PerformanceWorkspaceView({
             actions={sourceReceiptAction}
           >
             <WorkbenchSectionStack className="performance-page-sections">
+              {refreshStatusNotice}
               <Panel className="performance-page-unavailable-shell">
                 <PerformanceAnalyticalUnavailableState
                   ariaLabel={unavailableCopy.ariaLabel}
@@ -218,39 +252,7 @@ export default function PerformanceWorkspaceView({
             actions={sourceReceiptAction}
           >
             <WorkbenchSectionStack className="performance-page-sections">
-              {refreshStatus ? (
-                refreshStatus.kind === "confirmed" ? (
-                  <WorkbenchRefreshStatus
-                    kind="confirmed"
-                    eyebrow={getRefreshStatusEyebrow(refreshStatus)}
-                    title={getRefreshStatusTitle(refreshStatus)}
-                    confirmedContext={refreshStatus.confirmedContext}
-                    className="performance-refresh-status"
-                  />
-                ) : (
-                  <WorkbenchRefreshStatus
-                    kind={refreshStatus.kind}
-                    eyebrow={getRefreshStatusEyebrow(refreshStatus)}
-                    title={getRefreshStatusTitle(refreshStatus)}
-                    message={getRefreshStatusMessage(refreshStatus)}
-                    requestedContext={refreshStatus.requestedContext}
-                    confirmedContext={refreshStatus.confirmedContext}
-                    onRetry={refreshStatus.kind === "failed" ? onRetryRefresh : undefined}
-                    retrying={false}
-                    retryLabel={
-                      refreshStatus.intent === "recheck"
-                        ? PERFORMANCE_REFRESH_COPY.retryAction
-                        : undefined
-                    }
-                    retryText={
-                      refreshStatus.intent === "recheck"
-                        ? PERFORMANCE_REFRESH_COPY.retryAction
-                        : undefined
-                    }
-                    className="performance-refresh-status"
-                  />
-                )
-              ) : null}
+              {refreshStatusNotice}
               {controlNormalizationNotice ? (
                 <div
                   className="performance-control-normalization-note"

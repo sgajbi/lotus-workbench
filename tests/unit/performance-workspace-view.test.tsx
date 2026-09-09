@@ -50,7 +50,7 @@ describe("PerformanceWorkspaceView", () => {
     sourceReceipt,
   }: {
     mode?: PerformanceWorkspaceMode;
-    workspace?: ReturnType<typeof buildSupportedPerformanceScenario>["workspace"];
+    workspace?: ReturnType<typeof buildSupportedPerformanceScenario>["workspace"] | null;
     isDetailsPending?: boolean;
     refreshStatus?: React.ComponentProps<typeof PerformanceWorkspaceView>["refreshStatus"];
     onRetryRefresh?: () => void;
@@ -267,6 +267,31 @@ describe("PerformanceWorkspaceView", () => {
     expect(
       screen.getByRole("button", { name: "Recheck performance evidence" }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps explicit recheck recovery available when source evidence is withheld", () => {
+    const onRetryRefresh = vi.fn();
+    renderWorkspaceView({
+      workspace: null,
+      refreshStatus: {
+        kind: "failed",
+        intent: "recheck",
+        scope: "summary",
+        requestedContext: "YTD · NET returns · Monthly observations",
+        confirmedContext: "YTD · NET returns · Monthly observations",
+        status: 403,
+      },
+      onRetryRefresh,
+    });
+
+    expect(
+      screen.getByText("Workspace navigation and route context remain available."),
+    ).toBeInTheDocument();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Performance evidence could not be rechecked");
+    const retry = screen.getByRole("button", { name: "Recheck performance evidence" });
+    fireEvent.click(retry);
+    expect(onRetryRefresh).toHaveBeenCalledTimes(1);
   });
 
   it("presents a failed detail selection as a recoverable business exception", () => {
