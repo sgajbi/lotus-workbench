@@ -259,7 +259,7 @@ describe("PerformanceWorkspaceView", () => {
 
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("Performance evidence could not be rechecked");
-    expect(alert).toHaveTextContent("last source-confirmed view remains in place");
+    expect(alert).toHaveTextContent("previously confirmed view remains in place");
     expect(alert).not.toHaveTextContent(/fresh|current/i);
   });
 

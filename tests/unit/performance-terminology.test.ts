@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  PERFORMANCE_REFRESH_COPY,
   getPerformanceFeeBasisLabel,
   getPerformanceReturnPathTitle,
   normalizePerformanceActionLabel,
@@ -116,6 +117,15 @@ describe("performance terminology", () => {
   });
 
   it("owns consistent workflow and review-context language", () => {
+    expect(PERFORMANCE_REFRESH_COPY).toMatchObject({
+      recheckAction: "Recheck performance",
+      recheckingAction: "Rechecking…",
+      recheck: {
+        pending: { title: "Rechecking performance evidence" },
+        confirmed: { title: "Performance evidence rechecked" },
+        failed: { title: "Performance evidence could not be rechecked" },
+      },
+    });
     expect(PERFORMANCE_EVIDENCE_LABELS).toEqual({
       needsAttention: "Needs attention",
     });

@@ -50,6 +50,29 @@ export const PERFORMANCE_WORKFLOW_LABELS = {
   riskReview: "Risk review",
 } as const;
 
+export const PERFORMANCE_REFRESH_COPY = {
+  recheckAction: "Recheck performance",
+  recheckingAction: "Rechecking…",
+  recheck: {
+    pending: {
+      eyebrow: "Checking source evidence",
+      title: "Rechecking performance evidence",
+      message:
+        "The previously confirmed performance view remains available while its complete evidence set is rechecked.",
+    },
+    confirmed: {
+      eyebrow: "Source evidence checked",
+      title: "Performance evidence rechecked",
+    },
+    failed: {
+      eyebrow: "Recheck incomplete",
+      title: "Performance evidence could not be rechecked",
+      message:
+        "The complete performance view was not rechecked. The previously confirmed view remains in place.",
+    },
+  },
+} as const;
+
 export const PERFORMANCE_CONTEXT_LABELS = {
   reviewWindow: "Review window",
   feeBasis: "Fee basis",
