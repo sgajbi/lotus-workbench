@@ -180,4 +180,41 @@ describe("workbench API error classification", () => {
       StaleAuthorityResponseError,
     );
   });
+
+  it("rejects an older initial response after a newer request establishes authority", async () => {
+    const firstAuthority = "a".repeat(64);
+    const secondAuthority = "b".repeat(64);
+    let resolveOlder: ((response: Response) => void) | undefined;
+    const olderResponse = new Promise<Response>((resolve) => {
+      resolveOlder = resolve;
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockReturnValueOnce(olderResponse)
+        .mockResolvedValueOnce(
+          new Response('{"authority":"second"}', {
+            headers: { "X-Workbench-Authority-Context": secondAuthority },
+          }),
+        ),
+    );
+
+    const pendingOlderRequest = fetchWorkbenchJson(
+      "/api/bff/initial-old",
+      "initial old authority",
+    );
+    await expect(
+      fetchWorkbenchJson("/api/bff/initial-new", "initial new authority"),
+    ).resolves.toEqual({ authority: "second" });
+    resolveOlder!(
+      new Response('{"authority":"first"}', {
+        headers: { "X-Workbench-Authority-Context": firstAuthority },
+      }),
+    );
+
+    await expect(pendingOlderRequest).rejects.toBeInstanceOf(
+      StaleAuthorityResponseError,
+    );
+  });
 });

@@ -165,7 +165,7 @@ export function verifyPrincipalCredential(
 
   const now = Math.floor((inputs.now ?? new Date()).getTime() / 1000);
   const leeway = inputs.leewaySeconds ?? 0;
-  if (!Number.isInteger(claims.exp) || now > Number(claims.exp) + leeway) {
+  if (!Number.isInteger(claims.exp) || now >= Number(claims.exp) + leeway) {
     return deny("expired_credential", true);
   }
   if (claims.nbf !== undefined && !Number.isInteger(claims.nbf)) {

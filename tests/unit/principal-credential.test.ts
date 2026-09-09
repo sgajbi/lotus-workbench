@@ -158,6 +158,7 @@ describe("principal credential verification", () => {
   it.each([
     [{ iss: "https://foreign.example" }, "wrong_issuer"],
     [{ aud: "lotus-gateway" }, "wrong_audience"],
+    [{ exp: Math.floor(NOW.getTime() / 1000) }, "expired_credential"],
     [{ exp: Math.floor(NOW.getTime() / 1000) - 1 }, "expired_credential"],
     [{ nbf: Math.floor(NOW.getTime() / 1000) + 1 }, "expired_credential"],
   ] as const)("refuses verified claims with %j as %s", (claims, denialClass) => {
@@ -168,6 +169,22 @@ describe("principal credential verification", () => {
         inputs(material.jwks),
       ),
     ).toEqual({ status: "denied", denialClass, unauthenticated: true });
+  });
+
+  it("refuses a credential at the exact leeway-adjusted expiry boundary", () => {
+    const material = createSigningMaterial();
+    expect(
+      verifyPrincipalCredential(
+        credential(material.privateKey, {
+          exp: Math.floor(NOW.getTime() / 1000) - 30,
+        }),
+        { ...inputs(material.jwks), leewaySeconds: 30 },
+      ),
+    ).toEqual({
+      status: "denied",
+      denialClass: "expired_credential",
+      unauthenticated: true,
+    });
   });
 
   it.each([null, "1788778800", 1788778800.5])(
