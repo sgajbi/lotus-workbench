@@ -8020,14 +8020,16 @@ refresh authority?
 ### Adopted decisions
 
 1. Put one quiet receipt/recheck control beside the Performance page title so Summary, Analysis,
-   Adviser Brief, and Evidence share it instead of repeating controls per mode. Withhold it in Risk
-   Review because that mode owns additional Risk queries whose receipt is not part of this composite.
+   and Evidence share it instead of repeating controls per mode. Withhold it in Risk Review and
+   Adviser Brief because those modes own independent queries whose receipts are not part of this
+   composite.
 2. Show the oldest admitted summary/detail `dataUpdatedAt`; if either required receipt is absent,
    invalid, or not admitted, show **Check time unavailable**.
 3. Make **Recheck performance** invalidate and fetch the exact composite Query once, then promote
    summary and detail atomically only after both still match the active review context.
 4. Keep the prior admitted receipt and analytics when an ordinary recheck fails. Announce success
-   only after both reads succeed; preserve the existing permission-blocked and late-result fences.
+   only after both reads succeed; preserve the existing permission-blocked and late-result fences,
+   including withholding a completion after the adviser changes to a different mode.
 5. Keep the shared 30-second stale policy for ordinary navigation and avoid a same-route server
    navigation after explicit recheck, which would duplicate the two source reads. When the source
    normalizes an unsupported control, replace the current query-only history entry with the exact
@@ -8042,8 +8044,9 @@ successful endpoint as complete Performance evidence.
 ### Validation and publication decision
 
 Query and client tests cover fresh composite reuse, forced exact recheck, oldest receipt, partial
-failure, retained evidence, same-payload receipt advancement, intent-preserving retry, Risk-mode
-exclusion, and success-only confirmation. A populated optimized-browser scenario proves one
+failure, retained evidence, same-payload receipt advancement, intent-preserving retry,
+Risk/Adviser-Brief exclusion, mode-change completion fencing, and success-only confirmation. A
+populated optimized-browser scenario proves one
 summary and one detail read, no idle reads, one control across summary/detail-backed modes,
 accessible status,
 and rendered evidence under `docs/evidence/issue-787-performance-receipt-age/`. The visible
