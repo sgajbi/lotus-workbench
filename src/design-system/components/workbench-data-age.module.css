@@ -1,0 +1,14 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  min-width: max-content;
+  color: var(--text-muted);
+  font-size: var(--type-microcopy-size);
+  font-weight: 600;
+  font-variant-numeric: var(--type-financial-numeric);
+  line-height: var(--type-microcopy-line-height);
+}
+
+.unavailable {
+  font-weight: 500;
+}
