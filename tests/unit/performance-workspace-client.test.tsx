@@ -378,6 +378,31 @@ describe("PerformanceWorkspaceClient", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
+  it("synchronizes the route when recheck source evidence normalizes analytical controls", async () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+    getSummaryClientMock.mockResolvedValue(initialSummary);
+    getDetailsClientMock.mockResolvedValue(
+      buildDetails({
+        contribution_dimension: "sector",
+        requested_contribution_dimension_supported: false,
+      }),
+    );
+
+    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
+      expect(screen.getByTestId("refresh-intent")).toHaveTextContent("recheck");
+    });
+    expect(pushMock).toHaveBeenCalledWith(
+      "/performance?portfolioId=PF_1001&period=YTD&detailBasis=NET&contributionDimension=sector&attributionDimension=asset_class&chartFrequency=monthly&benchmark=BMK_GLOBAL_BALANCED_60_40",
+      { scroll: false },
+    );
+  });
+
   it("revalidates retained summary and detail evidence when the workspace remounts after stale time", async () => {
     const initialSummary = buildSummary();
     const initialDetails = buildDetails();

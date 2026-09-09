@@ -150,7 +150,8 @@ or moving focus away from the active rail or source control.
   does not certify valuation recency, market-data freshness, or calculation currency.
 - Provides one **Recheck performance** action across those summary/detail-backed modes. It reuses the
   exact governed Query owners, makes one summary and one detail read,
-  promotes them only as a coherent composite, and does not navigate the unchanged route.
+  promotes them only as a coherent composite, and does not navigate the unchanged route. If source
+  evidence normalizes an unsupported selection, the URL advances to those confirmed controls.
 - Withholds that receipt and action in Risk Review because its visible measures have independent
   Risk-owned queries; Workbench does not imply those measures were rechecked by the Performance pair.
 - Uses browser-history `push` for confirmed advisor mode and source-control decisions, reserves
