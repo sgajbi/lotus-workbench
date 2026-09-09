@@ -410,6 +410,49 @@ describe("PerformanceWorkspaceClient", () => {
     expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
   });
 
+  it("does not restore an obsolete recheck after an Evidence mode round trip", async () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+    let resolveSummary!: (summary: WorkbenchPerformanceWorkspaceSummary) => void;
+    const summaryRequest = new Promise<WorkbenchPerformanceWorkspaceSummary>((resolve) => {
+      resolveSummary = resolve;
+    });
+    getSummaryClientMock.mockReturnValueOnce(summaryRequest);
+    getDetailsClientMock.mockResolvedValueOnce(initialDetails);
+
+    const result = render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="evidence"
+      />,
+    );
+    const initialCheckedAt = screen.getByTestId("source-checked-at").textContent;
+
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+    await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(1));
+    result.rerender(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="risk"
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId("mode")).toHaveTextContent("risk"));
+    result.rerender(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="evidence"
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId("mode")).toHaveTextContent("evidence"));
+
+    await act(async () => resolveSummary(initialSummary));
+
+    await waitFor(() => expect(screen.getByTestId("refresh-kind")).toHaveTextContent("none"));
+    expect(screen.getByTestId("source-checked-at")).toHaveTextContent(initialCheckedAt!);
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+  });
+
   it("clears a failed Evidence recheck and its retry when the adviser changes mode", async () => {
     getSummaryClientMock.mockRejectedValueOnce({ status: 502 });
 
