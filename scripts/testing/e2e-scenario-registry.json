@@ -60,7 +60,8 @@
           "fixture_value": "cashflow",
           "spec": "tests/e2e/portfolio-workbench.smoke.spec.ts",
           "expected_tests": [
-            "portfolio revisit reuses fresh detail truth and an open review revalidates after stale time"
+            "portfolio revisit reuses fresh detail truth and an open review revalidates after stale time",
+            "portfolio receipt age stays separate from business date and explicit recheck reaches both sources"
           ]
         },
         "positions-status": {
