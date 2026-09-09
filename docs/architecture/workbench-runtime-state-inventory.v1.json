@@ -20,6 +20,17 @@
       "sessionAuthority": false
     },
     {
+      "id": "performance-source-revocation-registry",
+      "file": "src/apps/performance/performance-source-revocation.ts",
+      "symbols": ["sourceConfirmationByQueryClient"],
+      "classification": "browser_ephemeral",
+      "purpose": "Fail-closed portfolio denial markers prevent cached server props from restoring Performance evidence after a permission refusal and across component remounts.",
+      "bounds": "One weakly held denial set and authority-revision map per governed QueryClient, containing only portfolios observed in that browser client; denials are removed on source confirmation and the complete state is released with its QueryClient.",
+      "replicaBehavior": "Browser-local only; a marker can withhold presentation and require a source read but cannot grant access or establish business truth.",
+      "businessAuthority": false,
+      "sessionAuthority": false
+    },
+    {
       "id": "performance-workspace-mode-lookups",
       "file": "src/apps/performance/performance-workspace-modes.ts",
       "symbols": ["PERFORMANCE_WORKSPACE_MODE_MAP", "PERFORMANCE_WORKSPACE_MODE_SET"],

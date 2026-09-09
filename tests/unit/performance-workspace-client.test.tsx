@@ -676,7 +676,7 @@ describe("PerformanceWorkspaceClient", () => {
     });
     getSummaryClientMock.mockResolvedValueOnce(reconfirmedSummary);
     getDetailsClientMock.mockResolvedValueOnce(originalDetails);
-    renderWithQueryClient(
+    const reconfirmedMount = renderWithQueryClient(
       <PerformanceWorkspaceClient
         {...buildDefaultClientProps(originalSummary, originalDetails)}
         initialMode="evidence"
@@ -687,6 +687,60 @@ describe("PerformanceWorkspaceClient", () => {
     expect(screen.getByTestId("return")).toHaveTextContent("none");
     await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(2));
     await waitFor(() => expect(screen.getByTestId("return")).toHaveTextContent("7.1"));
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+
+    reconfirmedMount.unmount();
+    renderWithQueryClient(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(originalSummary, originalDetails)}
+        initialMode="evidence"
+      />,
+      firstMount.queryClient,
+    );
+    expect(screen.getByTestId("return")).toHaveTextContent("7.1");
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(2);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains a denied portfolio across an ordinary remount until source reconfirms it", async () => {
+    const originalSummary = buildSummary();
+    const originalDetails = buildDetails();
+    getSummaryClientMock.mockRejectedValueOnce(
+      Object.assign(new Error("Forbidden"), { status: 403 }),
+    );
+
+    const firstMount = render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(originalSummary, originalDetails)}
+        initialMode="evidence"
+      />,
+    );
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+    await waitFor(() => {
+      expect(screen.getByTestId("load-issue")).toHaveTextContent("permission_blocked");
+      expect(screen.getByTestId("return")).toHaveTextContent("none");
+    });
+    firstMount.unmount();
+
+    const reconfirmedSummary = buildSummary({
+      net_performance: {
+        ...originalSummary.net_performance,
+        portfolio_return_pct: 7.3,
+      },
+    });
+    getSummaryClientMock.mockResolvedValueOnce(reconfirmedSummary);
+    getDetailsClientMock.mockResolvedValueOnce(originalDetails);
+    renderWithQueryClient(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(originalSummary, originalDetails)}
+        initialMode="evidence"
+      />,
+      firstMount.queryClient,
+    );
+
+    expect(screen.getByTestId("return")).toHaveTextContent("none");
+    await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId("return")).toHaveTextContent("7.3"));
     expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
   });
 
