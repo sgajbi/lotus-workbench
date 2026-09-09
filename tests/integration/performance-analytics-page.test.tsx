@@ -1843,16 +1843,22 @@ describe("PerformanceAnalyticsPage", () => {
     );
 
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
-    const summaryCall = fetchMock.mock.calls.find(([input]) =>
-      input.toString().includes("/api/v1/workbench/PF_1001/performance/summary")
-    );
-    const detailsCall = fetchMock.mock.calls.find(([input]) =>
-      input
-        .toString()
-        .includes("/api/bff/api/v1/workbench/PF_1001/performance/details")
-    );
-    expect(summaryCall?.[0].toString()).toContain("benchmark_code=BMK_GLOBAL_BALANCED_60_40");
-    expect(detailsCall?.[0].toString()).toContain("benchmark_code=BMK_GLOBAL_BALANCED_60_40");
+    await waitFor(() => {
+      const summaryCall = fetchMock.mock.calls.find(([input]) =>
+        input.toString().includes("/api/v1/workbench/PF_1001/performance/summary")
+      );
+      const detailsCall = fetchMock.mock.calls.find(([input]) =>
+        input
+          .toString()
+          .includes("/api/bff/api/v1/workbench/PF_1001/performance/details")
+      );
+      expect(summaryCall?.[0].toString()).toContain(
+        "benchmark_code=BMK_GLOBAL_BALANCED_60_40",
+      );
+      expect(detailsCall?.[0].toString()).toContain(
+        "benchmark_code=BMK_GLOBAL_BALANCED_60_40",
+      );
+    });
     expect(await screen.findByLabelText("Benchmark")).toHaveValue("BMK_GLOBAL_BALANCED_60_40");
   });
 });
