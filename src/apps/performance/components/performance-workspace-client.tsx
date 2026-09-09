@@ -652,6 +652,7 @@ export default function PerformanceWorkspaceClient({
         performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
         resolvedSummary,
         summaryDataUpdatedAt,
+        { advanceReceipt: isExplicitRecheck },
       );
       admitPerformanceQueryData(
         queryClient,
@@ -661,6 +662,7 @@ export default function PerformanceWorkspaceClient({
         ).queryKey,
         resolvedDetails.details,
         resolvedDetails.dataUpdatedAt,
+        { advanceReceipt: isExplicitRecheck },
       );
       setControls(resolvedDetails.controls);
       setLoadIssue(null);
@@ -909,7 +911,7 @@ export default function PerformanceWorkspaceClient({
       loadIssue={loadIssue}
       refreshStatus={refreshStatus}
       sourceReceipt={
-        controls
+        controls && mode !== "risk"
           ? {
               checkedAt: performanceCheckedAt,
               refreshScope: performanceRefreshScope,
@@ -953,6 +955,7 @@ export default function PerformanceWorkspaceClient({
             ? "summary"
             : refreshFailure.scope,
           stageComposite: refreshFailure.retryComposite,
+          intent: refreshFailure.intent,
         });
       }}
       isUpdating={isUpdating}

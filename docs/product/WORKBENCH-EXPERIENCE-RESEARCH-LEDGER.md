@@ -8000,7 +8000,7 @@ required.
 
 ### Decision question
 
-How should every Performance decision mode expose when its admitted summary/detail composite was
+How should each summary/detail-backed Performance decision mode expose when its admitted composite was
 checked, without presenting browser receipt time as source business freshness or adding another
 refresh authority?
 
@@ -8020,7 +8020,8 @@ refresh authority?
 ### Adopted decisions
 
 1. Put one quiet receipt/recheck control beside the Performance page title so Summary, Analysis,
-   Adviser Brief, Risk Review, and Evidence share it instead of repeating controls per mode.
+   Adviser Brief, and Evidence share it instead of repeating controls per mode. Withhold it in Risk
+   Review because that mode owns additional Risk queries whose receipt is not part of this composite.
 2. Show the oldest admitted summary/detail `dataUpdatedAt`; if either required receipt is absent,
    invalid, or not admitted, show **Check time unavailable**.
 3. Make **Recheck performance** invalidate and fetch the exact composite Query once, then promote
@@ -8039,8 +8040,10 @@ successful endpoint as complete Performance evidence.
 ### Validation and publication decision
 
 Query and client tests cover fresh composite reuse, forced exact recheck, oldest receipt, partial
-failure, retained evidence, and success-only confirmation. A populated optimized-browser scenario
-proves one summary and one detail read, no idle reads, one control across modes, accessible status,
+failure, retained evidence, same-payload receipt advancement, intent-preserving retry, Risk-mode
+exclusion, and success-only confirmation. A populated optimized-browser scenario proves one
+summary and one detail read, no idle reads, one control across summary/detail-backed modes,
+accessible status,
 and rendered evidence under `docs/evidence/issue-787-performance-receipt-age/`. The visible
 Performance workflow changes, so the Performance Summary guide and repository context change and
 the wiki must be published after merge. Existing frontend governance already owns this pattern; no

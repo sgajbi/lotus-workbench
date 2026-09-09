@@ -6,7 +6,9 @@ fixture journey. It does not certify upstream valuation or market-data freshness
 ## Business invariant
 
 The Performance header shows the oldest admitted summary/detail browser receipt as **Checked** and
-offers one **Recheck performance** action across all decision modes. An explicit recheck performs
+offers one **Recheck performance** action across Summary, Analysis, Adviser Brief, and Evidence. It
+is deliberately absent from Risk Review because that mode renders independently queried Risk facts.
+An explicit recheck performs
 exactly one summary read and one detail read, confirms success only after both remain coherent with
 the active review context, and leaves the source-owned **As of** date distinct.
 
@@ -16,6 +18,9 @@ the active review context, and leaves the source-owned **As of** date distinct.
   label, portfolio, and unchanged route.
 - `performance-receipt-age-desktop.png` is the optimized-browser rendered proof for reviewer UX
   inspection.
+
+The same browser journey then opens Risk Review and proves the summary/detail receipt and recheck
+control are absent rather than being misrepresented as the age of independently queried Risk facts.
 
 ## Reproduction
 

@@ -314,6 +314,22 @@ describe("PerformanceWorkspaceClient", () => {
     );
   });
 
+  it("does not present a summary-detail receipt as the age of independently owned Risk evidence", () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+
+    render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="risk"
+      />,
+    );
+
+    expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
+    expect(getSummaryClientMock).not.toHaveBeenCalled();
+    expect(getDetailsClientMock).not.toHaveBeenCalled();
+  });
+
   it("retains the prior receipt and withholds success when composite recheck fails", async () => {
     const initialSummary = buildSummary();
     const initialDetails = buildDetails();
@@ -332,6 +348,33 @@ describe("PerformanceWorkspaceClient", () => {
     expect(screen.getByTestId("source-checked-at")).toHaveTextContent(initialCheckedAt!);
     expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
     expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("retries a failed recheck with the same intent and without unchanged-route navigation", async () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+    getSummaryClientMock.mockResolvedValue(initialSummary);
+    getDetailsClientMock
+      .mockRejectedValueOnce({ status: 502 })
+      .mockResolvedValueOnce(initialDetails);
+
+    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("failed");
+      expect(screen.getByTestId("refresh-intent")).toHaveTextContent("recheck");
+    });
+
+    screen.getByRole("button", { name: "Retry Selection" }).click();
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
+      expect(screen.getByTestId("refresh-intent")).toHaveTextContent("recheck");
+    });
+
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(2);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(2);
     expect(pushMock).not.toHaveBeenCalled();
   });
 
