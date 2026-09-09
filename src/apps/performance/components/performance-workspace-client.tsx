@@ -2,7 +2,12 @@
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  type QueryKey,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { AppPageShell } from "@/design-system";
 import type { PortfolioWorkspace } from "@/apps/portfolio/types";
@@ -84,6 +89,17 @@ type ResolvedPerformanceDetails = {
 };
 
 export const PERFORMANCE_REFRESH_CONFIRMATION_DURATION_MS = 5_000;
+
+function admitPerformanceQueryData<TData>(
+  queryClient: QueryClient,
+  queryKey: QueryKey,
+  data: TData,
+) {
+  if (queryClient.getQueryData<TData>(queryKey) === data) {
+    return;
+  }
+  queryClient.setQueryData(queryKey, data);
+}
 
 export default function PerformanceWorkspaceClient({
   initialSummary,
@@ -373,7 +389,8 @@ export default function PerformanceWorkspaceClient({
       }
     }
 
-    queryClient.setQueryData(
+    admitPerformanceQueryData(
+      queryClient,
       performanceWorkspaceDetailsQueryOptions(resolvedControls, summaryEvidence).queryKey,
       resolvedDetails,
     );
@@ -514,11 +531,13 @@ export default function PerformanceWorkspaceClient({
         return;
       }
 
-      queryClient.setQueryData(
+      admitPerformanceQueryData(
+        queryClient,
         performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
         resolvedSummary,
       );
-      queryClient.setQueryData(
+      admitPerformanceQueryData(
+        queryClient,
         performanceWorkspaceDetailsQueryOptions(
           resolvedDetails.controls,
           resolvedSummary,
@@ -630,11 +649,13 @@ export default function PerformanceWorkspaceClient({
         ) {
           return;
         }
-        queryClient.setQueryData(
+        admitPerformanceQueryData(
+          queryClient,
           performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
           resolvedSummary,
         );
-        queryClient.setQueryData(
+        admitPerformanceQueryData(
+          queryClient,
           performanceWorkspaceDetailsQueryOptions(
             resolvedDetails.controls,
             resolvedSummary,

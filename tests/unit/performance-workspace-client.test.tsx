@@ -959,7 +959,7 @@ describe("PerformanceWorkspaceClient", () => {
       .mockResolvedValueOnce(threeYearDetails);
     getSummaryClientMock.mockResolvedValueOnce(threeYearSummary);
 
-    render(
+    const result = render(
       <PerformanceWorkspaceClient
         initialSummary={buildSummary()}
         initialPortfolioId="PF_1001"
@@ -987,6 +987,21 @@ describe("PerformanceWorkspaceClient", () => {
       expect(screen.getByTestId("return")).toHaveTextContent("18.4");
     });
 
+    const threeYearContext = {
+      ...defaultQueryContext,
+      period: "3Y",
+      reportStartDate: "2023-03-28",
+    };
+    const summaryKey = performanceWorkspaceSummaryQueryOptions(threeYearContext).queryKey;
+    const detailsKey = performanceWorkspaceDetailsQueryOptions(
+      threeYearContext,
+      threeYearSummary,
+    ).queryKey;
+    const summaryReceiptTime = result.queryClient.getQueryState(summaryKey)?.dataUpdatedAt;
+    const detailsReceiptTime = result.queryClient.getQueryState(detailsKey)?.dataUpdatedAt;
+    expect(summaryReceiptTime).toBeTypeOf("number");
+    expect(detailsReceiptTime).toBeTypeOf("number");
+
     expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
     expect(getDetailsClientMock).toHaveBeenCalledTimes(2);
 
@@ -999,6 +1014,7 @@ describe("PerformanceWorkspaceClient", () => {
       expect(screen.getByTestId("return")).toHaveTextContent(DEFAULT_PORTFOLIO_RETURN);
     });
 
+    await new Promise((resolve) => setTimeout(resolve, 5));
     await act(async () => {
       screen.getByRole("button", { name: "Switch 3Y" }).click();
     });
@@ -1010,6 +1026,12 @@ describe("PerformanceWorkspaceClient", () => {
 
     expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
     expect(getDetailsClientMock).toHaveBeenCalledTimes(2);
+    expect(result.queryClient.getQueryState(summaryKey)?.dataUpdatedAt).toBe(
+      summaryReceiptTime,
+    );
+    expect(result.queryClient.getQueryState(detailsKey)?.dataUpdatedAt).toBe(
+      detailsReceiptTime,
+    );
   });
 
   it("uses server-provided initial details without an immediate client refetch", async () => {
