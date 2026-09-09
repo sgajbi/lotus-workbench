@@ -7899,3 +7899,52 @@ distinct unavailable states, absence without manual fallback, context refresh, a
 fencing. The visible workflow and support guidance change, so the Report Centre guide and wiki must
 publish after merge. Existing frontend governance already requires source authority and race
 fencing; no platform skill change is justified.
+
+## 2026-09-09 — Portfolio source-receipt age and governed recheck (#1043)
+
+### Decision question
+
+How should Portfolio Review tell an adviser when its composite evidence was last checked without
+misrepresenting that browser receipt as the source business date or a source-certified freshness
+assessment?
+
+### Evidence consulted
+
+1. TanStack Query publishes `dataUpdatedAt` as cache receipt metadata and provides explicit
+   refetching and bounded stale-time controls.
+2. Qualtrics dashboard guidance distinguishes when data was last checked from the date represented
+   by the underlying business records.
+3. Palantir guidance uses relative age for recent evidence and an exact timestamp for older
+   evidence, supporting fast scanning without hiding precise lineage.
+4. WAI-ARIA status guidance supports a polite confirmation after an explicit asynchronous action
+   without moving keyboard focus.
+
+### Adopted decisions
+
+1. Label browser receipt metadata **Checked**, never **Updated**, **Current**, or **Fresh**.
+2. Use the oldest admitted receipt across the workspace shell and dated summary fan-out; if either
+   receipt is absent or invalid, show **Check time unavailable**.
+3. Show recent receipt age compactly and expose the exact UTC timestamp through the semantic
+   `time` element, accessible name, and pointer/focus disclosure.
+4. Reuse the existing governed Query owners for **Recheck portfolio**. Announce success only when
+   both reads settle successfully and their returned identity still matches the active portfolio,
+   source generation, and review controls.
+5. Keep the source business date in the existing **As of** control. Receipt age makes no statement
+   about valuation recency, upstream collection time, market-close coverage, or source freshness.
+
+### Rejected decisions
+
+A new browser cache; a freshness badge or invented age threshold; a second polling loop; labelling
+the receipt **Last updated**; using the newest partial receipt; or allowing one successful read to
+claim the whole portfolio was rechecked.
+
+### Validation and publication decision
+
+Pure model tests cover relative, exact, unavailable, future-skew, and composite-receipt behavior.
+Component/query tests prove successful and partial-failure rechecks, duplicate-click coalescing,
+identity fencing, and truthful announcements. The governed Portfolio browser scenario proves the
+date/receipt distinction and exact source request counts, with rendered and machine-readable
+evidence under `docs/evidence/issue-1043-portfolio-receipt-age/`. The visible Portfolio Review
+workflow changes, so its screen guide and repository context change and the wiki must be published
+after merge. Existing frontend governance already requires governed Query ownership, explicit
+source posture, and stable status messages; no central skill change is justified.

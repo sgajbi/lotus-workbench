@@ -132,6 +132,11 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   projection, or other business-context boundaries.
 - Portfolio and Performance/Risk use governed TanStack Query ownership. Do not restore module-level
   response Maps, inflight registries, token caches, or mirrored server state.
+- Workbench receipt age uses the oldest admitted `dataUpdatedAt` across every required Query in the
+  displayed composite and is labelled **Checked**. It is browser receipt metadata, not source
+  business date, upstream collection time, or certified freshness. Explicit composite rechecks may
+  claim success only when every required read succeeds and remains exact-current for the active
+  business context.
 - A source response is displayable only after schema and identity admission. Missing, malformed,
   partial, stale, unsupported, blocked, and conflicting evidence remain distinct.
 - A source mutation is not success by itself. User-visible confirmation requires the exact receipt
