@@ -184,6 +184,7 @@ export default function PerformanceWorkspaceClient({
   const initialDataAdmissionEnabledRef = useRef(true);
   const activeRefreshTokenRef = useRef<symbol | null>(null);
   const activeHydrationTokenRef = useRef<symbol | null>(null);
+  const pendingRouteEchoKeyRef = useRef<string | null>(null);
   const automaticHydrationIdentityRef = useRef<string | null>(null);
   const lastSourceControlFocusTargetRef = useRef<PerformanceSourceControlFocusTarget | null>(null);
   const initialRouteControlsKey = useMemo(
@@ -254,14 +255,28 @@ export default function PerformanceWorkspaceClient({
       return;
     }
 
-    acceptedRouteControlsKeyRef.current = initialRouteControlsKey;
-    acceptedRouteEvidenceRef.current = {
+    const routeEvidence = {
       controlsKey: initialRouteControlsKey,
       summaryResponse: initialSummary,
       details: sourceConfirmedInitialDetails,
       loadIssueState: initialLoadIssue?.state ?? null,
       loadIssueStatus: initialLoadIssue?.status ?? null,
     };
+    const isConfirmedNavigationEcho = Boolean(
+      initialSummary &&
+      controls &&
+      pendingRouteEchoKeyRef.current === initialRouteControlsKey &&
+      buildPerformanceControlsHref(controls) === initialRouteControlsKey,
+    );
+    pendingRouteEchoKeyRef.current = null;
+    if (isConfirmedNavigationEcho) {
+      acceptedRouteControlsKeyRef.current = initialRouteControlsKey;
+      acceptedRouteEvidenceRef.current = routeEvidence;
+      return;
+    }
+
+    acceptedRouteControlsKeyRef.current = initialRouteControlsKey;
+    acceptedRouteEvidenceRef.current = routeEvidence;
     activeRefreshTokenRef.current = null;
     activeHydrationTokenRef.current = null;
     automaticHydrationIdentityRef.current = null;
@@ -291,6 +306,7 @@ export default function PerformanceWorkspaceClient({
     setRefreshFailure(null);
     setRefreshConfirmation(null);
   }, [
+    controls,
     initialControls,
     initialLoadIssue,
     initialRouteControlsKey,
@@ -364,6 +380,7 @@ export default function PerformanceWorkspaceClient({
       return;
     }
     startTransition(() => {
+      pendingRouteEchoKeyRef.current = buildPerformanceControlsHref(initialControls);
       router.replace(buildPerformanceControlsHref(initialControls, mode), { scroll: false });
     });
   }, [
@@ -630,6 +647,9 @@ export default function PerformanceWorkspaceClient({
       acceptedRouteControlsKeyRef.current = buildPerformanceControlsHref(
         resolvedDetails.controls,
       );
+      pendingRouteEchoKeyRef.current = buildPerformanceControlsHref(
+        resolvedDetails.controls,
+      );
       startTransition(() => {
         router.push(buildPerformanceControlsHref(resolvedDetails.controls, modeRef.current), {
           scroll: false,
@@ -770,6 +790,9 @@ export default function PerformanceWorkspaceClient({
           acceptedRouteControlsKeyRef.current = buildPerformanceControlsHref(
             resolvedDetails.controls,
           );
+          pendingRouteEchoKeyRef.current = buildPerformanceControlsHref(
+            resolvedDetails.controls,
+          );
           startTransition(() => {
             router.replace(
               buildPerformanceControlsHref(resolvedDetails.controls, modeRef.current),
@@ -868,6 +891,7 @@ export default function PerformanceWorkspaceClient({
         if (!controls) {
           return;
         }
+        pendingRouteEchoKeyRef.current = buildPerformanceControlsHref(controls);
         startTransition(() => {
           router.push(buildPerformanceControlsHref(controls, nextMode), {
             scroll: false,

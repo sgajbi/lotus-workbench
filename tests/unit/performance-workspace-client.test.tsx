@@ -1259,6 +1259,86 @@ describe("PerformanceWorkspaceClient", () => {
     expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
   });
 
+  it("does not replace a confirmed composite with its client-navigation route echo", async () => {
+    const confirmedSummary = buildSummary({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+      correlation_id: "corr-performance-client-confirmed",
+      net_performance: {
+        ...buildSummary().net_performance,
+        portfolio_return_pct: 18.4,
+      },
+    });
+    const confirmedDetails = buildDetails({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+      correlation_id: "corr-performance-client-confirmed",
+    });
+    getSummaryClientMock.mockResolvedValueOnce(confirmedSummary);
+    getDetailsClientMock.mockResolvedValueOnce(confirmedDetails);
+    const props = buildDefaultClientProps();
+    const { rerender } = render(<PerformanceWorkspaceClient {...props} />);
+
+    screen.getByRole("button", { name: "Switch 3Y" }).click();
+    await waitFor(() => {
+      expect(screen.getByTestId("return")).toHaveTextContent("18.4");
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
+    });
+
+    const routeEchoSummary = buildSummary({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+      correlation_id: "corr-performance-route-echo",
+      net_performance: {
+        ...buildSummary().net_performance,
+        portfolio_return_pct: 18.5,
+      },
+    });
+    rerender(
+      <PerformanceWorkspaceClient
+        {...props}
+        initialSummary={routeEchoSummary}
+        initialDetails={null}
+        initialPeriod="3Y"
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("return")).toHaveTextContent("18.4");
+    });
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+
+    const refreshedRouteSummary = buildSummary({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+      correlation_id: "corr-performance-route-refresh-after-echo",
+      net_performance: {
+        ...buildSummary().net_performance,
+        portfolio_return_pct: 20.2,
+      },
+    });
+    getDetailsClientMock.mockResolvedValueOnce(
+      buildDetails({
+        period: "3Y",
+        report_start_date: "2023-03-28",
+        correlation_id: "corr-performance-route-refresh-after-echo",
+      }),
+    );
+    rerender(
+      <PerformanceWorkspaceClient
+        {...props}
+        initialSummary={refreshedRouteSummary}
+        initialDetails={null}
+        initialPeriod="3Y"
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("return")).toHaveTextContent("20.2");
+      expect(getDetailsClientMock).toHaveBeenCalledTimes(2);
+    });
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves source receipt time when a normalized summary is admitted under confirmed controls", async () => {
     const normalizedSummary = buildSummary({
       period: "3Y",
