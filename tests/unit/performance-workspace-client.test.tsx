@@ -1,4 +1,5 @@
 import React from "react";
+import type { QueryClient } from "@tanstack/react-query";
 import { act, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -214,6 +215,51 @@ function buildDetails(
   };
 }
 
+const defaultQueryContext = {
+  portfolioId: "PF_1001",
+  period: "YTD",
+  detailBasis: "NET",
+  contributionDimension: "asset_class",
+  attributionDimension: "asset_class",
+  chartFrequency: "monthly",
+  benchmark: "BMK_GLOBAL_BALANCED_60_40",
+};
+
+function buildDefaultClientProps(
+  initialSummary = buildSummary(),
+  initialDetails = buildDetails(),
+): React.ComponentProps<typeof PerformanceWorkspaceClient> {
+  return {
+    initialSummary,
+    initialDetails,
+    initialPortfolioId: defaultQueryContext.portfolioId,
+    initialPeriod: defaultQueryContext.period,
+    initialDetailBasis: defaultQueryContext.detailBasis,
+    initialContributionDimension: defaultQueryContext.contributionDimension,
+    initialAttributionDimension: defaultQueryContext.attributionDimension,
+    initialChartFrequency: defaultQueryContext.chartFrequency,
+    initialBenchmark: defaultQueryContext.benchmark,
+  };
+}
+
+function ageRetainedPerformanceComposite(
+  queryClient: QueryClient,
+  summary: WorkbenchPerformanceWorkspaceSummary,
+  details: WorkbenchPerformanceWorkspaceDetails,
+) {
+  const staleUpdatedAt = Date.now() - WORKBENCH_QUERY_STALE_TIME_MS - 1;
+  queryClient.setQueryData(
+    performanceWorkspaceSummaryQueryOptions(defaultQueryContext).queryKey,
+    summary,
+    { updatedAt: staleUpdatedAt },
+  );
+  queryClient.setQueryData(
+    performanceWorkspaceDetailsQueryOptions(defaultQueryContext, summary).queryKey,
+    details,
+    { updatedAt: staleUpdatedAt },
+  );
+}
+
 describe("PerformanceWorkspaceClient", () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -228,17 +274,7 @@ describe("PerformanceWorkspaceClient", () => {
   it("revalidates retained summary and detail evidence when the workspace remounts after stale time", async () => {
     const initialSummary = buildSummary();
     const initialDetails = buildDetails();
-    const props = {
-      initialSummary,
-      initialDetails,
-      initialPortfolioId: "PF_1001",
-      initialPeriod: "YTD",
-      initialDetailBasis: "NET",
-      initialContributionDimension: "asset_class",
-      initialAttributionDimension: "asset_class",
-      initialChartFrequency: "monthly",
-      initialBenchmark: "BMK_GLOBAL_BALANCED_60_40",
-    };
+    const props = buildDefaultClientProps(initialSummary, initialDetails);
     const firstMount = renderWithQueryClient(
       <PerformanceWorkspaceClient {...props} />,
     );
@@ -250,25 +286,10 @@ describe("PerformanceWorkspaceClient", () => {
     expect(getDetailsClientMock).not.toHaveBeenCalled();
     firstMount.unmount();
 
-    const staleUpdatedAt = Date.now() - WORKBENCH_QUERY_STALE_TIME_MS - 1;
-    const context = {
-      portfolioId: "PF_1001",
-      period: "YTD",
-      detailBasis: "NET",
-      contributionDimension: "asset_class",
-      attributionDimension: "asset_class",
-      chartFrequency: "monthly",
-      benchmark: "BMK_GLOBAL_BALANCED_60_40",
-    };
-    firstMount.queryClient.setQueryData(
-      performanceWorkspaceSummaryQueryOptions(context).queryKey,
+    ageRetainedPerformanceComposite(
+      firstMount.queryClient,
       initialSummary,
-      { updatedAt: staleUpdatedAt },
-    );
-    firstMount.queryClient.setQueryData(
-      performanceWorkspaceDetailsQueryOptions(context, initialSummary).queryKey,
       initialDetails,
-      { updatedAt: staleUpdatedAt },
     );
 
     const refreshedSummary = buildSummary({
@@ -289,6 +310,92 @@ describe("PerformanceWorkspaceClient", () => {
     await waitFor(() => {
       expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
       expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("return")).toHaveTextContent("2.4");
+    });
+  });
+
+  it("retains the coherent composite when remount detail revalidation fails", async () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+    const props = buildDefaultClientProps(initialSummary, initialDetails);
+    const firstMount = renderWithQueryClient(
+      <PerformanceWorkspaceClient {...props} />,
+    );
+    await screen.findByTestId("return");
+    firstMount.unmount();
+    ageRetainedPerformanceComposite(
+      firstMount.queryClient,
+      initialSummary,
+      initialDetails,
+    );
+    getSummaryClientMock.mockResolvedValueOnce(
+      buildSummary({
+        correlation_id: "corr-performance-refreshed",
+        net_performance: {
+          ...initialSummary.net_performance,
+          portfolio_return_pct: 2.4,
+        },
+      }),
+    );
+    getDetailsClientMock.mockRejectedValueOnce(
+      new Error("Performance detail unavailable"),
+    );
+
+    renderWithQueryClient(
+      <PerformanceWorkspaceClient {...props} />,
+      firstMount.queryClient,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("failed");
+      expect(screen.getByTestId("refresh-scope")).toHaveTextContent("details");
+    });
+    expect(screen.getByTestId("return")).toHaveTextContent(DEFAULT_PORTFOLIO_RETURN);
+    expect(screen.getByTestId("chart-points")).toHaveTextContent("1");
+  });
+
+  it("retries the failed summary before confirming remount recovery", async () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+    const props = buildDefaultClientProps(initialSummary, initialDetails);
+    const firstMount = renderWithQueryClient(
+      <PerformanceWorkspaceClient {...props} />,
+    );
+    await screen.findByTestId("return");
+    firstMount.unmount();
+    ageRetainedPerformanceComposite(
+      firstMount.queryClient,
+      initialSummary,
+      initialDetails,
+    );
+    const refreshedSummary = buildSummary({
+      correlation_id: "corr-performance-recovered",
+      net_performance: {
+        ...initialSummary.net_performance,
+        portfolio_return_pct: 2.4,
+      },
+    });
+    getSummaryClientMock
+      .mockRejectedValueOnce(new Error("Performance summary unavailable"))
+      .mockResolvedValueOnce(refreshedSummary);
+    getDetailsClientMock.mockResolvedValueOnce(buildDetails());
+
+    renderWithQueryClient(
+      <PerformanceWorkspaceClient {...props} />,
+      firstMount.queryClient,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-scope")).toHaveTextContent("summary");
+    });
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+    expect(getDetailsClientMock).not.toHaveBeenCalled();
+
+    screen.getByRole("button", { name: "Retry Selection" }).click();
+
+    await waitFor(() => {
+      expect(getSummaryClientMock).toHaveBeenCalledTimes(2);
+      expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
       expect(screen.getByTestId("return")).toHaveTextContent("2.4");
     });
   });

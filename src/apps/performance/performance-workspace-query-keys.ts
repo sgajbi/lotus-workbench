@@ -46,6 +46,12 @@ export const performanceWorkspaceQueryKeys = {
       "summary",
       normalizedContext(context),
     ] as const,
+  revalidation: (context: PerformanceWorkspaceQueryContext) =>
+    [
+      ...performanceWorkspaceQueryKeys.portfolio(context.portfolioId),
+      "revalidation",
+      normalizedContext(context),
+    ] as const,
   details: (
     context: PerformanceWorkspaceQueryContext,
     summaryEvidence: PerformanceSummaryEvidenceIdentity,
