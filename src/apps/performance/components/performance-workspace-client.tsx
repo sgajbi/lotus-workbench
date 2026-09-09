@@ -12,6 +12,7 @@ import type {
   WorkbenchPerformanceWorkspaceDetails,
   WorkbenchPerformanceWorkspaceSummary,
 } from "@/features/workbench/types";
+import { WORKBENCH_QUERY_STALE_TIME_MS } from "@/features/platform-runtime/query-policy";
 
 import { buildPerformanceHref } from "../navigation";
 import {
@@ -23,7 +24,9 @@ import { assemblePerformanceWorkspace } from "../workspace-assembler";
 import { getNormalizedInitialPerformanceDetailControls } from "../performance-detail-control-resolution";
 import {
   performanceWorkspaceDetailsQueryOptions,
+  performanceWorkspaceRevalidationQueryOptions,
   performanceWorkspaceSummaryQueryOptions,
+  resolvePerformanceWorkspaceRevalidationError,
 } from "../performance-workspace-query-options";
 import {
   performanceWorkspaceQueryKeys,
@@ -445,9 +448,14 @@ export default function PerformanceWorkspaceClient({
   async function runRefresh(
     requestedControls: PerformanceControlState,
     confirmedControls: PerformanceControlState,
-    options: { focusTarget?: PerformanceSourceControlFocusTarget } = {}
+    options: {
+      focusTarget?: PerformanceSourceControlFocusTarget;
+      forceScope?: PerformanceRefreshScope;
+    } = {}
   ) {
-    const refreshesSummary = shouldRefreshSummary(confirmedControls, requestedControls);
+    const refreshesSummary =
+      options.forceScope === "summary" ||
+      shouldRefreshSummary(confirmedControls, requestedControls);
     const initialScope: PerformanceRefreshScope = refreshesSummary ? "summary" : "details";
     const refreshToken = Symbol("performance-workspace-refresh");
     activeRefreshTokenRef.current = refreshToken;
@@ -564,15 +572,36 @@ export default function PerformanceWorkspaceClient({
       return;
     }
     automaticHydrationIdentityRef.current = hydrationIdentity;
+    const summaryOptions = performanceWorkspaceSummaryQueryOptions(controls);
+    const detailsOptions = performanceWorkspaceDetailsQueryOptions(
+      controls,
+      currentSummary,
+    );
+    if (
+      currentDetails &&
+      isPerformanceQueryFresh(queryClient.getQueryState(summaryOptions.queryKey)) &&
+      isPerformanceQueryFresh(queryClient.getQueryState(detailsOptions.queryKey))
+    ) {
+      return;
+    }
     let failureScope: PerformanceRefreshScope = "summary";
-    void queryClient
-      .fetchQuery(performanceWorkspaceSummaryQueryOptions(controls))
-      .then((resolvedSummary) => {
-        failureScope = "details";
-        return resolveDetailsForControls(controls, resolvedSummary, {
-          allowInitialFallback: true,
-        }).then((resolvedDetails) => ({ resolvedDetails, resolvedSummary }));
-      })
+    const hydrationRequest = currentDetails
+      ? queryClient
+          .fetchQuery(performanceWorkspaceRevalidationQueryOptions(controls))
+          .then(({ summary: resolvedSummary, details }) => ({
+            resolvedSummary,
+            resolvedDetails: {
+              controls: buildResolvedDetailControls(controls, details),
+              details,
+            },
+          }))
+      : queryClient.fetchQuery(summaryOptions).then((resolvedSummary) => {
+          failureScope = "details";
+          return resolveDetailsForControls(controls, resolvedSummary, {
+            allowInitialFallback: true,
+          }).then((resolvedDetails) => ({ resolvedDetails, resolvedSummary }));
+        });
+    void hydrationRequest
       .then(({ resolvedDetails, resolvedSummary }) => {
         if (
           activeRefreshTokenRef.current !== null ||
@@ -616,25 +645,31 @@ export default function PerformanceWorkspaceClient({
         ) {
           return;
         }
-        if (isWorkbenchPermissionBlockedError(error)) {
+        const revalidationError = currentDetails
+          ? resolvePerformanceWorkspaceRevalidationError(error)
+          : { scope: failureScope, sourceError: error };
+        if (isWorkbenchPermissionBlockedError(revalidationError.sourceError)) {
           queryClient.removeQueries({
             queryKey: performanceWorkspaceQueryKeys.portfolio(controls.portfolioId),
           });
           setLoadIssue({
             state: "permission_blocked",
-            status: getWorkbenchApiErrorStatus(error) ?? undefined,
+            status:
+              getWorkbenchApiErrorStatus(revalidationError.sourceError) ?? undefined,
           });
           return;
         }
         setRefreshFailure({
-          scope: failureScope,
+          scope: revalidationError.scope,
           requestedControls: controls,
           confirmedControls: controls,
-          status: getWorkbenchApiErrorStatus(error) ?? undefined,
+          status:
+            getWorkbenchApiErrorStatus(revalidationError.sourceError) ?? undefined,
         });
       });
   }, [
     controls,
+    currentDetails,
     queryClient,
     resolveDetailsForControls,
     router,
@@ -698,12 +733,25 @@ export default function PerformanceWorkspaceClient({
         }
         void runRefresh(refreshFailure.requestedControls, controls, {
           focusTarget: lastSourceControlFocusTargetRef.current ?? undefined,
+          forceScope: refreshFailure.scope,
         });
       }}
       isUpdating={isUpdating}
       isDetailsPending={isDetailsPending}
       />
     </AppPageShell>
+  );
+}
+
+function isPerformanceQueryFresh(
+  state:
+    | Readonly<{ data: unknown; dataUpdatedAt: number; isInvalidated: boolean }>
+    | undefined,
+) {
+  return Boolean(
+    state?.data !== undefined &&
+      !state.isInvalidated &&
+      Date.now() - state.dataUpdatedAt < WORKBENCH_QUERY_STALE_TIME_MS,
   );
 }
 
