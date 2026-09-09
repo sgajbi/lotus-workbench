@@ -657,16 +657,17 @@ export default function PerformanceWorkspaceClient({
       return;
     }
 
-    const hydrationIdentity = buildControlQueryIdentity(controls);
-    if (automaticHydrationIdentityRef.current === hydrationIdentity) {
-      return;
-    }
-    automaticHydrationIdentityRef.current = hydrationIdentity;
     const summaryOptions = performanceWorkspaceSummaryQueryOptions(controls);
     const detailsOptions = performanceWorkspaceDetailsQueryOptions(
       controls,
       currentSummary,
     );
+    const controlsIdentity = buildControlQueryIdentity(controls);
+    const hydrationIdentity = JSON.stringify(detailsOptions.queryKey);
+    if (automaticHydrationIdentityRef.current === hydrationIdentity) {
+      return;
+    }
+    automaticHydrationIdentityRef.current = hydrationIdentity;
     if (
       currentDetails &&
       isPerformanceQueryFresh(queryClient.getQueryState(summaryOptions.queryKey)) &&
@@ -701,10 +702,16 @@ export default function PerformanceWorkspaceClient({
       .then(({ resolvedDetails, resolvedSummary, summaryDataUpdatedAt }) => {
         if (
           activeRefreshTokenRef.current !== null ||
-          currentControlsIdentityRef.current !== hydrationIdentity
+          currentControlsIdentityRef.current !== controlsIdentity
         ) {
           return;
         }
+        automaticHydrationIdentityRef.current = JSON.stringify(
+          performanceWorkspaceDetailsQueryOptions(
+            resolvedDetails.controls,
+            resolvedSummary,
+          ).queryKey,
+        );
         admitPerformanceQueryData(
           queryClient,
           performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
@@ -741,7 +748,7 @@ export default function PerformanceWorkspaceClient({
       .catch((error: unknown) => {
         if (
           activeRefreshTokenRef.current !== null ||
-          currentControlsIdentityRef.current !== hydrationIdentity
+          currentControlsIdentityRef.current !== controlsIdentity
         ) {
           return;
         }

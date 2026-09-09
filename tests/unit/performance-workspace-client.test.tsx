@@ -744,6 +744,7 @@ describe("PerformanceWorkspaceClient", () => {
   it("admits newer source evidence when the refreshed route controls are unchanged", async () => {
     const initialSummary = buildSummary();
     const refreshedSummary = buildSummary({
+      correlation_id: "corr-performance-route-refresh",
       net_performance: {
         ...initialSummary.net_performance,
         portfolio_return_pct: 7.1,
@@ -755,12 +756,15 @@ describe("PerformanceWorkspaceClient", () => {
     );
 
     expect(screen.getByTestId("return")).toHaveTextContent(DEFAULT_PORTFOLIO_RETURN);
+    getDetailsClientMock.mockResolvedValueOnce(
+      buildDetails({ correlation_id: "corr-performance-route-refresh" }),
+    );
 
     rerender(
       <PerformanceWorkspaceClient
         {...props}
         initialSummary={refreshedSummary}
-        initialDetails={buildDetails()}
+        initialDetails={null}
       />,
     );
 
@@ -773,7 +777,7 @@ describe("PerformanceWorkspaceClient", () => {
       ),
     ).toEqual(refreshedSummary);
     expect(getSummaryClientMock).not.toHaveBeenCalled();
-    expect(getDetailsClientMock).not.toHaveBeenCalled();
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
   });
 
   it("surfaces a refreshed route load failure instead of presenting retained cache", async () => {
