@@ -7952,3 +7952,46 @@ evidence under `docs/evidence/issue-1043-portfolio-receipt-age/`. The visible Po
 workflow changes, so its screen guide and repository context change and the wiki must be published
 after merge. Existing frontend governance already requires governed Query ownership, explicit
 source posture, and stable status messages; no central skill change is justified.
+
+## 2026-09-09 — Performance summary and detail Query ownership (#791)
+
+### Decision question
+
+How should Performance retain source-confirmed evidence across period and analytical-control
+changes without an unbounded component cache or a second response authority?
+
+### Evidence consulted
+
+1. [TanStack Query query-key guidance](https://tanstack.com/query/latest/docs/framework/react/guides/query-keys)
+   requires every variable used by a query function that can change returned data to be present in
+   its deterministic query key.
+2. [TanStack Query `QueryClient`](https://tanstack.com/query/latest/docs/reference/QueryClient)
+   defines fresh-cache reuse, stale revalidation, in-flight deduplication, and scoped cancellation.
+3. [TanStack Query initial-data reference](https://tanstack.com/query/latest/docs/framework/react/reference/interfaces/QueryOptions)
+   treats server-provided initial data as cache data rather than disposable placeholder state.
+
+### Adopted decisions
+
+1. Give summary and detail one hierarchical Query-key family containing every source-changing
+   portfolio, window, analytical-basis, dimension, frequency, benchmark, date, and currency input.
+2. Admit responses through the existing source-identity checks before Query can reuse them.
+3. Bind a detail key to the admitted summary's correlation and effective review context. A newly
+   admitted summary therefore cannot silently inherit detail from an earlier source receipt.
+4. Use the shared 30-second stale and five-minute retention policy, Query in-flight deduplication,
+   and abort propagation. Keep only temporary requested/confirmed interaction state locally.
+5. Preserve confirmed evidence through an ordinary refresh failure, but clear it on an authenticated
+   permission refusal and fence delayed completions from changing the active review.
+
+### Rejected decisions
+
+An additional cache wrapper; infinite freshness; component-owned response Maps; browser-derived
+source revisions; clearing useful confirmed evidence during an ordinary source failure; or adding
+visible receipt age before #787 defines the composite Performance presentation.
+
+### Validation and publication decision
+
+Focused contract and component tests prove exact keys, source admission, fresh reuse, stale
+revalidation, normalized detail recovery, refresh-failure retention, permission refusal, and
+late-response fencing. This changes internal state ownership, not the Performance screen's business
+purpose, facts, actions, or visible workflow. Repository context changes; no wiki source change is
+required.
