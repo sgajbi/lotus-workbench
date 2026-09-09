@@ -165,7 +165,16 @@ async function renderAdvisorBookCase({ identity, state }: RenderProofCase) {
   }
   const response = advisorBookResponse(identity, state);
   getAdvisorBookMock.mockResolvedValue(response);
-  render(createElement(AdvisorBookWorkspace));
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  render(
+    createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      createElement(AdvisorBookWorkspace),
+    ),
+  );
   await screen.findByRole("table", { name: "Portfolios in my book" });
   return response;
 }
