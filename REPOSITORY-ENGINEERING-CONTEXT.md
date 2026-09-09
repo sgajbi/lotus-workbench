@@ -36,9 +36,9 @@ facts; it must not invent reassuring defaults, thresholds, authority, or success
   dependency inventory. Playwright is governed separately under `validationTooling` in the runtime
   support policy. Vitest is pinned by `package.json` and `package-lock.json` and exercised by CI; it
   is not represented in either of those inventories.
-- Portfolio, Performance summary/detail, and Performance Risk source reads use root-owned TanStack
-  Query state with complete business-context keys, explicit source admission, and bounded
-  freshness policy.
+- Adviser Book, Portfolio, Performance summary/detail, and Performance Risk source reads use
+  root-owned TanStack Query state with complete business-context keys, explicit source admission,
+  and bounded freshness policy.
 - Product reads and commands call same-origin `/api/bff/**` routes. Those routes strip
   browser-supplied authority. Static server-owned caller context is added only in an explicit
   development environment. Specialized Idea, Adviser Book, Adviser Cockpit, Advisory Copilot, and
@@ -131,10 +131,14 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 - Query keys include every dimension that can change source truth. Context confirmation invalidates
   the full affected family; delayed results must not cross portfolio, record, date, currency,
   projection, or other business-context boundaries.
-- Portfolio, Performance summary/detail, and Performance Risk use governed TanStack Query
+- Adviser Book, Portfolio, Performance summary/detail, and Performance Risk use governed TanStack Query
   ownership. Performance detail keys also carry the admitted summary evidence identity so a
   refreshed summary cannot silently reuse detail from another source receipt. Do not restore
   module-level response Maps, inflight registries, token caches, or mirrored server state.
+- Adviser Book reuses an exact register identity without automatic focus, reconnect, or remount
+  reads and exposes one explicit **Recheck book** action. An ordinary recheck failure retains the
+  prior admitted rows and receipt; an authenticated permission refusal withholds them. Its
+  **Checked** timestamp is browser receipt metadata, not Core/Gateway business freshness.
 - Workbench receipt age uses the oldest admitted `dataUpdatedAt` across every required Query in the
   displayed composite and is labelled **Checked**. It is browser receipt metadata, not source
   business date, upstream collection time, or certified freshness. Explicit composite rechecks may

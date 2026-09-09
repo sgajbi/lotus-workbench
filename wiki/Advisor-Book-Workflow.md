@@ -52,8 +52,11 @@ team, delegated, tenant, or booking-centre permissions in the browser.
    require deeper evidence.
 4. Narrow the register using an exact client reference, supported mandate, and requested sort.
 5. Confirm the returned range and displayed order before moving between source pages.
-6. Open a portfolio to continue in [Portfolio Review](Portfolio-Review-Screen-Guide).
-7. Within another supported portfolio screen, use **Portfolio context** to change portfolio while
+6. Read **Checked** to confirm when Workbench last admitted this exact register view. Use
+   **Recheck book** when a deliberate source recheck is required; ordinary focus, reconnect, or
+   remount does not create another read.
+7. Open a portfolio to continue in [Portfolio Review](Portfolio-Review-Screen-Guide).
+8. Within another supported portfolio screen, use **Portfolio context** to change portfolio while
    preserving the current business task and supported filters. Workbench requests own-book choices
    only when the switcher is opened.
 
@@ -74,6 +77,9 @@ approval, order handling, execution, settlement, reporting, or client communicat
 - Shows both requested and displayed order when the source page does not match the requested sort.
 - Pages through source results using the returned paging metadata and preserves the governed
   business date when the working view is cleared.
+- Shows the browser receipt age for the exact admitted register and provides one explicit recheck.
+  The receipt is labelled **Checked** and is distinct from the source business date, evidence
+  timestamp, and freshness posture.
 - Blocks a missing, malformed, or impossible requested business date before source loading and
   offers one explicit calendar-date recovery control. A returned date that does not match the
   requested source scope is rejected rather than rendered.
@@ -91,6 +97,7 @@ approval, order handling, execution, settlement, reporting, or client communicat
 | Apply a book view | Enter supported filters and sorting, then choose **Apply view** | None; this requests a new source-backed view |
 | Clear the working view | Choose **Clear view** | None; filters and sorting reset while the governed date remains |
 | Move between result pages | Use **Previous** or **Next** when source paging permits | None; Workbench requests the selected source page |
+| Recheck the current register | Choose **Recheck book** beside the exact receipt age | None; one source read revalidates the unchanged view |
 | Retry unavailable evidence | Choose **Retry** after an explicit error or permission state | None; Workbench re-contacts the same source boundary |
 | Open a portfolio | Select a portfolio returned in the current own-book page | None on Advisor Book; the task continues in Portfolio Review |
 
@@ -123,9 +130,12 @@ Shared endpoint and ownership detail remains in [API Surface](API-Surface) and
 | Degraded or partial | Returned limitation and reason are visible with the available evidence | Use only the evidenced fields; follow the first support step if the decision needs missing authority |
 | Permission blocked | An explicit access state; no portfolio catalogue fallback | Verify the governed caller posture; do not use browser headers to bypass it |
 | Error or unavailable | An explicit source failure with a Retry control | Retry once to re-contact the source; escalate with the displayed HTTP status if it persists |
+| Recheck failed | The last admitted register and its unchanged **Checked** receipt remain visible with a compact failure message | Continue using the explicitly dated prior check, or recheck once when the source is available; a permission refusal removes the rows |
 
-Workbench does not keep a stale or cached book visible after a failed request and does not silently
-fall back to a global portfolio catalogue.
+An initial failure never substitutes a global portfolio catalogue. After a successful check,
+Workbench can retain the exact register in governed Query state. An ordinary recheck failure keeps
+that admitted evidence visibly tied to its earlier receipt; an authenticated permission refusal
+removes it. Workbench never describes browser receipt time as source freshness.
 
 ## Workbench Boundaries
 
@@ -156,11 +166,12 @@ guide does not turn a supported screen into a claim of bank approval or producti
 
 - Focused unit and integration coverage validates the strict Advisor Book contract, business-date
   admission and source-scope agreement, state model, filters, paging, task-preserving navigation,
-  permission handling, and absence of a global fallback.
+  permission handling, exact Query identity, remount/focus/reconnect suppression, abort propagation,
+  late-response fencing, explicit recheck, retained-evidence failure, and absence of a global fallback.
 - `tests/e2e/advisor-book-workspace.spec.ts` proves compact desktop measures, one collapsed support
   disclosure, raw-reference exclusion from the primary path, explicit open/close behavior, the
-  first portfolio decision row above 900 pixels at 1440, 1024/720/519 reflow, and failure/date
-  recovery without a fabricated request.
+  first portfolio decision row above 900 pixels at 1440, 1024/720/519 reflow, exact receipt and
+  recheck request counts, retained-register failure, and date recovery without a fabricated request.
 - `docs/evidence/issue-811-decision-worklists/advisor-book/` contains reviewed diagnostic desktop,
   tablet, and compact decision-first screenshots. They are not canonical runtime proof.
 - `scripts/live/validation/browser-workflows.mjs` derives every expected portfolio identity and
