@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   captureActiveAuthorityContext,
+  captureAuthorityBoundaryRevision,
   captureAuthorityRequestContext,
   reconcileResponseAuthorityContext,
   resetClientAuthorityContextForTests,
@@ -53,6 +54,7 @@ describe("client authority context", () => {
     );
 
     expect(captureActiveAuthorityContext()).toBe(SECOND_AUTHORITY);
+    expect(captureAuthorityBoundaryRevision()).toBe(1);
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
