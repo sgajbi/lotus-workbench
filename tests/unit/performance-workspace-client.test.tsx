@@ -533,6 +533,47 @@ describe("PerformanceWorkspaceClient", () => {
     ).toBeUndefined();
   });
 
+  it("does not apply an obsolete permission denial to a newly selected portfolio", async () => {
+    let rejectSummary!: (error: unknown) => void;
+    const summaryRequest = new Promise<WorkbenchPerformanceWorkspaceSummary>((_, reject) => {
+      rejectSummary = reject;
+    });
+    getSummaryClientMock.mockReturnValueOnce(summaryRequest);
+
+    const result = render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps()}
+        initialMode="evidence"
+      />,
+    );
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+    await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(1));
+
+    const nextSummary = buildSummary({
+      portfolio_id: "PF_2002",
+      net_performance: {
+        ...buildSummary().net_performance,
+        portfolio_return_pct: 8.2,
+      },
+    });
+    result.rerender(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(
+          nextSummary,
+          buildDetails({ portfolio_id: "PF_2002" }),
+        )}
+        initialPortfolioId="PF_2002"
+        initialMode="evidence"
+      />,
+    );
+    await waitFor(() => expect(screen.getByTestId("return")).toHaveTextContent("8.2"));
+
+    await act(async () => rejectSummary(Object.assign(new Error("Forbidden"), { status: 403 })));
+
+    await waitFor(() => expect(screen.getByTestId("load-issue")).toHaveTextContent("none"));
+    expect(screen.getByTestId("return")).toHaveTextContent("8.2");
+  });
+
   it("retains the prior receipt and withholds success when composite recheck fails", async () => {
     const initialSummary = buildSummary();
     const initialDetails = buildDetails();
@@ -557,6 +598,7 @@ describe("PerformanceWorkspaceClient", () => {
     expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
     expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
     expect(pushMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Recheck performance" })).not.toBeInTheDocument();
   });
 
   it("retries a failed recheck with the same intent and without unchanged-route navigation", async () => {
