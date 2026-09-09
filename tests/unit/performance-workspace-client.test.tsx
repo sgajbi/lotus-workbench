@@ -1203,6 +1203,62 @@ describe("PerformanceWorkspaceClient", () => {
     );
   });
 
+  it("refreshes detail when a stale cached summary requires a new source read", async () => {
+    const cachedSummary = buildSummary({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+    });
+    const cachedDetails = buildDetails({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+    });
+    const refreshedSummary = buildSummary({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+      net_performance: {
+        ...cachedSummary.net_performance,
+        portfolio_return_pct: 19.1,
+      },
+    });
+    const refreshedDetails = buildDetails({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+    });
+    getSummaryClientMock.mockResolvedValueOnce(refreshedSummary);
+    getDetailsClientMock.mockResolvedValueOnce(refreshedDetails);
+    const result = render(
+      <PerformanceWorkspaceClient {...buildDefaultClientProps()} />,
+    );
+    const threeYearContext = {
+      ...defaultQueryContext,
+      period: "3Y",
+      reportStartDate: "2023-03-28",
+    };
+    result.queryClient.setQueryData(
+      performanceWorkspaceSummaryQueryOptions(threeYearContext).queryKey,
+      cachedSummary,
+      { updatedAt: Date.now() - WORKBENCH_QUERY_STALE_TIME_MS - 1 },
+    );
+    result.queryClient.setQueryData(
+      performanceWorkspaceDetailsQueryOptions(
+        threeYearContext,
+        cachedSummary,
+      ).queryKey,
+      cachedDetails,
+      { updatedAt: Date.now() },
+    );
+
+    screen.getByRole("button", { name: "Switch 3Y" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("return")).toHaveTextContent("19.1");
+      expect(screen.getByTestId("chart-points")).toHaveTextContent("1");
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
+    });
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves source receipt time when a normalized summary is admitted under confirmed controls", async () => {
     const normalizedSummary = buildSummary({
       period: "3Y",
