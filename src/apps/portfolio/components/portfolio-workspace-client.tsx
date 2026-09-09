@@ -74,6 +74,11 @@ type PortfolioControlTransition = {
   requestedControls: PortfolioWorkspaceControls;
 };
 
+type PortfolioRefreshAnnouncement = {
+  scope: string;
+  message: string;
+};
+
 async function queryPortfolioWorkspaceShell(
   portfolioId: string,
   signal: AbortSignal,
@@ -248,6 +253,8 @@ export default function PortfolioWorkspaceClient({
   const interactiveReady = useClientMounted();
   const [controlTransition, setControlTransition] =
     useState<PortfolioControlTransition | null>(null);
+  const [refreshAnnouncement, setRefreshAnnouncement] =
+    useState<PortfolioRefreshAnnouncement | null>(null);
   const initialControlTransition = useMemo<PortfolioControlTransition | null>(
     () =>
       confirmedInitialWorkspace &&
@@ -555,14 +562,19 @@ export default function PortfolioWorkspaceClient({
         : null,
     [context, selectedPortfolioId, workspaceState],
   );
+  const summaryQueryKey = useMemo(
+    () =>
+      summaryRequest
+        ? portfolioQueryKeys.summaryDetails(
+            selectedPortfolioId!,
+            workspaceSourceGeneration,
+            summaryRequest.params,
+          )
+        : [...portfolioQueryKeys.all, "summary-details", "unselected"],
+    [selectedPortfolioId, summaryRequest, workspaceSourceGeneration],
+  );
   const summaryQuery = useQuery({
-    queryKey: summaryRequest
-      ? portfolioQueryKeys.summaryDetails(
-          selectedPortfolioId!,
-          workspaceSourceGeneration,
-          summaryRequest.params,
-        )
-      : [...portfolioQueryKeys.all, "summary-details", "unselected"],
+    queryKey: summaryQueryKey,
     enabled: Boolean(selectedPortfolioId && workspaceState && summaryRequest),
     refetchInterval: ({ state }) =>
       getWorkbenchQueryRevalidationInterval(
@@ -714,6 +726,47 @@ export default function PortfolioWorkspaceClient({
       resolvedWorkspaceState,
     ],
   );
+  const refreshScope = `${selectedPortfolioId ?? "unselected"}|${workspaceSourceGeneration}|${summaryRequest?.key ?? "no-detail"}`;
+  const portfolioCheckedAt =
+    shellQuery.data &&
+    summaryResponseIsCurrent &&
+    shellQuery.dataUpdatedAt > 0 &&
+    summaryQuery.dataUpdatedAt > 0
+      ? Math.min(shellQuery.dataUpdatedAt, summaryQuery.dataUpdatedAt)
+      : null;
+
+  async function recheckPortfolio() {
+    if (!selectedPortfolioId || !summaryRequest) {
+      return;
+    }
+    const requestedScope = refreshScope;
+    const requestedGeneration = workspaceSourceGeneration;
+    const [shellResult, detailResult] = await Promise.all([
+      shellQuery.refetch(),
+      summaryQuery.refetch(),
+    ]);
+    const returnedShellGeneration = buildPortfolioWorkspaceSourceGeneration(
+      selectedPortfolioId,
+      shellResult.data ?? null,
+    );
+    if (
+      shellResult.isSuccess &&
+      detailResult.isSuccess &&
+      returnedShellGeneration === requestedGeneration &&
+      isPortfolioReviewResponseCurrent(
+        detailResult.data ?? null,
+        controls,
+        summaryRequest.params,
+        selectedPortfolioId,
+      )
+    ) {
+      setRefreshAnnouncement({
+        scope: requestedScope,
+        message: "Portfolio evidence rechecked.",
+      });
+    }
+  }
+
   function handleControlsChange(patch: Partial<PortfolioWorkspaceControls>) {
     const nextControls = applyPortfolioControlPatch(controls, patch);
     if (!requiresSourceConfirmation(patch)) {
@@ -1085,6 +1138,17 @@ export default function PortfolioWorkspaceClient({
                       ? getOrderedWorkflowCues(resolvedWorkspaceState)
                       : []
                   }
+                  sourceReceipt={{
+                    checkedAt: portfolioCheckedAt,
+                    refreshScope,
+                    isRefreshing:
+                      shellQuery.isFetching || summaryQuery.isFetching,
+                    onRefresh: recheckPortfolio,
+                    announcement:
+                      refreshAnnouncement?.scope === refreshScope
+                        ? refreshAnnouncement.message
+                        : undefined,
+                  }}
                   contextChangePending={
                     activeControlTransition?.status === "pending"
                   }
