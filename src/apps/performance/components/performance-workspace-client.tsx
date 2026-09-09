@@ -724,10 +724,16 @@ export default function PerformanceWorkspaceClient({
         : { scope: failureScope, sourceError: error };
 
       if (isWorkbenchPermissionBlockedError(refreshError.sourceError)) {
-        initialDataAdmissionEnabledRef.current = false;
         queryClient.removeQueries({
           queryKey: performanceWorkspaceQueryKeys.portfolio(confirmedControls.portfolioId),
         });
+        if (
+          currentControlsIdentityRef.current !==
+          buildControlQueryIdentity(confirmedControls)
+        ) {
+          return;
+        }
+        initialDataAdmissionEnabledRef.current = false;
         setRefreshFailure(null);
         setLoadIssue({
           state: "permission_blocked",
@@ -948,7 +954,9 @@ export default function PerformanceWorkspaceClient({
               checkedAt: performanceCheckedAt,
               refreshScope: performanceRefreshScope,
               isRefreshing: pendingRefresh?.intent === "recheck",
-              canRecheck: !isUpdating || pendingRefresh?.intent === "recheck",
+              canRecheck:
+                pendingRefresh?.intent === "recheck" ||
+                (!isUpdating && refreshFailure?.intent !== "recheck"),
               onRefresh: () =>
                 runRefresh(controls, controls, {
                   intent: "recheck",
