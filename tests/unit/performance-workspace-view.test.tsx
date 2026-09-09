@@ -47,12 +47,14 @@ describe("PerformanceWorkspaceView", () => {
     isDetailsPending = false,
     refreshStatus = null,
     onRetryRefresh,
+    sourceReceipt,
   }: {
     mode?: PerformanceWorkspaceMode;
     workspace?: ReturnType<typeof buildSupportedPerformanceScenario>["workspace"];
     isDetailsPending?: boolean;
     refreshStatus?: React.ComponentProps<typeof PerformanceWorkspaceView>["refreshStatus"];
     onRetryRefresh?: () => void;
+    sourceReceipt?: React.ComponentProps<typeof PerformanceWorkspaceView>["sourceReceipt"];
   }) {
     function Harness() {
       const [selectedMode, setSelectedMode] = React.useState<PerformanceWorkspaceMode>(mode);
@@ -70,6 +72,7 @@ describe("PerformanceWorkspaceView", () => {
           isDetailsPending={isDetailsPending}
           refreshStatus={refreshStatus}
           onRetryRefresh={onRetryRefresh}
+          sourceReceipt={sourceReceipt}
         />
       );
     }
@@ -220,6 +223,44 @@ describe("PerformanceWorkspaceView", () => {
       "Source-confirmedYTD · NET returns · Monthly observations"
     );
     expect(screen.getByText("Summary Mode Panel")).toBeInTheDocument();
+  });
+
+  it("keeps receipt age and one exact recovery action available across performance modes", async () => {
+    const onRefresh = vi.fn().mockResolvedValue(undefined);
+    const checkedAt = Date.parse("2026-09-09T01:00:00Z");
+    renderWorkspaceView({
+      sourceReceipt: {
+        checkedAt,
+        refreshScope: "PF_1001:performance:YTD",
+        isRefreshing: false,
+        onRefresh,
+      },
+    });
+
+    expect(screen.getByText(/^Checked /)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Recheck performance" }));
+    await waitFor(() => expect(onRefresh).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(getWorkflowControl(/^Performance analysis/i));
+    expect(screen.getAllByRole("button", { name: "Recheck performance" })).toHaveLength(1);
+  });
+
+  it("uses explicit recheck copy without relabelling source business freshness", () => {
+    renderWorkspaceView({
+      refreshStatus: {
+        kind: "failed",
+        intent: "recheck",
+        scope: "details",
+        requestedContext: "YTD · NET returns · Monthly observations",
+        confirmedContext: "YTD · NET returns · Monthly observations",
+        status: 502,
+      },
+    });
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Performance evidence could not be rechecked");
+    expect(alert).toHaveTextContent("last source-confirmed view remains in place");
+    expect(alert).not.toHaveTextContent(/fresh|current/i);
   });
 
   it("presents a failed detail selection as a recoverable business exception", () => {

@@ -74,6 +74,7 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
     isUpdating,
     isDetailsPending,
     refreshStatus,
+    sourceReceipt,
     onRetryRefresh,
     loadIssue,
   }: {
@@ -98,11 +99,16 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
     isDetailsPending?: boolean;
     refreshStatus?: {
       kind: "pending" | "confirmed" | "failed";
+      intent?: "selection" | "recheck";
       scope: "summary" | "details";
       requestedContext: string;
       confirmedContext: string;
       status?: number;
     } | null;
+    sourceReceipt?: {
+      checkedAt: number | null;
+      onRefresh: () => Promise<unknown>;
+    };
     onRetryRefresh?: () => void;
     loadIssue?: { state: string; status?: number } | null;
   }) => (
@@ -131,10 +137,12 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
       <div data-testid="updating">{String(Boolean(isUpdating))}</div>
       <div data-testid="details-pending">{String(Boolean(isDetailsPending))}</div>
       <div data-testid="refresh-kind">{refreshStatus?.kind ?? "none"}</div>
+      <div data-testid="refresh-intent">{refreshStatus?.intent ?? "selection"}</div>
       <div data-testid="refresh-scope">{refreshStatus?.scope ?? "none"}</div>
       <div data-testid="refresh-requested">{refreshStatus?.requestedContext ?? "none"}</div>
       <div data-testid="refresh-confirmed">{refreshStatus?.confirmedContext ?? "none"}</div>
       <div data-testid="load-issue">{loadIssue?.state ?? "none"}</div>
+      <div data-testid="source-checked-at">{sourceReceipt?.checkedAt ?? "unavailable"}</div>
       <button type="button" onClick={() => onRequestChange?.({ period: "3Y" })}>
         Switch 3Y
       </button>
@@ -198,6 +206,9 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
       </button>
       <button type="button" onClick={() => onRetryRefresh?.()}>
         Retry Selection
+      </button>
+      <button type="button" onClick={() => void sourceReceipt?.onRefresh()}>
+        Recheck performance
       </button>
     </div>
   ),
@@ -275,6 +286,53 @@ describe("PerformanceWorkspaceClient", () => {
     getDetailsClientMock.mockReset();
     restoreFocusMock.mockReset();
     requestResultMock.mockReset();
+  });
+
+  it("shows the oldest admitted receipt and rechecks the exact composite", async () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+    getSummaryClientMock.mockResolvedValueOnce(initialSummary);
+    getDetailsClientMock.mockResolvedValueOnce(initialDetails);
+
+    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+
+    const initialCheckedAt = Number(screen.getByTestId("source-checked-at").textContent);
+    expect(initialCheckedAt).toBeGreaterThan(0);
+    expect(getSummaryClientMock).not.toHaveBeenCalled();
+    expect(getDetailsClientMock).not.toHaveBeenCalled();
+
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+
+    await waitFor(() => {
+      expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+      expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
+      expect(screen.getByTestId("refresh-intent")).toHaveTextContent("recheck");
+    });
+    expect(Number(screen.getByTestId("source-checked-at").textContent)).toBeGreaterThanOrEqual(
+      initialCheckedAt,
+    );
+  });
+
+  it("retains the prior receipt and withholds success when composite recheck fails", async () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+    getSummaryClientMock.mockResolvedValueOnce(initialSummary);
+    getDetailsClientMock.mockRejectedValueOnce({ status: 502 });
+
+    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+    const initialCheckedAt = screen.getByTestId("source-checked-at").textContent;
+
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("failed");
+      expect(screen.getByTestId("refresh-scope")).toHaveTextContent("details");
+    });
+    expect(screen.getByTestId("source-checked-at")).toHaveTextContent(initialCheckedAt!);
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it("revalidates retained summary and detail evidence when the workspace remounts after stale time", async () => {

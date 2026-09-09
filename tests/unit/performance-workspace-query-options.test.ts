@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  fetchPerformanceWorkspaceRevalidation,
   performanceWorkspaceDetailsQueryOptions,
   performanceWorkspaceSummaryQueryOptions,
 } from "../../src/apps/performance/performance-workspace-query-options";
@@ -104,6 +105,37 @@ describe("performance workspace query ownership", () => {
     await queryClient.fetchQuery(options);
 
     expect(getSummaryClientMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("reuses a fresh composite until an explicit source recheck invalidates it", async () => {
+    const summary = {
+      ...buildPerformanceWorkspaceSummary(),
+      requested_as_of_date: "2026-02-24",
+      requested_reporting_currency: "USD",
+      effective_reporting_currency: "USD",
+      reporting_currency_state: "applied" as const,
+    };
+    const details = {
+      ...buildPerformanceWorkspaceDetails(),
+      requested_as_of_date: "2026-02-24",
+      requested_reporting_currency: "USD",
+      effective_reporting_currency: "USD",
+      reporting_currency_state: "applied" as const,
+    };
+    getSummaryClientMock.mockResolvedValue(summary);
+    getDetailsClientMock.mockResolvedValue(details);
+    const queryClient = new QueryClient();
+
+    await fetchPerformanceWorkspaceRevalidation(queryClient, context);
+    await fetchPerformanceWorkspaceRevalidation(queryClient, context);
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+
+    await fetchPerformanceWorkspaceRevalidation(queryClient, context, {
+      forceSourceRead: true,
+    });
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(2);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(2);
   });
 
   it("refuses mismatched summary evidence before it becomes reusable cache data", async () => {
