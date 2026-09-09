@@ -61,10 +61,19 @@ describe("advisor-book API", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(getAdvisorBook({ asOfDate: "2026-04-10" })).resolves.toEqual(payload);
+    const controller = new AbortController();
+    await expect(
+      getAdvisorBook(
+        { asOfDate: "2026-04-10" },
+        { signal: controller.signal },
+      ),
+    ).resolves.toEqual(payload);
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(String(fetchMock.mock.calls[0][0])).toBe(
       "/api/bff/api/v1/advisor-book/portfolios?asOfDate=2026-04-10",
+    );
+    expect(fetchMock.mock.calls[0][1]).toEqual(
+      expect.objectContaining({ signal: controller.signal }),
     );
   });
 

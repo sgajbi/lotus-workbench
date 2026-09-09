@@ -47,6 +47,39 @@ describe("useAdvisorBook", () => {
     );
   });
 
+  it("does not publish a late response from the previous source view", async () => {
+    let resolveFirst: ((value: { correlation_id: string }) => void) | undefined;
+    getAdvisorBookMock
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ correlation_id: string }>((resolve) => {
+            resolveFirst = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({ correlation_id: "current-view" });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result, rerender } = renderHook(
+      ({ clientId }) => useAdvisorBook({ asOfDate: "2026-04-10", clientId }),
+      {
+        initialProps: { clientId: "CIF_OLD" },
+        wrapper: createQueryClientWrapper(queryClient),
+      },
+    );
+
+    await waitFor(() => expect(getAdvisorBookMock).toHaveBeenCalledTimes(1));
+    rerender({ clientId: "CIF_CURRENT" });
+    await waitFor(() =>
+      expect(result.current.response).toEqual({ correlation_id: "current-view" }),
+    );
+
+    await act(async () => {
+      resolveFirst?.({ correlation_id: "late-old-view" });
+      await Promise.resolve();
+    });
+
+    expect(result.current.response).toEqual({ correlation_id: "current-view" });
+  });
+
   it("does not re-read a successful view on remount, focus, or reconnect", async () => {
     getAdvisorBookMock.mockResolvedValue({ correlation_id: "book" });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
