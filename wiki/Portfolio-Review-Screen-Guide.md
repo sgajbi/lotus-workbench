@@ -117,6 +117,11 @@ The broader sequence across Allocation, Positions, Transactions, Income, and Cas
   a complete dated book summary is returned, its totals, valuation date, and position-coverage
   readiness replace the latest-book evidence together; reporting posture remains separately
   source-owned.
+- Shows when the complete displayed Portfolio Review evidence was last **Checked**. This is the
+  oldest admitted Workbench receipt across the workspace shell and dated summary evidence, not the
+  source business date or a claim that upstream records are fresh. The exact UTC receipt remains
+  available from the timestamp. **Recheck portfolio** recontacts both governed reads and confirms
+  success only while their returned identity still matches the displayed portfolio and controls.
 - Shows book context, available benchmark label/code, reporting coverage, actual valuation date,
   and only the evidence sources present in the loaded workspace. A missing benchmark is labelled
   **Not supplied** rather than implying an assignment. The rail is orientation and evidence
@@ -134,6 +139,7 @@ headline portfolio measures remain whole-portfolio source facts.
 | --- | --- | --- |
 | Judge whether the review is usable | Portfolio identity, as-of scope, readiness, reporting, and exception evidence | None |
 | Change period | Select a supported 7D, 30D, MTD, QTD, YTD, 1Y, or since-inception view | None; Workbench requests the relevant supporting performance evidence |
+| Recheck portfolio evidence | A complete current shell and dated summary are displayed | None; Workbench recontacts both reads and confirms only an exact-current result |
 | Change as-of date or reporting currency | The workspace capability must explicitly support that control | None; unsupported controls remain disabled |
 | Open a metric drawer | Select Portfolio value, Invested assets, or Cash | None; this reveals supporting evidence only |
 | Open a source-supplied next step | The dated Gateway workflow response must contain a supported action target | None on Portfolio Review; the user enters the owning workflow |
@@ -174,6 +180,8 @@ Shared endpoint detail remains in [API Surface](API-Surface) and ownership flow 
 | --- | --- | --- |
 | Initial load | Server-backed page loading, followed by a bounded toolbar placeholder until client controls mount | Wait for portfolio and workspace evidence; no fabricated summary is shown |
 | Ready | Identity, metrics, one review focus, controls, evidence, and handoffs without repeated all-clear panels | Use the review focus and source evidence before continuing |
+| Rechecking | Existing admitted evidence remains visible while the shell and dated summary are re-requested; the action remains busy | Wait for the exact-current outcome; repeated activation does not create duplicate work |
+| Recheck failed | Available evidence and the source-specific failure remain visible; no success message is announced | Use only the still-qualified evidence or recheck deliberately after the source recovers |
 | No selectable portfolio | **Portfolio context unavailable** and **Selection unavailable**; no global portfolio list is substituted | Open **My book** to re-establish source-backed portfolio membership |
 | Selected portfolio confirmation | **Preparing portfolio review** remains visible while one automatic request confirms the selected portfolio and current review evidence | Wait for the bounded request; recovery actions are not shown before the outcome is known |
 | Selected portfolio unavailable | After the single automatic request settles without a confirmed portfolio review, **Selected portfolio unavailable** explains that no other portfolio was substituted | Open **My book** to choose an available portfolio; there is no background request loop or unimplemented page-local Retry |
