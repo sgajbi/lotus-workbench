@@ -843,14 +843,17 @@ test.describe('Portfolio workbench smoke', () => {
     const session = await openPortfolioReview(page, request);
     expect(session).toEqual({ portfolioId: 'PB_SG_GLOBAL_BAL_001', available: true });
     await expect(page.getByText('MTD return')).toBeVisible();
-    const receiptTime = page.locator('time[aria-label^="Portfolio evidence checked"]');
+    const receiptTime = page.locator('.portfolio-workspace-toolbar time[datetime]');
     await expect(receiptTime).toContainText(/^Checked /);
     const businessDate = await page.getByLabel('As of').inputValue();
     expect(businessDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(await receiptTime.getAttribute('datetime')).toMatch(
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
     );
-    expect(await receiptTime.getAttribute('title')).toMatch(/^Exact check time: .* UTC$/);
+    const receiptDisclosureId = await receiptTime.getAttribute('aria-describedby');
+    expect(receiptDisclosureId).toBeTruthy();
+    const exactReceiptDisclosure = page.locator(`#${receiptDisclosureId}`);
+    await expect(exactReceiptDisclosure).toContainText(/^Exact check time: .* UTC$/);
 
     const initialPerformanceRequestCount = performanceRequests.length;
     const recheck = page.getByRole('button', { name: 'Recheck portfolio' });
@@ -878,7 +881,7 @@ test.describe('Portfolio workbench smoke', () => {
             portfolioId: session.portfolioId,
             businessDate,
             receiptDateTime: await receiptTime.getAttribute('datetime'),
-            receiptExactDisclosure: await receiptTime.getAttribute('title'),
+            receiptExactDisclosure: await exactReceiptDisclosure.textContent(),
             shellRequestsAfterRecheck: shellRequests.length,
             detailPerformanceRequestsBeforeRecheck: initialPerformanceRequestCount,
             detailPerformanceRequestsAfterRecheck: performanceRequests.length,
