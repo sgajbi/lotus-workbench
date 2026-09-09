@@ -11,6 +11,7 @@ import {
 
 const FIRST_AUTHORITY = "a".repeat(64);
 const SECOND_AUTHORITY = "b".repeat(64);
+const CLEARED_AUTHORITY = "cleared";
 
 function response(authority?: string) {
   return new Response("{}", {
@@ -92,5 +93,33 @@ describe("client authority context", () => {
       reconcileResponseAuthorityContext(response(FIRST_AUTHORITY), olderRequest),
     ).toThrow(StaleAuthorityResponseError);
     expect(captureActiveAuthorityContext()).toBe(SECOND_AUTHORITY);
+  });
+
+  it("clears established authority and notifies consumers on authenticated denial", () => {
+    const listener = vi.fn();
+    subscribeToAuthorityChanges(listener);
+    reconcileResponseAuthorityContext(
+      response(FIRST_AUTHORITY),
+      captureAuthorityRequestContext(),
+    );
+
+    reconcileResponseAuthorityContext(
+      response(CLEARED_AUTHORITY),
+      captureAuthorityRequestContext(),
+    );
+
+    expect(captureActiveAuthorityContext()).toBeNull();
+    expect(listener).toHaveBeenCalledTimes(1);
+  });
+
+  it("fences an older authority response after a newer denial clears authority", () => {
+    const olderRequest = captureAuthorityRequestContext();
+    const newerRequest = captureAuthorityRequestContext();
+    reconcileResponseAuthorityContext(response(CLEARED_AUTHORITY), newerRequest);
+
+    expect(() =>
+      reconcileResponseAuthorityContext(response(FIRST_AUTHORITY), olderRequest),
+    ).toThrow(StaleAuthorityResponseError);
+    expect(captureActiveAuthorityContext()).toBeNull();
   });
 });
