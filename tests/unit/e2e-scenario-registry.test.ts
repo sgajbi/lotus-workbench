@@ -103,7 +103,7 @@ describe("E2E fixture scenario registry", () => {
 
     expect(expectedExecutions).toEqual({
       portfolio: 15,
-      performance: 26,
+      performance: 27,
       manage: 8,
       reports: 20,
     });
