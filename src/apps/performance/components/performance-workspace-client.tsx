@@ -652,11 +652,16 @@ export default function PerformanceWorkspaceClient({
   }
 
   useEffect(() => {
+    const routeLoadFailed = initialSummary === null && initialLoadIssue != null;
     if (
       !controls ||
       !currentSummary ||
+      routeLoadFailed ||
       activeRefreshTokenRef.current !== null
     ) {
+      if (routeLoadFailed) {
+        activeHydrationTokenRef.current = null;
+      }
       return;
     }
 
@@ -788,6 +793,8 @@ export default function PerformanceWorkspaceClient({
   }, [
     controls,
     currentDetails,
+    initialLoadIssue,
+    initialSummary,
     queryClient,
     resolveDetailsForControls,
     router,

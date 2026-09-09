@@ -854,6 +854,44 @@ describe("PerformanceWorkspaceClient", () => {
     expect(screen.getByTestId("return")).toHaveTextContent("7.1");
   });
 
+  it("keeps a route load failure authoritative over cancelled hydration", async () => {
+    let rejectSupersededDetails!: (reason: { status: number }) => void;
+    const supersededDetails = new Promise<WorkbenchPerformanceWorkspaceDetails>(
+      (_resolve, reject) => {
+        rejectSupersededDetails = reject;
+      },
+    );
+    getDetailsClientMock.mockImplementationOnce(() => supersededDetails);
+    const props = {
+      ...buildDefaultClientProps(buildSummary()),
+      initialDetails: null,
+    };
+    const { rerender } = render(<PerformanceWorkspaceClient {...props} />);
+
+    await waitFor(() => {
+      expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+    });
+    rerender(
+      <PerformanceWorkspaceClient
+        {...props}
+        initialSummary={null}
+        initialLoadIssue={{ state: "unavailable", status: 502 }}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByTestId("load-issue")).toHaveTextContent("unavailable");
+      expect(screen.getByTestId("return")).toHaveTextContent("none");
+    });
+
+    await act(async () => {
+      rejectSupersededDetails({ status: 403 });
+      await Promise.resolve();
+    });
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("load-issue")).toHaveTextContent("unavailable");
+    expect(screen.getByTestId("return")).toHaveTextContent("none");
+  });
+
   it("reports that an already-confirmed request did not dispatch a refresh", async () => {
     render(
       <PerformanceWorkspaceClient
