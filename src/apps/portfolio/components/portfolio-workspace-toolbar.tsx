@@ -17,6 +17,7 @@ import {
   WorkbenchChoiceGroup,
   WorkbenchToolbarGroup,
 } from "@/design-system";
+import { PORTFOLIO_REVIEW_COPY } from "@/copy/portfolio-review-copy";
 
 import type {
   PortfolioWorkspaceContext,
@@ -149,11 +150,10 @@ export default function PortfolioWorkspaceToolbar({
               <div className={styles.sourceReceipt}>
                 <WorkbenchDataAge
                   updatedAt={sourceReceipt.checkedAt}
-                  subject="Portfolio evidence"
                 />
                 <SourceRefreshAction
                   refreshScope={sourceReceipt.refreshScope}
-                  idleLabel="Recheck portfolio"
+                  idleLabel={PORTFOLIO_REVIEW_COPY.recheckAction}
                   busyLabel="Rechecking…"
                   isRefreshing={sourceReceipt.isRefreshing}
                   onRefresh={sourceReceipt.onRefresh}
