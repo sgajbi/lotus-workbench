@@ -144,6 +144,12 @@ or moving focus away from the active rail or source control.
   without manufacturing unavailable analytics.
 - Treats a selection change as one atomic decision-context transaction: requested labels, figures,
   and URL are committed together only after the source confirms summary and detail.
+- Shows the oldest admitted summary/detail browser receipt as **Checked** beside the Performance
+  title across every decision mode. The source-owned business date remains **As of**; receipt age
+  does not certify valuation recency, market-data freshness, or calculation currency.
+- Provides one **Recheck performance** action across Summary, Analysis, Adviser Brief, Risk Review,
+  and Evidence. It reuses the exact governed Query owners, makes one summary and one detail read,
+  promotes them only as a coherent composite, and does not navigate the unchanged route.
 - Uses browser-history `push` for confirmed advisor mode and source-control decisions, reserves
   `replace` for source normalization, and synchronizes Back and Forward into the mounted client
   without discarding keyboard focus or accepting an obsolete request.
@@ -167,6 +173,7 @@ or moving focus away from the active rail or source control.
 | Retry horizon comparison | Explicit recoverable horizon-source failure | None; repeats the exact Gateway request |
 | Identify contributor leadership | Confirmed contribution detail and source capability | None; Workbench does not recommend a trade |
 | Retry an unconfirmed selection | Explicit failed refresh with retained requested and confirmed contexts | None; re-contacts Gateway and Performance authority |
+| Recheck the current Performance evidence | Current portfolio, review window, basis, dimensions, frequency, benchmark, review date, and currency identity | None; re-contacts the exact summary/detail sources once |
 | Continue to deeper review | Available selected-portfolio Performance mode | None from Summary |
 | Return to an earlier confirmed view | Existing browser-history entry with valid governed context | None; restores the matching source-backed read state |
 
@@ -185,6 +192,7 @@ client communication, portfolio instruction, trade, order, execution, settlement
 | Zero, one, or multiple horizon observations | Chooses a truthful empty, exact-table, or comparison presentation without manufacturing rows | Gateway `GET /api/v1/workbench/{portfolio_id}/performance/horizon-comparison` over Performance authority |
 | Horizon loading, failure, permission block, exact retry, success-only cache, and obsolete-request fencing | Owns browser request state independently from Summary selection confirmation | Workbench over the matching Gateway response |
 | Pending, failed, requested, and source-confirmed selection context | Owns the browser transaction state; never relabels retained source data | Workbench over the matching Gateway responses |
+| **Checked** age and recheck completion | Shows the oldest admitted summary/detail Query receipt and confirms only a complete exact-context recheck | Workbench browser receipt metadata over the matching Gateway responses; not source business freshness |
 | Portfolio, valuation date, period, and reporting-currency navigation context | Parses one atomic governed cross-workspace context, rejects repeated or malformed values, and serializes supported fields once in stable order; record and batch identities remain local to their owning workspaces | Workbench navigation over source-confirmed identities; no new Performance capability is inferred |
 | Back and Forward mode or analytical selection | Synchronizes server-confirmed route props into the mounted workspace; complete query identity fences obsolete responses while still-fresh exact Risk evidence remains reusable | Browser history plus matching Gateway responses |
 | Retry | Repeats the exact failed selection through the Workbench BFF | Gateway and Performance |
@@ -208,6 +216,10 @@ detail remains in [API Surface](API-Surface), and ownership flow remains in
 | Selection pending | Requested and source-confirmed contexts shown separately; prior figures keep their confirmed labels and controls are locked | Wait for both summary and detail confirmation |
 | Selection failed | Persistent **Selection not applied** evidence, HTTP status when known, retained confirmed context, and **Retry selection** | Retry the exact request or use the confirmed view |
 | Selection confirmed | Compact **Source analysis updated** or **Source detail updated** acknowledgement naming the resolved analytical context for five seconds; controls, figures, and URL remain the durable truth | Continue the review; no dismissal is required |
+| Check time unavailable | **Check time unavailable**; no partial receipt is presented as the composite age | Recheck the complete Performance evidence or use the visible source date and limitations |
+| Recheck pending | Prior source-confirmed analytics and receipt remain visible while the exact summary/detail pair is checked | Wait; repeated activation is coalesced and analytical controls remain protected |
+| Recheck failed | **Performance evidence could not be rechecked** with the affected source scope and prior confirmed view retained | Retry the complete evidence set; do not describe the retained receipt as newly checked |
+| Recheck confirmed | **Performance evidence rechecked** and the composite **Checked** time advances only after both exact reads succeed | Continue the review; source **As of** remains a separate business fact |
 | Partial or limited | Usable facts remain visible with named capability, warning, or partial-failure evidence | Qualify the discussion and investigate the named source limitation |
 | Source-limited contribution | **Contribution coverage is limited**, named business exclusions, market-value coverage, weighting basis, and reconciliation; exact codes remain secondary | Review the exclusions and calculation evidence before using the driver explanation with a client |
 | Unknown or missing contribution evidence | **Contribution evidence needs review** or **Contribution coverage cannot be confirmed** without an invented translation | Open **Calculation evidence**, retain the exact value, and use the approved support path |
