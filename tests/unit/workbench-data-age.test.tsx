@@ -24,11 +24,7 @@ describe("WorkbenchDataAge", () => {
     const updatedAt = now - 2 * 60_000;
 
     render(
-      <WorkbenchDataAge
-        updatedAt={updatedAt}
-        now={now}
-        subject="Portfolio evidence"
-      />,
+      <WorkbenchDataAge updatedAt={updatedAt} now={now} />,
     );
 
     const time = screen.getByText("Checked 2 min ago");
@@ -36,12 +32,8 @@ describe("WorkbenchDataAge", () => {
       "datetime",
       "2026-09-09T01:58:00.000Z",
     );
-    expect(time).toHaveAttribute(
-      "title",
+    expect(time).toHaveAccessibleDescription(
       "Exact check time: 09 Sept 2026, 01:58 UTC",
-    );
-    expect(time).toHaveAccessibleName(
-      "Portfolio evidence checked 2 minutes ago. Exact check time 09 Sept 2026, 01:58 UTC.",
     );
     expect(screen.queryByText(/as of/i)).not.toBeInTheDocument();
   });
@@ -49,16 +41,14 @@ describe("WorkbenchDataAge", () => {
   it("fails closed for missing, invalid, and materially future receipt times", () => {
     const now = Date.parse("2026-09-09T02:00:00.000Z");
     const { rerender } = render(
-      <WorkbenchDataAge updatedAt={null} now={now} subject="Portfolio evidence" />,
+      <WorkbenchDataAge updatedAt={null} now={now} />,
     );
 
-    expect(screen.getByText("Check time unavailable")).toHaveAccessibleName(
-      "Portfolio evidence check time unavailable.",
-    );
+    expect(screen.getByText("Check time unavailable")).toBeInTheDocument();
     expect(screen.queryByRole("time")).not.toBeInTheDocument();
 
     rerender(
-      <WorkbenchDataAge updatedAt={Number.NaN} now={now} subject="Portfolio evidence" />,
+      <WorkbenchDataAge updatedAt={Number.NaN} now={now} />,
     );
     expect(screen.getByText("Check time unavailable")).toBeInTheDocument();
 
@@ -66,7 +56,6 @@ describe("WorkbenchDataAge", () => {
       <WorkbenchDataAge
         updatedAt={now + 61_000}
         now={now}
-        subject="Portfolio evidence"
       />,
     );
     expect(screen.getByText("Check time unavailable")).toBeInTheDocument();
@@ -78,10 +67,7 @@ describe("WorkbenchDataAge", () => {
     const updatedAt = Date.now() - 59_000;
 
     render(
-      <WorkbenchDataAge
-        updatedAt={updatedAt}
-        subject="Portfolio evidence"
-      />,
+      <WorkbenchDataAge updatedAt={updatedAt} />,
     );
 
     expect(screen.getByText("Checked just now")).toBeInTheDocument();

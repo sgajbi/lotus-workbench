@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { formatTimestampValue } from "../utils/financial-formatters";
 import { cx } from "../utils/cx";
@@ -13,7 +13,6 @@ const CLOCK_SKEW_TOLERANCE_MS = MINUTE_MS;
 
 type WorkbenchDataAgeProps = {
   updatedAt: number | null;
-  subject: string;
   className?: string;
   now?: number;
 };
@@ -116,10 +115,10 @@ function getNextAgeUpdateDelay(updatedAt: number, now: number): number | null {
 
 export default function WorkbenchDataAge({
   updatedAt,
-  subject,
   className,
   now: fixedNow,
 }: WorkbenchDataAgeProps) {
+  const exactTimeId = useId();
   const [clockNow, setClockNow] = useState(() => fixedNow ?? Date.now());
   const effectiveNow = fixedNow ?? clockNow;
   const model = formatWorkbenchDataAge(updatedAt, effectiveNow);
@@ -139,23 +138,25 @@ export default function WorkbenchDataAge({
 
   if (!model) {
     return (
-      <span
-        className={cx(styles.root, styles.unavailable, className)}
-        aria-label={`${subject} check time unavailable.`}
-      >
+      <span className={cx(styles.root, styles.unavailable, className)}>
         Check time unavailable
       </span>
     );
   }
 
   return (
-    <time
-      className={cx(styles.root, className)}
-      dateTime={model.dateTime}
-      title={`Exact check time: ${model.exactLabel}`}
-      aria-label={`${subject} ${model.accessibleLabel}. Exact check time ${model.exactLabel}.`}
-    >
-      {model.visibleLabel}
-    </time>
+    <span className={cx(styles.root, className)}>
+      <time
+        className={styles.time}
+        dateTime={model.dateTime}
+        aria-describedby={exactTimeId}
+        tabIndex={0}
+      >
+        {model.visibleLabel}
+      </time>
+      <span id={exactTimeId} className={styles.exactTime} role="tooltip">
+        Exact check time: {model.exactLabel}
+      </span>
+    </span>
   );
 }

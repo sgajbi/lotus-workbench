@@ -14,6 +14,7 @@ import {
   WorkbenchRefreshStatus,
   WorkbenchToolbarPlaceholder,
 } from "@/design-system";
+import { PORTFOLIO_REVIEW_COPY } from "@/copy/portfolio-review-copy";
 import { useClientMounted } from "@/design-system/hooks/use-client-mounted";
 import { formatBusinessDateValue } from "@/design-system/utils/financial-formatters";
 import { getWorkbenchQueryRevalidationInterval } from "@/features/platform-runtime/query-policy";
@@ -77,7 +78,7 @@ type PortfolioControlTransition = {
 
 type PortfolioRefreshAnnouncement = {
   scope: string;
-  message: string;
+  announcement: string;
 };
 
 async function queryPortfolioWorkspaceShell(
@@ -766,7 +767,7 @@ export default function PortfolioWorkspaceClient({
     ) {
       setRefreshAnnouncement({
         scope: requestedScope,
-        message: "Portfolio evidence rechecked.",
+        announcement: PORTFOLIO_REVIEW_COPY.recheckComplete,
       });
     }
   }
@@ -1150,7 +1151,7 @@ export default function PortfolioWorkspaceClient({
                     onRefresh: recheckPortfolio,
                     announcement:
                       refreshAnnouncement?.scope === refreshScope
-                        ? refreshAnnouncement.message
+                        ? refreshAnnouncement.announcement
                         : undefined,
                   }}
                   contextChangePending={
