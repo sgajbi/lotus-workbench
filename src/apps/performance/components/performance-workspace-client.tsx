@@ -183,6 +183,7 @@ export default function PerformanceWorkspaceClient({
   );
   const initialDataAdmissionEnabledRef = useRef(true);
   const activeRefreshTokenRef = useRef<symbol | null>(null);
+  const activeHydrationTokenRef = useRef<symbol | null>(null);
   const automaticHydrationIdentityRef = useRef<string | null>(null);
   const lastSourceControlFocusTargetRef = useRef<PerformanceSourceControlFocusTarget | null>(null);
   const initialRouteControlsKey = useMemo(
@@ -262,6 +263,7 @@ export default function PerformanceWorkspaceClient({
       loadIssueStatus: initialLoadIssue?.status ?? null,
     };
     activeRefreshTokenRef.current = null;
+    activeHydrationTokenRef.current = null;
     automaticHydrationIdentityRef.current = null;
     void queryClient.cancelQueries({ queryKey: performanceWorkspaceQueryKeys.all });
     initialDataAdmissionEnabledRef.current = true;
@@ -514,6 +516,7 @@ export default function PerformanceWorkspaceClient({
     const initialScope: PerformanceRefreshScope = refreshesSummary ? "summary" : "details";
     const refreshToken = Symbol("performance-workspace-refresh");
     activeRefreshTokenRef.current = refreshToken;
+    activeHydrationTokenRef.current = null;
     await queryClient.cancelQueries({
       queryKey: performanceWorkspaceQueryKeys.portfolio(requestedControls.portfolioId),
     });
@@ -675,6 +678,8 @@ export default function PerformanceWorkspaceClient({
     ) {
       return;
     }
+    const hydrationToken = Symbol("performance-workspace-hydration");
+    activeHydrationTokenRef.current = hydrationToken;
     let failureScope: PerformanceRefreshScope = "summary";
     const hydrationRequest = currentDetails
       ? fetchPerformanceWorkspaceRevalidation(queryClient, controls).then(
@@ -701,11 +706,13 @@ export default function PerformanceWorkspaceClient({
     void hydrationRequest
       .then(({ resolvedDetails, resolvedSummary, summaryDataUpdatedAt }) => {
         if (
+          activeHydrationTokenRef.current !== hydrationToken ||
           activeRefreshTokenRef.current !== null ||
           currentControlsIdentityRef.current !== controlsIdentity
         ) {
           return;
         }
+        activeHydrationTokenRef.current = null;
         automaticHydrationIdentityRef.current = JSON.stringify(
           performanceWorkspaceDetailsQueryOptions(
             resolvedDetails.controls,
@@ -747,11 +754,13 @@ export default function PerformanceWorkspaceClient({
       })
       .catch((error: unknown) => {
         if (
+          activeHydrationTokenRef.current !== hydrationToken ||
           activeRefreshTokenRef.current !== null ||
           currentControlsIdentityRef.current !== controlsIdentity
         ) {
           return;
         }
+        activeHydrationTokenRef.current = null;
         const revalidationError = currentDetails
           ? resolvePerformanceWorkspaceRevalidationError(error)
           : { scope: failureScope, sourceError: error };
