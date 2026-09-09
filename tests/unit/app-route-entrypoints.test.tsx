@@ -7,6 +7,7 @@ import SuitePage from "@/app/suite/page";
 import PerformanceAppPage from "@/apps/performance/page";
 import RecommendationsAppPage from "@/apps/recommendations/page";
 import ProposalsPage from "@/app/proposals/page";
+import { renderWithQueryClient } from "../helpers/query-client-test-harness";
 
 const redirectMock = vi.fn((target: string) => {
   throw new Error(`REDIRECT:${target}`);
@@ -241,7 +242,7 @@ describe("app route entrypoints", () => {
       }),
     );
 
-    render(
+    renderWithQueryClient(
       await PerformanceAppPage({
         searchParams: Promise.resolve({ portfolioId: "PORT_1001" }),
       }),
