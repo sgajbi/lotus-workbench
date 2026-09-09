@@ -140,7 +140,8 @@ export async function getWorkbenchPerformanceWorkspaceSummaryClient(
     reportEndDate?: string;
     asOfDate?: string;
     reportingCurrency?: string;
-  }
+  },
+  signal?: AbortSignal,
 ): Promise<WorkbenchPerformanceWorkspaceSummary> {
   return await observeWorkbenchResource(
     "performance.workspace.summary",
@@ -148,7 +149,7 @@ export async function getWorkbenchPerformanceWorkspaceSummaryClient(
       await fetchWorkbenchJson<WorkbenchPerformanceWorkspaceSummary>(
         buildPerformanceWorkspaceUrl(portfolioId, params, "/summary", "client"),
         "performance workspace summary",
-        { headers: buildAnalyticsUiCorrelationHeaders() }
+        { headers: buildAnalyticsUiCorrelationHeaders(), signal }
       )
   );
 }
@@ -166,7 +167,8 @@ export async function getWorkbenchPerformanceWorkspaceDetailsClient(
     reportEndDate?: string;
     asOfDate?: string;
     reportingCurrency?: string;
-  }
+  },
+  signal?: AbortSignal,
 ): Promise<WorkbenchPerformanceWorkspaceDetails> {
   return await observeWorkbenchResource(
     "performance.workspace.details",
@@ -174,7 +176,7 @@ export async function getWorkbenchPerformanceWorkspaceDetailsClient(
       await fetchWorkbenchJson<WorkbenchPerformanceWorkspaceDetails>(
         buildPerformanceWorkspaceUrl(portfolioId, params, "/details", "client"),
         "performance workspace details",
-        { headers: buildAnalyticsUiCorrelationHeaders() }
+        { headers: buildAnalyticsUiCorrelationHeaders(), signal }
       )
   );
 }
