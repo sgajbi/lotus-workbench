@@ -564,6 +564,7 @@ export default function PerformanceWorkspaceClient({
     } = {}
   ) {
     const isExplicitRecheck = options.intent === "recheck";
+    const requestedMode = modeRef.current;
     const refreshesSummary =
       isExplicitRecheck ||
       options.forceScope === "summary" ||
@@ -643,7 +644,10 @@ export default function PerformanceWorkspaceClient({
         (await resolveDetailsForControls(detailRequestControls, resolvedSummary, {
           forceSourceRead: forceDetailSourceRead,
         }));
-      if (activeRefreshTokenRef.current !== refreshToken) {
+      if (
+        activeRefreshTokenRef.current !== refreshToken ||
+        (isExplicitRecheck && modeRef.current !== requestedMode)
+      ) {
         return;
       }
 
@@ -697,7 +701,10 @@ export default function PerformanceWorkspaceClient({
         restorePerformanceSourceControlFocus(options.focusTarget);
       }
     } catch (error) {
-      if (activeRefreshTokenRef.current !== refreshToken) {
+      if (
+        activeRefreshTokenRef.current !== refreshToken ||
+        (isExplicitRecheck && modeRef.current !== requestedMode)
+      ) {
         return;
       }
 
@@ -918,7 +925,7 @@ export default function PerformanceWorkspaceClient({
       loadIssue={loadIssue}
       refreshStatus={refreshStatus}
       sourceReceipt={
-        controls && mode !== "risk"
+        controls && mode !== "risk" && mode !== "advisor"
           ? {
               checkedAt: performanceCheckedAt,
               refreshScope: performanceRefreshScope,

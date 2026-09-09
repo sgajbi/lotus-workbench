@@ -577,6 +577,11 @@ test.describe('Performance workbench smoke', () => {
     await expect(page.getByRole('button', { name: 'Recheck performance' })).toHaveCount(0);
     await expect(checked).toHaveCount(0);
 
+    await (await openPerformanceWorkflowStep(page, /^Adviser brief/i)).click();
+    await expect(page).toHaveURL(/(?:\?|&)mode=advisor(?:&|$)/);
+    await expect(page.getByRole('button', { name: 'Recheck performance' })).toHaveCount(0);
+    await expect(checked).toHaveCount(0);
+
     await runtime.assertStylesAreHeadManaged();
     expect(runtime.snapshot()).toEqual([]);
   });

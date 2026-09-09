@@ -145,7 +145,7 @@ or moving focus away from the active rail or source control.
 - Treats a selection change as one atomic decision-context transaction: requested labels, figures,
   and URL are committed together only after the source confirms summary and detail.
 - Shows the oldest admitted summary/detail browser receipt as **Checked** beside the Performance
-  title across Summary, Analysis, Adviser Brief, and Evidence. The source-owned business date
+  title across Summary, Analysis, and Evidence. The source-owned business date
   remains **As of**; receipt age
   does not certify valuation recency, market-data freshness, or calculation currency.
 - Provides one **Recheck performance** action across those summary/detail-backed modes. It reuses the
@@ -155,6 +155,9 @@ or moving focus away from the active rail or source control.
   those confirmed controls without another server navigation or a rejected Back-history entry.
 - Withholds that receipt and action in Risk Review because its visible measures have independent
   Risk-owned queries; Workbench does not imply those measures were rechecked by the Performance pair.
+- Withholds the same control in Adviser Brief because its source-grounded narrative is queried
+  independently. A recheck completion is also discarded if the adviser changes mode before it
+  settles, so an independently sourced mode never inherits another mode's confirmation.
 - Uses browser-history `push` for confirmed advisor mode and source-control decisions, reserves
   `replace` for source normalization, and synchronizes Back and Forward into the mounted client
   without discarding keyboard focus or accepting an obsolete request.

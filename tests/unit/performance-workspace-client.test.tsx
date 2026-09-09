@@ -201,6 +201,9 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
       <button type="button" onClick={() => onModeChange?.("analysis")}>
         Switch Analysis Mode
       </button>
+      <button type="button" onClick={() => onModeChange?.("advisor")}>
+        Switch Adviser Brief Mode
+      </button>
       <button type="button" onClick={() => onModeChange?.("risk")}>
         Switch Risk Mode
       </button>
@@ -328,6 +331,47 @@ describe("PerformanceWorkspaceClient", () => {
     expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
     expect(getSummaryClientMock).not.toHaveBeenCalled();
     expect(getDetailsClientMock).not.toHaveBeenCalled();
+  });
+
+  it("does not present a summary-detail receipt as the age of the independently queried adviser brief", () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+
+    render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="advisor"
+      />,
+    );
+
+    expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
+    expect(getSummaryClientMock).not.toHaveBeenCalled();
+    expect(getDetailsClientMock).not.toHaveBeenCalled();
+  });
+
+  it("does not confirm a recheck after the adviser moves to an independently sourced mode", async () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+    let resolveSummary!: (summary: WorkbenchPerformanceWorkspaceSummary) => void;
+    const summaryRequest = new Promise<WorkbenchPerformanceWorkspaceSummary>((resolve) => {
+      resolveSummary = resolve;
+    });
+    getSummaryClientMock.mockReturnValueOnce(summaryRequest);
+    getDetailsClientMock.mockResolvedValueOnce(initialDetails);
+
+    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+    await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(1));
+    await act(async () => screen.getByRole("button", { name: "Switch Risk Mode" }).click());
+    await waitFor(() => expect(screen.getByTestId("mode")).toHaveTextContent("risk"));
+    expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
+
+    await act(async () => resolveSummary(initialSummary));
+
+    await waitFor(() => expect(screen.getByTestId("refresh-kind")).toHaveTextContent("none"));
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
   });
 
   it("retains the prior receipt and withholds success when composite recheck fails", async () => {
