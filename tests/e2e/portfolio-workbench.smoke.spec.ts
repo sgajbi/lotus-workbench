@@ -854,6 +854,8 @@ test.describe('Portfolio workbench smoke', () => {
     expect(receiptDisclosureId).toBeTruthy();
     const exactReceiptDisclosure = page.locator(`#${receiptDisclosureId}`);
     await expect(exactReceiptDisclosure).toContainText(/^Exact check time: .* UTC$/);
+    await receiptTime.focus();
+    await expect(exactReceiptDisclosure).toBeVisible();
 
     const initialPerformanceRequestCount = performanceRequests.length;
     const recheck = page.getByRole('button', { name: 'Recheck portfolio' });

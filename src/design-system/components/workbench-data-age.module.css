@@ -24,11 +24,11 @@
   width: max-content;
   max-width: 18rem;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--border-subtle);
+  border: var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--surface-elevated);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
+  background: var(--panel);
+  color: var(--text);
+  box-shadow: var(--elevation-subtle);
   font-size: var(--type-microcopy-size);
   font-weight: 500;
   line-height: var(--type-microcopy-line-height);
