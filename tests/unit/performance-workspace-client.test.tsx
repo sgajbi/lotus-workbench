@@ -803,6 +803,57 @@ describe("PerformanceWorkspaceClient", () => {
     expect(getDetailsClientMock).not.toHaveBeenCalled();
   });
 
+  it("fences a cancelled same-control hydration from the refreshed route revision", async () => {
+    let rejectSupersededDetails!: (reason: Error) => void;
+    const supersededDetails = new Promise<WorkbenchPerformanceWorkspaceDetails>(
+      (_resolve, reject) => {
+        rejectSupersededDetails = reject;
+      },
+    );
+    const initialSummary = buildSummary();
+    const refreshedSummary = buildSummary({
+      correlation_id: "corr-performance-current-route",
+      net_performance: {
+        ...initialSummary.net_performance,
+        portfolio_return_pct: 7.1,
+      },
+    });
+    getDetailsClientMock
+      .mockImplementationOnce(() => supersededDetails)
+      .mockResolvedValueOnce(
+        buildDetails({ correlation_id: "corr-performance-current-route" }),
+      );
+    const props = {
+      ...buildDefaultClientProps(initialSummary),
+      initialDetails: null,
+    };
+    const { rerender } = render(<PerformanceWorkspaceClient {...props} />);
+
+    await waitFor(() => {
+      expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+    });
+    rerender(
+      <PerformanceWorkspaceClient
+        {...props}
+        initialSummary={refreshedSummary}
+        initialDetails={null}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getDetailsClientMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("return")).toHaveTextContent("7.1");
+      expect(screen.getByTestId("chart-points")).toHaveTextContent("1");
+    });
+
+    await act(async () => {
+      rejectSupersededDetails(new Error("Superseded detail request failed"));
+      await Promise.resolve();
+    });
+    expect(screen.getByTestId("refresh-kind")).toHaveTextContent("none");
+    expect(screen.getByTestId("return")).toHaveTextContent("7.1");
+  });
+
   it("reports that an already-confirmed request did not dispatch a refresh", async () => {
     render(
       <PerformanceWorkspaceClient
