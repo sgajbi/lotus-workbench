@@ -1,5 +1,5 @@
 import React from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
@@ -15,6 +15,7 @@ import {
   buildPerformanceWorkspaceDetails,
   buildPerformanceWorkspaceSummary,
 } from "../fixtures/performance-workspace-fixtures";
+import { renderWithQueryClient } from "../helpers/query-client-test-harness";
 
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
@@ -25,6 +26,10 @@ const requestResultMock = vi.fn();
 const DEFAULT_PORTFOLIO_RETURN = String(
   buildPerformanceWorkspaceSummary().net_performance.portfolio_return_pct
 );
+
+function render(ui: React.ReactElement) {
+  return renderWithQueryClient(ui);
+}
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
@@ -287,6 +292,7 @@ describe("PerformanceWorkspaceClient", () => {
           asOfDate: "2026-02-24",
           reportingCurrency: "SGD",
         }),
+        expect.any(AbortSignal),
       );
       expect(screen.getByTestId("chart-points")).toHaveTextContent("1");
       expect(screen.getByTestId("refresh-kind")).toHaveTextContent("none");
@@ -381,6 +387,7 @@ describe("PerformanceWorkspaceClient", () => {
           reportStartDate: "2026-01-01",
           reportEndDate: "2026-02-24",
         }),
+        expect.any(AbortSignal),
       );
       expect(screen.getByTestId("chart-points")).toHaveTextContent("1");
       expect(screen.getByTestId("details-pending")).toHaveTextContent("false");
