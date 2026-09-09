@@ -572,6 +572,11 @@ test.describe('Performance workbench smoke', () => {
       });
     }
 
+    await (await openPerformanceWorkflowStep(page, /^Risk review/i)).click();
+    await expect(page).toHaveURL(/(?:\?|&)mode=risk(?:&|$)/);
+    await expect(page.getByRole('button', { name: 'Recheck performance' })).toHaveCount(0);
+    await expect(checked).toHaveCount(0);
+
     await runtime.assertStylesAreHeadManaged();
     expect(runtime.snapshot()).toEqual([]);
   });

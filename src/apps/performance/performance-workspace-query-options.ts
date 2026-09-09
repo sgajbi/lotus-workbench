@@ -51,8 +51,12 @@ export function admitPerformanceQueryData<TData>(
   queryKey: QueryKey,
   data: TData,
   dataUpdatedAt?: number,
+  options: Readonly<{ advanceReceipt?: boolean }> = {},
 ) {
-  if (queryClient.getQueryData<TData>(queryKey) === data) {
+  if (
+    queryClient.getQueryData<TData>(queryKey) === data &&
+    (!options.advanceReceipt || dataUpdatedAt === undefined)
+  ) {
     return;
   }
   queryClient.setQueryData(

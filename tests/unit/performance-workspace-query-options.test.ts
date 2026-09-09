@@ -2,6 +2,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  admitPerformanceQueryData,
   fetchPerformanceWorkspaceRevalidation,
   performanceWorkspaceDetailsQueryOptions,
   performanceWorkspaceSummaryQueryOptions,
@@ -136,6 +137,26 @@ describe("performance workspace query ownership", () => {
     });
     expect(getSummaryClientMock).toHaveBeenCalledTimes(2);
     expect(getDetailsClientMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("advances an explicit recheck receipt when structural sharing retains the payload", () => {
+    const queryClient = new QueryClient();
+    const summary = buildPerformanceWorkspaceSummary();
+    const queryKey = performanceWorkspaceSummaryQueryOptions(context).queryKey;
+    const firstReceipt = Date.parse("2026-09-09T10:00:00Z");
+    const secondReceipt = Date.parse("2026-09-09T10:05:00Z");
+    queryClient.setQueryData(queryKey, summary, { updatedAt: firstReceipt });
+
+    admitPerformanceQueryData(
+      queryClient,
+      queryKey,
+      summary,
+      secondReceipt,
+      { advanceReceipt: true },
+    );
+
+    expect(queryClient.getQueryData(queryKey)).toBe(summary);
+    expect(queryClient.getQueryState(queryKey)?.dataUpdatedAt).toBe(secondReceipt);
   });
 
   it("refuses mismatched summary evidence before it becomes reusable cache data", async () => {

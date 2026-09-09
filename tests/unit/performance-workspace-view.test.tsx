@@ -225,7 +225,7 @@ describe("PerformanceWorkspaceView", () => {
     expect(screen.getByText("Summary Mode Panel")).toBeInTheDocument();
   });
 
-  it("keeps receipt age and one exact recovery action available across performance modes", async () => {
+  it("keeps receipt age and one exact recovery action available across summary-detail modes", async () => {
     const onRefresh = vi.fn().mockResolvedValue(undefined);
     const checkedAt = Date.parse("2026-09-09T01:00:00Z");
     renderWorkspaceView({
