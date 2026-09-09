@@ -243,6 +243,25 @@ export default function PerformanceWorkspaceClient({
     activeRefreshTokenRef.current = null;
     automaticHydrationIdentityRef.current = null;
     void queryClient.cancelQueries({ queryKey: performanceWorkspaceQueryKeys.all });
+    initialDataAdmissionEnabledRef.current = true;
+    if (initialSummary) {
+      const routeReceiptTime = Date.now();
+      queryClient.setQueryData(
+        performanceWorkspaceSummaryQueryOptions(initialControls).queryKey,
+        initialSummary,
+        { updatedAt: routeReceiptTime },
+      );
+      if (sourceConfirmedInitialDetails) {
+        queryClient.setQueryData(
+          performanceWorkspaceDetailsQueryOptions(
+            initialControls,
+            initialSummary,
+          ).queryKey,
+          sourceConfirmedInitialDetails,
+          { updatedAt: routeReceiptTime },
+        );
+      }
+    }
     setControls(initialControls);
     setLoadIssue(initialSummary ? null : initialLoadIssue ?? null);
     setPendingRefresh(null);

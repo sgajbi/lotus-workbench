@@ -685,7 +685,14 @@ describe("PerformanceWorkspaceClient", () => {
       period: "3Y",
       report_start_date: "2023-02-25",
     });
-    const { rerender } = render(
+    const refreshedYtdSummary = buildSummary({
+      net_performance: {
+        ...ytdSummary.net_performance,
+        portfolio_return_pct: 7.1,
+      },
+    });
+    const refreshedYtdDetails = buildDetails();
+    const { queryClient, rerender } = render(
       <PerformanceWorkspaceClient
         {...stableProps}
         initialSummary={ytdSummary}
@@ -714,16 +721,21 @@ describe("PerformanceWorkspaceClient", () => {
     rerender(
       <PerformanceWorkspaceClient
         {...stableProps}
-        initialSummary={ytdSummary}
-        initialDetails={ytdDetails}
+        initialSummary={refreshedYtdSummary}
+        initialDetails={refreshedYtdDetails}
         initialPeriod="YTD"
       />
     );
 
     await waitFor(() => {
       expect(screen.getByTestId("period")).toHaveTextContent("YTD");
-      expect(screen.getByTestId("return")).toHaveTextContent(DEFAULT_PORTFOLIO_RETURN);
+      expect(screen.getByTestId("return")).toHaveTextContent("7.1");
     });
+    expect(
+      queryClient.getQueryData(
+        performanceWorkspaceSummaryQueryOptions(defaultQueryContext).queryKey,
+      ),
+    ).toEqual(refreshedYtdSummary);
     expect(document.activeElement).toBe(stableControl);
     expect(pushMock).not.toHaveBeenCalled();
     expect(replaceMock).not.toHaveBeenCalled();
@@ -1937,6 +1949,38 @@ describe("PerformanceWorkspaceClient", () => {
         ),
       ).toBeUndefined();
     });
+
+    const restoredSummary = buildSummary({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+      net_performance: {
+        ...buildSummary().net_performance,
+        portfolio_return_pct: 18.4,
+      },
+    });
+    result.rerender(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(
+          restoredSummary,
+          buildDetails({ period: "3Y", report_start_date: "2023-03-28" }),
+        )}
+        initialPeriod="3Y"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("load-issue")).toHaveTextContent("none");
+      expect(screen.getByTestId("period")).toHaveTextContent("3Y");
+      expect(screen.getByTestId("return")).toHaveTextContent("18.4");
+    });
+    expect(
+      result.queryClient.getQueryData(
+        performanceWorkspaceSummaryQueryOptions({
+          ...defaultQueryContext,
+          period: "3Y",
+        }).queryKey,
+      ),
+    ).toBe(restoredSummary);
   });
 
   it("updates the route immediately for mode switches without refetching summary or details", async () => {
