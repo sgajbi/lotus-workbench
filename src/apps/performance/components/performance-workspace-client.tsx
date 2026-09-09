@@ -4,7 +4,10 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState } fr
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { AppPageShell } from "@/design-system";
+import {
+  AppPageShell,
+  getOldestWorkbenchReceiptTime,
+} from "@/design-system";
 import type { PortfolioWorkspace } from "@/apps/portfolio/types";
 import { getWorkbenchApiErrorStatus, isWorkbenchPermissionBlockedError } from "@/features/workbench/api";
 import type {
@@ -70,6 +73,7 @@ type PerformanceDetailsStatus = "idle" | "loading" | "ready" | "failed";
 type PerformanceRefreshScope = "summary" | "details";
 
 type PerformancePendingRefresh = {
+  intent: "selection" | "recheck";
   scope: PerformanceRefreshScope;
   requestedControls: PerformanceControlState;
   confirmedControls: PerformanceControlState;
@@ -339,6 +343,23 @@ export default function PerformanceWorkspaceClient({
     refreshFailure,
     refreshConfirmation
   );
+  const performanceCheckedAt =
+    workspace &&
+    currentSummary &&
+    currentDetails &&
+    summaryQuery.dataUpdatedAt > 0 &&
+    detailsQuery.dataUpdatedAt > 0
+      ? getOldestWorkbenchReceiptTime(
+          summaryQuery.dataUpdatedAt,
+          detailsQuery.dataUpdatedAt,
+        )
+      : null;
+  const performanceRefreshScope =
+    controls && currentSummary
+      ? JSON.stringify(
+          performanceWorkspaceDetailsQueryOptions(controls, currentSummary).queryKey,
+        )
+      : `${initialPortfolioId ?? "unselected"}:performance-unavailable`;
 
   useEffect(() => {
     if (!refreshConfirmation) {
@@ -539,9 +560,12 @@ export default function PerformanceWorkspaceClient({
       focusTarget?: PerformanceSourceControlFocusTarget;
       forceScope?: PerformanceRefreshScope;
       stageComposite?: boolean;
+      intent?: "selection" | "recheck";
     } = {}
   ) {
+    const isExplicitRecheck = options.intent === "recheck";
     const refreshesSummary =
+      isExplicitRecheck ||
       options.forceScope === "summary" ||
       shouldRefreshSummary(confirmedControls, requestedControls);
     const initialScope: PerformanceRefreshScope = refreshesSummary ? "summary" : "details";
@@ -557,6 +581,7 @@ export default function PerformanceWorkspaceClient({
     setRefreshFailure(null);
     setRefreshConfirmation(null);
     setPendingRefresh({
+      intent: options.intent ?? "selection",
       scope: initialScope,
       requestedControls,
       confirmedControls,
@@ -575,11 +600,12 @@ export default function PerformanceWorkspaceClient({
       let detailRequestControls = requestedControls;
       let stagedDetails: ResolvedPerformanceDetails | null = null;
 
-      if (options.stageComposite) {
+      if (options.stageComposite || isExplicitRecheck) {
         stagedCompositeRequest = true;
         const revalidated = await fetchPerformanceWorkspaceRevalidation(
           queryClient,
           requestedControls,
+          { forceSourceRead: isExplicitRecheck },
         );
         resolvedSummary = revalidated.data.summary;
         summaryDataUpdatedAt = revalidated.dataUpdatedAt;
@@ -640,21 +666,24 @@ export default function PerformanceWorkspaceClient({
       setLoadIssue(null);
       setRefreshFailure(null);
       setRefreshConfirmation({
+        intent: options.intent ?? "selection",
         scope: initialScope,
         requestedControls,
         confirmedControls: resolvedDetails.controls,
       });
-      acceptedRouteControlsKeyRef.current = buildPerformanceControlsHref(
-        resolvedDetails.controls,
-      );
-      pendingRouteEchoKeyRef.current = buildPerformanceControlsHref(
-        resolvedDetails.controls,
-      );
-      startTransition(() => {
-        router.push(buildPerformanceControlsHref(resolvedDetails.controls, modeRef.current), {
-          scroll: false,
+      if (options.intent !== "recheck") {
+        acceptedRouteControlsKeyRef.current = buildPerformanceControlsHref(
+          resolvedDetails.controls,
+        );
+        pendingRouteEchoKeyRef.current = buildPerformanceControlsHref(
+          resolvedDetails.controls,
+        );
+        startTransition(() => {
+          router.push(buildPerformanceControlsHref(resolvedDetails.controls, modeRef.current), {
+            scroll: false,
+          });
         });
-      });
+      }
       if (options.focusTarget) {
         restorePerformanceSourceControlFocus(options.focusTarget);
       }
@@ -679,6 +708,7 @@ export default function PerformanceWorkspaceClient({
         });
       } else {
         setRefreshFailure({
+          intent: options.intent ?? "selection",
           scope: refreshError.scope,
           requestedControls,
           confirmedControls,
@@ -828,6 +858,7 @@ export default function PerformanceWorkspaceClient({
           return;
         }
         setRefreshFailure({
+          intent: "selection",
           scope: revalidationError.scope,
           requestedControls: controls,
           confirmedControls: controls,
@@ -877,6 +908,19 @@ export default function PerformanceWorkspaceClient({
       workspace={workspace}
       loadIssue={loadIssue}
       refreshStatus={refreshStatus}
+      sourceReceipt={
+        controls
+          ? {
+              checkedAt: performanceCheckedAt,
+              refreshScope: performanceRefreshScope,
+              isRefreshing: isUpdating,
+              onRefresh: () =>
+                runRefresh(controls, controls, {
+                  intent: "recheck",
+                }),
+            }
+          : undefined
+      }
       mode={mode}
       period={controls?.period ?? initialPeriod}
       detailBasis={controls?.detailBasis ?? initialDetailBasis}
@@ -1010,6 +1054,7 @@ function buildRefreshStatus(
 
   return {
     kind: pendingRefresh ? "pending" : refreshFailure ? "failed" : "confirmed",
+    intent: refresh.intent,
     scope: refresh.scope,
     requestedContext: describeRequestedContext(
       refresh.confirmedControls,

@@ -16,10 +16,18 @@ export type PerformanceWorkspaceLoadIssue = {
 
 export type PerformanceWorkspaceRefreshStatus = {
   kind: "pending" | "confirmed" | "failed";
+  intent?: "selection" | "recheck";
   scope: "summary" | "details";
   requestedContext: string;
   confirmedContext: string;
   status?: number;
+};
+
+export type PerformanceSourceReceipt = {
+  checkedAt: number | null;
+  refreshScope: string;
+  isRefreshing: boolean;
+  onRefresh: () => Promise<unknown>;
 };
 
 export type PerformanceWorkspaceRequestPatch = {
@@ -137,6 +145,7 @@ export type PerformanceWorkspaceViewProps = {
   workspace: WorkbenchPerformanceWorkspace | null;
   loadIssue?: PerformanceWorkspaceLoadIssue | null;
   refreshStatus?: PerformanceWorkspaceRefreshStatus | null;
+  sourceReceipt?: PerformanceSourceReceipt;
   mode: PerformanceWorkspaceMode;
   period: string;
   detailBasis: string;

@@ -142,12 +142,20 @@ export async function fetchPerformanceWorkspaceSummary(
 export async function fetchPerformanceWorkspaceRevalidation(
   queryClient: QueryClient,
   context: PerformanceWorkspaceQueryContext,
+  options: Readonly<{ forceSourceRead?: boolean }> = {},
 ) {
-  const options = performanceWorkspaceRevalidationQueryOptions(context);
-  const data = await queryClient.fetchQuery(options);
+  const query = performanceWorkspaceRevalidationQueryOptions(context);
+  if (options.forceSourceRead) {
+    await queryClient.invalidateQueries({
+      queryKey: query.queryKey,
+      exact: true,
+      refetchType: "none",
+    });
+  }
+  const data = await queryClient.fetchQuery(query);
   return {
     data,
-    dataUpdatedAt: queryClient.getQueryState(options.queryKey)?.dataUpdatedAt,
+    dataUpdatedAt: queryClient.getQueryState(query.queryKey)?.dataUpdatedAt,
   };
 }
 

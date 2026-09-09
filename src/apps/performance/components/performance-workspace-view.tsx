@@ -1,6 +1,8 @@
 import {
   MainWithSideRailLayout,
   Panel,
+  SourceRefreshAction,
+  WorkbenchDataAge,
   WorkbenchRefreshStatus,
   WorkbenchPageFrame,
   WorkbenchSectionStack,
@@ -41,11 +43,13 @@ import {
   getBenchmarkLabel,
   getPerformanceControlNormalizationNotice,
 } from "./performance-workspace-view-helpers";
+import styles from "./performance-workspace-view.module.css";
 
 export default function PerformanceWorkspaceView({
   workspace,
   loadIssue,
   refreshStatus,
+  sourceReceipt,
   mode,
   period,
   detailBasis,
@@ -92,6 +96,18 @@ export default function PerformanceWorkspaceView({
     isUpdating,
     isDetailsPending,
   };
+  const sourceReceiptAction = sourceReceipt ? (
+    <div className={styles.sourceReceipt}>
+      <WorkbenchDataAge updatedAt={sourceReceipt.checkedAt} />
+      <SourceRefreshAction
+        refreshScope={sourceReceipt.refreshScope}
+        idleLabel="Recheck performance"
+        busyLabel="Rechecking…"
+        isRefreshing={sourceReceipt.isRefreshing}
+        onRefresh={sourceReceipt.onRefresh}
+      />
+    </div>
+  ) : undefined;
 
   const modePanel = !workspace ? null : mode === "summary" ? (
     <PerformanceSummaryMode
@@ -168,6 +184,7 @@ export default function PerformanceWorkspaceView({
             className={`performance-page-frame performance-page-frame-${mode}`}
             bodyClassName="performance-page-frame-body"
             title={workspaceTitle}
+            actions={sourceReceiptAction}
           >
             <WorkbenchSectionStack className="performance-page-sections">
               <Panel className="performance-page-unavailable-shell">
@@ -193,6 +210,7 @@ export default function PerformanceWorkspaceView({
             className={`performance-page-frame performance-page-frame-${mode}`}
             bodyClassName="performance-page-frame-body"
             title={workspaceTitle}
+            actions={sourceReceiptAction}
           >
             <WorkbenchSectionStack className="performance-page-sections">
               {refreshStatus ? (
@@ -252,6 +270,16 @@ export default function PerformanceWorkspaceView({
 function getRefreshStatusTitle(
   refreshStatus: NonNullable<PerformanceWorkspaceViewProps["refreshStatus"]>
 ) {
+  if (refreshStatus.intent === "recheck") {
+    if (refreshStatus.kind === "pending") {
+      return "Rechecking performance evidence";
+    }
+    if (refreshStatus.kind === "confirmed") {
+      return "Performance evidence rechecked";
+    }
+    return "Performance evidence could not be rechecked";
+  }
+
   if (refreshStatus.kind === "pending") {
     return refreshStatus.scope === "summary"
       ? "Confirming the selected performance view"
@@ -272,6 +300,14 @@ function getRefreshStatusTitle(
 function getRefreshStatusEyebrow(
   refreshStatus: NonNullable<PerformanceWorkspaceViewProps["refreshStatus"]>
 ) {
+  if (refreshStatus.intent === "recheck") {
+    return refreshStatus.kind === "pending"
+      ? "Checking source evidence"
+      : refreshStatus.kind === "confirmed"
+        ? "Source evidence checked"
+        : "Recheck incomplete";
+  }
+
   if (refreshStatus.kind === "failed") {
     return "Selection not applied";
   }
@@ -290,6 +326,16 @@ function getRefreshStatusEyebrow(
 function getRefreshStatusMessage(
   refreshStatus: NonNullable<PerformanceWorkspaceViewProps["refreshStatus"]>
 ) {
+  if (refreshStatus.intent === "recheck") {
+    if (refreshStatus.kind === "pending") {
+      return "The last source-confirmed performance view remains available while its complete evidence set is rechecked.";
+    }
+    const supportSuffix = refreshStatus.status
+      ? ` Source request returned HTTP ${refreshStatus.status}.`
+      : "";
+    return `The complete performance view was not rechecked. The last source-confirmed view remains in place.${supportSuffix}`;
+  }
+
   if (refreshStatus.kind === "pending") {
     return "The source-confirmed view remains labelled with its original context until the requested selection is available.";
   }
