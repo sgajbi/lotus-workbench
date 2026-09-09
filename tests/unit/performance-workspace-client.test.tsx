@@ -16,6 +16,11 @@ import {
   buildPerformanceWorkspaceSummary,
 } from "../fixtures/performance-workspace-fixtures";
 import { renderWithQueryClient } from "../helpers/query-client-test-harness";
+import {
+  performanceWorkspaceDetailsQueryOptions,
+  performanceWorkspaceSummaryQueryOptions,
+} from "../../src/apps/performance/performance-workspace-query-options";
+import { WORKBENCH_QUERY_STALE_TIME_MS } from "../../src/features/platform-runtime/query-policy";
 
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
@@ -218,6 +223,74 @@ describe("PerformanceWorkspaceClient", () => {
     getDetailsClientMock.mockReset();
     restoreFocusMock.mockReset();
     requestResultMock.mockReset();
+  });
+
+  it("revalidates retained summary and detail evidence when the workspace remounts after stale time", async () => {
+    const initialSummary = buildSummary();
+    const initialDetails = buildDetails();
+    const props = {
+      initialSummary,
+      initialDetails,
+      initialPortfolioId: "PF_1001",
+      initialPeriod: "YTD",
+      initialDetailBasis: "NET",
+      initialContributionDimension: "asset_class",
+      initialAttributionDimension: "asset_class",
+      initialChartFrequency: "monthly",
+      initialBenchmark: "BMK_GLOBAL_BALANCED_60_40",
+    };
+    const firstMount = renderWithQueryClient(
+      <PerformanceWorkspaceClient {...props} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("return")).toHaveTextContent(DEFAULT_PORTFOLIO_RETURN);
+    });
+    expect(getSummaryClientMock).not.toHaveBeenCalled();
+    expect(getDetailsClientMock).not.toHaveBeenCalled();
+    firstMount.unmount();
+
+    const staleUpdatedAt = Date.now() - WORKBENCH_QUERY_STALE_TIME_MS - 1;
+    const context = {
+      portfolioId: "PF_1001",
+      period: "YTD",
+      detailBasis: "NET",
+      contributionDimension: "asset_class",
+      attributionDimension: "asset_class",
+      chartFrequency: "monthly",
+      benchmark: "BMK_GLOBAL_BALANCED_60_40",
+    };
+    firstMount.queryClient.setQueryData(
+      performanceWorkspaceSummaryQueryOptions(context).queryKey,
+      initialSummary,
+      { updatedAt: staleUpdatedAt },
+    );
+    firstMount.queryClient.setQueryData(
+      performanceWorkspaceDetailsQueryOptions(context, initialSummary).queryKey,
+      initialDetails,
+      { updatedAt: staleUpdatedAt },
+    );
+
+    const refreshedSummary = buildSummary({
+      correlation_id: "corr-performance-refreshed",
+      net_performance: {
+        ...initialSummary.net_performance,
+        portfolio_return_pct: 2.4,
+      },
+    });
+    getSummaryClientMock.mockResolvedValueOnce(refreshedSummary);
+    getDetailsClientMock.mockResolvedValueOnce(buildDetails());
+
+    renderWithQueryClient(
+      <PerformanceWorkspaceClient {...props} />,
+      firstMount.queryClient,
+    );
+
+    await waitFor(() => {
+      expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+      expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("return")).toHaveTextContent("2.4");
+    });
   });
 
   it("withholds stale initial detail and rehydrates it from the confirmed source identity", async () => {

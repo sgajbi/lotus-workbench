@@ -175,6 +175,7 @@ export default function PerformanceWorkspaceClient({
     null
   );
   const activeRefreshTokenRef = useRef<symbol | null>(null);
+  const automaticHydrationIdentityRef = useRef<string | null>(null);
   const lastSourceControlFocusTargetRef = useRef<PerformanceSourceControlFocusTarget | null>(null);
   const initialRouteControlsKey = useMemo(
     () =>
@@ -231,6 +232,7 @@ export default function PerformanceWorkspaceClient({
 
     acceptedRouteControlsKeyRef.current = initialRouteControlsKey;
     activeRefreshTokenRef.current = null;
+    automaticHydrationIdentityRef.current = null;
     void queryClient.cancelQueries({ queryKey: performanceWorkspaceQueryKeys.all });
     setControls(initialControls);
     setLoadIssue(initialSummary ? null : initialLoadIssue ?? null);
@@ -552,16 +554,26 @@ export default function PerformanceWorkspaceClient({
     if (
       !controls ||
       !currentSummary ||
-      currentDetails ||
-      detailsQuery.fetchStatus === "fetching" ||
-      refreshFailure?.scope === "details"
+      activeRefreshTokenRef.current !== null
     ) {
       return;
     }
 
     const hydrationIdentity = buildControlQueryIdentity(controls);
-    void resolveDetailsForControls(controls, currentSummary, { allowInitialFallback: true })
-      .then((resolvedDetails) => {
+    if (automaticHydrationIdentityRef.current === hydrationIdentity) {
+      return;
+    }
+    automaticHydrationIdentityRef.current = hydrationIdentity;
+    let failureScope: PerformanceRefreshScope = "summary";
+    void queryClient
+      .fetchQuery(performanceWorkspaceSummaryQueryOptions(controls))
+      .then((resolvedSummary) => {
+        failureScope = "details";
+        return resolveDetailsForControls(controls, resolvedSummary, {
+          allowInitialFallback: true,
+        }).then((resolvedDetails) => ({ resolvedDetails, resolvedSummary }));
+      })
+      .then(({ resolvedDetails, resolvedSummary }) => {
         if (
           activeRefreshTokenRef.current !== null ||
           currentControlsIdentityRef.current !== hydrationIdentity
@@ -570,12 +582,12 @@ export default function PerformanceWorkspaceClient({
         }
         queryClient.setQueryData(
           performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
-          currentSummary,
+          resolvedSummary,
         );
         queryClient.setQueryData(
           performanceWorkspaceDetailsQueryOptions(
             resolvedDetails.controls,
-            currentSummary,
+            resolvedSummary,
           ).queryKey,
           resolvedDetails.details,
         );
@@ -615,7 +627,7 @@ export default function PerformanceWorkspaceClient({
           return;
         }
         setRefreshFailure({
-          scope: "details",
+          scope: failureScope,
           requestedControls: controls,
           confirmedControls: controls,
           status: getWorkbenchApiErrorStatus(error) ?? undefined,
@@ -623,11 +635,7 @@ export default function PerformanceWorkspaceClient({
       });
   }, [
     controls,
-    currentDetails,
-    detailsQuery.fetchStatus,
-    mode,
     queryClient,
-    refreshFailure?.scope,
     resolveDetailsForControls,
     router,
     currentSummary,
