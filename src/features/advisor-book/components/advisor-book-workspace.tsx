@@ -13,6 +13,7 @@ import {
   ScreenStatePanel,
   SectionBlock,
   SemanticBadge,
+  WorkbenchDataAge,
   WorkbenchSummaryMetricStrip,
 } from "@/design-system";
 import {
@@ -181,7 +182,15 @@ function AdvisorBookSourceWorkspace({
     filterDraft = queryFilterDraft;
     setFilterState({ observedIdentity: filterIdentity, draft: queryFilterDraft });
   }
-  const { response, loading, error, reload } = useAdvisorBook(query);
+  const {
+    response,
+    loading,
+    error,
+    recheckError,
+    rechecking,
+    checkedAt,
+    reload,
+  } = useAdvisorBook(query);
 
   function updateFilterDraft(
     patch: Partial<AdvisorBookFilterDraft>,
@@ -392,10 +401,29 @@ function AdvisorBookSourceWorkspace({
           />
         ) : response && model && resultScope ? (
           <>
-            <div className={styles.resultScope} aria-live="polite">
-              <strong>{resultScope.rangeLabel}</strong>
-              <span>{resultScope.viewLabel}</span>
+            <div className={styles.resultScope}>
+              <div className={styles.resultSummary} aria-live="polite">
+                <strong>{resultScope.rangeLabel}</strong>
+                <span>{resultScope.viewLabel}</span>
+              </div>
+              <div className={styles.receiptActions}>
+                <WorkbenchDataAge updatedAt={checkedAt} />
+                <ActionButton
+                  priority="quiet"
+                  disabled={rechecking}
+                  onClick={() => void reload()}
+                >
+                  {rechecking ? "Rechecking…" : "Recheck book"}
+                </ActionButton>
+              </div>
             </div>
+
+            {recheckError ? (
+              <p className={styles.recheckFailure} role="status">
+                Book recheck failed. The displayed assignments remain from the previous
+                successful check.
+              </p>
+            ) : null}
 
             <AnalyticsTable
               ariaLabel="Portfolios in my book"
