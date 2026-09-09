@@ -1901,7 +1901,7 @@ describe("PerformanceWorkspaceClient", () => {
       Object.assign(new Error("Forbidden"), { status: 403 })
     );
 
-    render(
+    const result = render(
       <PerformanceWorkspaceClient
         initialSummary={buildSummary()}
         initialDetails={buildDetails()}
@@ -1923,6 +1923,19 @@ describe("PerformanceWorkspaceClient", () => {
       expect(screen.getByTestId("return")).toHaveTextContent("none");
       expect(screen.getByTestId("load-issue")).toHaveTextContent("permission_blocked");
       expect(screen.getByTestId("refresh-kind")).toHaveTextContent("none");
+      expect(
+        result.queryClient.getQueryData(
+          performanceWorkspaceSummaryQueryOptions(defaultQueryContext).queryKey,
+        ),
+      ).toBeUndefined();
+      expect(
+        result.queryClient.getQueryData(
+          performanceWorkspaceDetailsQueryOptions(
+            defaultQueryContext,
+            buildSummary(),
+          ).queryKey,
+        ),
+      ).toBeUndefined();
     });
   });
 
