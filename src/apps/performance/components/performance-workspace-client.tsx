@@ -2,15 +2,11 @@
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { AppPageShell } from "@/design-system";
 import type { PortfolioWorkspace } from "@/apps/portfolio/types";
-import {
-  getWorkbenchPerformanceWorkspaceDetailsClient,
-  getWorkbenchPerformanceWorkspaceSummaryClient,
-  getWorkbenchApiErrorStatus,
-  isWorkbenchPermissionBlockedError,
-} from "@/features/workbench/api";
+import { getWorkbenchApiErrorStatus, isWorkbenchPermissionBlockedError } from "@/features/workbench/api";
 import type {
   WorkbenchPerformanceWorkspace,
   WorkbenchPerformanceWorkspaceDetails,
@@ -21,11 +17,18 @@ import { buildPerformanceHref } from "../navigation";
 import {
   doPerformanceSummaryAndDetailsShareReviewContext,
   isPerformanceDetailsSourceCurrent,
-  isPerformanceSummarySourceCurrent,
 } from "../performance-source-identity";
 import type { PerformanceWorkspaceMode } from "../performance-workspace-modes";
 import { assemblePerformanceWorkspace } from "../workspace-assembler";
 import { getNormalizedInitialPerformanceDetailControls } from "../performance-detail-control-resolution";
+import {
+  performanceWorkspaceDetailsQueryOptions,
+  performanceWorkspaceSummaryQueryOptions,
+} from "../performance-workspace-query-options";
+import {
+  performanceWorkspaceQueryKeys,
+  type PerformanceWorkspaceQueryContext,
+} from "../performance-workspace-query-keys";
 import { restorePerformanceSourceControlFocus } from "./performance-source-control-focus";
 import PerformanceWorkspaceView from "./performance-workspace-view";
 import { buildPerformanceReviewContextStrip } from "../performance-review-context-strip-view-model";
@@ -53,19 +56,8 @@ type PerformanceWorkspaceClientProps = {
   initialPortfolioContext?: PortfolioWorkspace | null;
 };
 
-type PerformanceControlState = {
-  portfolioId: string;
-  period: string;
-  detailBasis: string;
-  contributionDimension: string;
-  attributionDimension: string;
-  chartFrequency: string;
-  benchmark?: string;
-  reportStartDate?: string;
-  reportEndDate?: string;
+type PerformanceControlState = PerformanceWorkspaceQueryContext & {
   sourceAsOfDate?: string;
-  reviewAsOfDate?: string;
-  reviewReportingCurrency?: string;
 };
 
 type PerformanceDetailsStatus = "idle" | "loading" | "ready" | "failed";
@@ -169,34 +161,8 @@ export default function PerformanceWorkspaceClient({
       sourceConfirmedInitialDetails,
     ]
   );
-  const initialSummaryKey = useMemo(
-    () =>
-      initialControls
-        ? buildSummaryCacheKey({
-            portfolioId: initialControls.portfolioId,
-            period: initialControls.period,
-            detailBasis: initialControls.detailBasis,
-            chartFrequency: initialControls.chartFrequency,
-            benchmark: initialControls.benchmark,
-            reportStartDate: initialControls.reportStartDate,
-            reportEndDate: initialControls.reportEndDate,
-            reviewAsOfDate: initialControls.reviewAsOfDate,
-            reviewReportingCurrency: initialControls.reviewReportingCurrency,
-          })
-        : null,
-    [
-      initialControls,
-    ]
-  );
-
-  const [summary, setSummary] = useState<WorkbenchPerformanceWorkspaceSummary | null>(
-    initialSummary
-  );
   const [loadIssue, setLoadIssue] = useState<PerformanceWorkspaceLoadIssue | null>(
     initialSummary ? null : initialLoadIssue ?? null
-  );
-  const [details, setDetails] = useState<WorkbenchPerformanceWorkspaceDetails | null>(
-    sourceConfirmedInitialDetails
   );
   const [mode, setMode] = useState<PerformanceWorkspaceMode>(initialMode);
   const modeRef = useRef<PerformanceWorkspaceMode>(initialMode);
@@ -208,38 +174,51 @@ export default function PerformanceWorkspaceClient({
   const [refreshConfirmation, setRefreshConfirmation] = useState<PerformancePendingRefresh | null>(
     null
   );
-  const requestSequenceRef = useRef(0);
-  const initialDetailsRequestedRef = useRef(false);
+  const activeRefreshTokenRef = useRef<symbol | null>(null);
   const lastSourceControlFocusTargetRef = useRef<PerformanceSourceControlFocusTarget | null>(null);
-
-  const initialDetailsKey = useMemo(
-    () =>
-      initialControls && sourceConfirmedInitialDetails
-        ? buildDetailsCacheKey(initialControls)
-        : null,
-    [
-      initialControls,
-      sourceConfirmedInitialDetails,
-    ]
-  );
-  const [detailsStatus, setDetailsStatus] = useState<PerformanceDetailsStatus>(
-    sourceConfirmedInitialDetails ? "ready" : initialSummary ? "idle" : "failed"
-  );
-
-  const summaryCacheRef = useRef<Map<string, WorkbenchPerformanceWorkspaceSummary | null>>(
-    initialSummaryKey ? new Map([[initialSummaryKey, initialSummary]]) : new Map()
-  );
-  const detailsCacheRef = useRef<Map<string, WorkbenchPerformanceWorkspaceDetails>>(
-    initialDetailsKey && sourceConfirmedInitialDetails
-      ? new Map([[initialDetailsKey, sourceConfirmedInitialDetails]])
-      : new Map()
-  );
   const initialRouteControlsKey = useMemo(
     () =>
       initialControls ? buildPerformanceControlsHref(initialControls) : null,
     [initialControls],
   );
   const acceptedRouteControlsKeyRef = useRef(initialRouteControlsKey);
+  const currentControlsIdentityRef = useRef(
+    controls ? buildControlQueryIdentity(controls) : null,
+  );
+  currentControlsIdentityRef.current = controls
+    ? buildControlQueryIdentity(controls)
+    : null;
+  const queryClient = useQueryClient();
+  const controlsMatchServerPreload = Boolean(
+    controls &&
+      initialRouteControlsKey &&
+      buildPerformanceControlsHref(controls) === initialRouteControlsKey,
+  );
+  const summaryQuery = useQuery(
+    performanceWorkspaceSummaryQueryOptions(controls, {
+      initialData: controlsMatchServerPreload ? initialSummary ?? undefined : undefined,
+    }),
+  );
+  const summary = loadIssue?.state === "permission_blocked"
+    ? null
+    : summaryQuery.data ?? null;
+  const detailsQuery = useQuery(
+    performanceWorkspaceDetailsQueryOptions(controls, summary, {
+      initialData: controlsMatchServerPreload
+        ? sourceConfirmedInitialDetails ?? undefined
+        : undefined,
+    }),
+  );
+  const details = loadIssue?.state === "permission_blocked"
+    ? null
+    : detailsQuery.data ?? null;
+  const detailsStatus: PerformanceDetailsStatus = details
+    ? "ready"
+    : detailsQuery.fetchStatus === "fetching"
+      ? "loading"
+      : refreshFailure
+        ? "failed"
+        : "idle";
 
   useEffect(() => {
     if (
@@ -251,32 +230,19 @@ export default function PerformanceWorkspaceClient({
     }
 
     acceptedRouteControlsKeyRef.current = initialRouteControlsKey;
-    requestSequenceRef.current += 1;
-    initialDetailsRequestedRef.current = Boolean(sourceConfirmedInitialDetails);
-    setSummary(initialSummary);
-    setDetails(sourceConfirmedInitialDetails);
-    setDetailsStatus(
-      sourceConfirmedInitialDetails ? "ready" : initialSummary ? "idle" : "failed",
-    );
+    activeRefreshTokenRef.current = null;
+    void queryClient.cancelQueries({ queryKey: performanceWorkspaceQueryKeys.all });
     setControls(initialControls);
     setLoadIssue(initialSummary ? null : initialLoadIssue ?? null);
     setPendingRefresh(null);
     setRefreshFailure(null);
     setRefreshConfirmation(null);
-    summaryCacheRef.current = initialSummaryKey
-      ? new Map([[initialSummaryKey, initialSummary]])
-      : new Map();
-    detailsCacheRef.current =
-      sourceConfirmedInitialDetails && initialDetailsKey
-        ? new Map([[initialDetailsKey, sourceConfirmedInitialDetails]])
-        : new Map();
   }, [
     initialControls,
-    initialDetailsKey,
     initialLoadIssue,
     initialRouteControlsKey,
     initialSummary,
-    initialSummaryKey,
+    queryClient,
     sourceConfirmedInitialDetails,
   ]);
 
@@ -370,26 +336,8 @@ export default function PerformanceWorkspaceClient({
     summaryEvidence: WorkbenchPerformanceWorkspaceSummary,
     options: { allowInitialFallback?: boolean } = {}
   ): Promise<ResolvedPerformanceDetails> => {
-    const detailsKey = buildDetailsCacheKey(nextControls);
-    const cachedDetails = detailsCacheRef.current.get(detailsKey);
-    if (cachedDetails !== undefined) {
-      return {
-        details: requireCurrentPerformanceDetails(
-          cachedDetails,
-          nextControls,
-          summaryEvidence,
-        ),
-        controls: nextControls,
-      };
-    }
-
-    let resolvedDetails = requireCurrentPerformanceDetails(
-      await getWorkbenchPerformanceWorkspaceDetailsClient(
-        nextControls.portfolioId,
-        buildDetailsRequest(nextControls),
-      ),
-      nextControls,
-      summaryEvidence,
+    let resolvedDetails = await queryClient.fetchQuery(
+      performanceWorkspaceDetailsQueryOptions(nextControls, summaryEvidence),
     );
     let resolvedControls = buildResolvedDetailControls(nextControls, resolvedDetails);
 
@@ -413,32 +361,21 @@ export default function PerformanceWorkspaceClient({
           contributionDimension: normalizedInitialControls.contributionDimension,
           attributionDimension: normalizedInitialControls.attributionDimension,
         };
-        const normalizedDetailsKey = buildDetailsCacheKey(resolvedControls);
-        const cachedNormalizedDetails = detailsCacheRef.current.get(normalizedDetailsKey);
-        resolvedDetails = cachedNormalizedDetails
-          ? requireCurrentPerformanceDetails(
-              cachedNormalizedDetails,
-              resolvedControls,
-              summaryEvidence,
-            )
-          : requireCurrentPerformanceDetails(
-            await getWorkbenchPerformanceWorkspaceDetailsClient(
-              resolvedControls.portfolioId,
-              buildDetailsRequest(resolvedControls),
-            ),
-            resolvedControls,
-            summaryEvidence,
-          );
+        resolvedDetails = await queryClient.fetchQuery(
+          performanceWorkspaceDetailsQueryOptions(resolvedControls, summaryEvidence),
+        );
       }
     }
 
-    const resolvedDetailsKey = buildDetailsCacheKey(resolvedControls);
-    detailsCacheRef.current.set(resolvedDetailsKey, resolvedDetails);
+    queryClient.setQueryData(
+      performanceWorkspaceDetailsQueryOptions(resolvedControls, summaryEvidence).queryKey,
+      resolvedDetails,
+    );
     return {
       details: resolvedDetails,
       controls: resolvedControls,
     };
-  }, []);
+  }, [queryClient]);
 
   async function handleRequestChange(
     patch: Partial<PerformanceControlState>,
@@ -448,26 +385,53 @@ export default function PerformanceWorkspaceClient({
       return false;
     }
     const nextControls = applyPerformanceControlPatch(controls, patch);
-    const sameSummary = buildSummaryCacheKey(nextControls) === buildSummaryCacheKey(controls);
-    const sameDetails = buildDetailsCacheKey(nextControls) === buildDetailsCacheKey(controls);
+    if (
+      buildPerformanceControlsHref(nextControls) ===
+      buildPerformanceControlsHref(controls)
+    ) {
+      if (activeRefreshTokenRef.current !== null) {
+        activeRefreshTokenRef.current = null;
+        await queryClient.cancelQueries({
+          queryKey: performanceWorkspaceQueryKeys.portfolio(controls.portfolioId),
+        });
+        setPendingRefresh(null);
+        setRefreshFailure(null);
+        setRefreshConfirmation(null);
+      }
+      return false;
+    }
+    const sameSummary = !shouldRefreshSummary(controls, nextControls);
+    const sameDetails =
+      buildControlQueryIdentity(nextControls) === buildControlQueryIdentity(controls);
+    if (activeRefreshTokenRef.current !== null && sameSummary && sameDetails) {
+      activeRefreshTokenRef.current = null;
+      await queryClient.cancelQueries({
+        queryKey: performanceWorkspaceQueryKeys.portfolio(controls.portfolioId),
+      });
+      setPendingRefresh(null);
+      setRefreshFailure(null);
+      setRefreshConfirmation(null);
+      return false;
+    }
     if (pendingRefresh) {
       const repeatsPendingRequest =
-        buildSummaryCacheKey(nextControls) ===
-          buildSummaryCacheKey(pendingRefresh.requestedControls) &&
-        buildDetailsCacheKey(nextControls) ===
-          buildDetailsCacheKey(pendingRefresh.requestedControls);
+        buildControlQueryIdentity(nextControls) ===
+        buildControlQueryIdentity(pendingRefresh.requestedControls);
       if (repeatsPendingRequest) {
         return false;
       }
       if (sameSummary && sameDetails) {
-        requestSequenceRef.current += 1;
+        activeRefreshTokenRef.current = null;
+        await queryClient.cancelQueries({
+          queryKey: performanceWorkspaceQueryKeys.portfolio(controls.portfolioId),
+        });
         setPendingRefresh(null);
         setRefreshFailure(null);
         setRefreshConfirmation(null);
         return false;
       }
     }
-    if (sameSummary && sameDetails && detailsStatus === "ready" && !refreshFailure) {
+    if (sameSummary && sameDetails && !refreshFailure) {
       return false;
     }
 
@@ -483,8 +447,14 @@ export default function PerformanceWorkspaceClient({
   ) {
     const refreshesSummary = shouldRefreshSummary(confirmedControls, requestedControls);
     const initialScope: PerformanceRefreshScope = refreshesSummary ? "summary" : "details";
-    const requestId = requestSequenceRef.current + 1;
-    requestSequenceRef.current = requestId;
+    const refreshToken = Symbol("performance-workspace-refresh");
+    activeRefreshTokenRef.current = refreshToken;
+    await queryClient.cancelQueries({
+      queryKey: performanceWorkspaceQueryKeys.portfolio(requestedControls.portfolioId),
+    });
+    if (activeRefreshTokenRef.current !== refreshToken) {
+      return;
+    }
     setRefreshFailure(null);
     setRefreshConfirmation(null);
     setPendingRefresh({
@@ -499,17 +469,9 @@ export default function PerformanceWorkspaceClient({
       let detailRequestControls = requestedControls;
 
       if (refreshesSummary) {
-        const summaryKey = buildSummaryCacheKey(requestedControls);
-        const cachedSummary = summaryCacheRef.current.get(summaryKey) ?? null;
-        resolvedSummary = requireCurrentPerformanceSummary(
-          cachedSummary ??
-            (await getWorkbenchPerformanceWorkspaceSummaryClient(
-              requestedControls.portfolioId,
-              buildSummaryRequest(requestedControls)
-            )),
-          requestedControls,
+        resolvedSummary = await queryClient.fetchQuery(
+          performanceWorkspaceSummaryQueryOptions(requestedControls),
         );
-        summaryCacheRef.current.set(summaryKey, resolvedSummary);
         detailRequestControls = buildResolvedSummaryControls(requestedControls, resolvedSummary);
       }
 
@@ -522,13 +484,21 @@ export default function PerformanceWorkspaceClient({
         detailRequestControls,
         resolvedSummary,
       );
-      if (requestSequenceRef.current !== requestId) {
+      if (activeRefreshTokenRef.current !== refreshToken) {
         return;
       }
 
-      setSummary(resolvedSummary);
-      setDetails(resolvedDetails.details);
-      setDetailsStatus("ready");
+      queryClient.setQueryData(
+        performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
+        resolvedSummary,
+      );
+      queryClient.setQueryData(
+        performanceWorkspaceDetailsQueryOptions(
+          resolvedDetails.controls,
+          resolvedSummary,
+        ).queryKey,
+        resolvedDetails.details,
+      );
       setControls(resolvedDetails.controls);
       setLoadIssue(null);
       setRefreshFailure(null);
@@ -549,23 +519,20 @@ export default function PerformanceWorkspaceClient({
         restorePerformanceSourceControlFocus(options.focusTarget);
       }
     } catch (error) {
-      if (requestSequenceRef.current !== requestId) {
+      if (activeRefreshTokenRef.current !== refreshToken) {
         return;
       }
 
       if (isWorkbenchPermissionBlockedError(error)) {
-        setSummary(null);
-        setDetails(null);
-        setDetailsStatus("failed");
+        queryClient.removeQueries({
+          queryKey: performanceWorkspaceQueryKeys.portfolio(confirmedControls.portfolioId),
+        });
         setRefreshFailure(null);
         setLoadIssue({
           state: "permission_blocked",
           status: getWorkbenchApiErrorStatus(error) ?? undefined,
         });
       } else {
-        if (!details) {
-          setDetailsStatus("failed");
-        }
         setRefreshFailure({
           scope: failureScope,
           requestedControls,
@@ -574,27 +541,44 @@ export default function PerformanceWorkspaceClient({
         });
       }
     } finally {
-      if (requestSequenceRef.current === requestId) {
+      if (activeRefreshTokenRef.current === refreshToken) {
+        activeRefreshTokenRef.current = null;
         setPendingRefresh(null);
       }
     }
   }
 
   useEffect(() => {
-    if (!controls || !summary || details || initialDetailsRequestedRef.current) {
+    if (
+      !controls ||
+      !summary ||
+      details ||
+      detailsQuery.fetchStatus === "fetching" ||
+      refreshFailure?.scope === "details"
+    ) {
       return;
     }
 
-    initialDetailsRequestedRef.current = true;
-    const requestId = requestSequenceRef.current;
-    setDetailsStatus("loading");
+    const hydrationIdentity = buildControlQueryIdentity(controls);
     void resolveDetailsForControls(controls, summary, { allowInitialFallback: true })
       .then((resolvedDetails) => {
-        if (requestSequenceRef.current !== requestId) {
+        if (
+          activeRefreshTokenRef.current !== null ||
+          currentControlsIdentityRef.current !== hydrationIdentity
+        ) {
           return;
         }
-        setDetails(resolvedDetails.details);
-        setDetailsStatus("ready");
+        queryClient.setQueryData(
+          performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
+          summary,
+        );
+        queryClient.setQueryData(
+          performanceWorkspaceDetailsQueryOptions(
+            resolvedDetails.controls,
+            summary,
+          ).queryKey,
+          resolvedDetails.details,
+        );
         setControls(resolvedDetails.controls);
         if (
           buildPerformanceControlsHref(resolvedDetails.controls) !==
@@ -614,20 +598,22 @@ export default function PerformanceWorkspaceClient({
         }
       })
       .catch((error: unknown) => {
-        if (requestSequenceRef.current !== requestId) {
+        if (
+          activeRefreshTokenRef.current !== null ||
+          currentControlsIdentityRef.current !== hydrationIdentity
+        ) {
           return;
         }
         if (isWorkbenchPermissionBlockedError(error)) {
-          setSummary(null);
-          setDetails(null);
-          setDetailsStatus("failed");
+          queryClient.removeQueries({
+            queryKey: performanceWorkspaceQueryKeys.portfolio(controls.portfolioId),
+          });
           setLoadIssue({
             state: "permission_blocked",
             status: getWorkbenchApiErrorStatus(error) ?? undefined,
           });
           return;
         }
-        setDetailsStatus("failed");
         setRefreshFailure({
           scope: "details",
           requestedControls: controls,
@@ -635,7 +621,17 @@ export default function PerformanceWorkspaceClient({
           status: getWorkbenchApiErrorStatus(error) ?? undefined,
         });
       });
-  }, [controls, details, mode, resolveDetailsForControls, router, summary]);
+  }, [
+    controls,
+    details,
+    detailsQuery.fetchStatus,
+    mode,
+    queryClient,
+    refreshFailure?.scope,
+    resolveDetailsForControls,
+    router,
+    summary,
+  ]);
 
   const currentContextNotice = buildPerformanceReviewContextNotice({
     requestedAsOfDate: controls?.reviewAsOfDate ?? initialAsOfDate,
@@ -718,25 +714,6 @@ function applyPerformanceControlPatch(
   };
 }
 
-function buildSummaryRequest(controls: PerformanceControlState) {
-  return {
-    period: controls.period,
-    chartFrequency: controls.chartFrequency,
-    contributionDimension: controls.contributionDimension,
-    attributionDimension: controls.attributionDimension,
-    detailBasis: controls.detailBasis,
-    benchmark: controls.benchmark,
-    reportStartDate: controls.reportStartDate,
-    reportEndDate: controls.reportEndDate,
-    asOfDate: controls.reviewAsOfDate,
-    reportingCurrency: controls.reviewReportingCurrency,
-  };
-}
-
-function buildDetailsRequest(controls: PerformanceControlState) {
-  return buildSummaryRequest(controls);
-}
-
 function buildResolvedSummaryControls(
   requestedControls: PerformanceControlState,
   resolvedSummary: WorkbenchPerformanceWorkspaceSummary
@@ -788,54 +765,6 @@ function buildPerformanceControlsHref(
     reportStartDate: controls.reportStartDate,
     reportEndDate: controls.reportEndDate,
   });
-}
-
-function requireCurrentPerformanceDetails(
-  details: WorkbenchPerformanceWorkspaceDetails,
-  controls: PerformanceControlState,
-  summary: WorkbenchPerformanceWorkspaceSummary,
-): WorkbenchPerformanceWorkspaceDetails {
-  if (
-    !isPerformanceDetailsSourceCurrent(details, {
-      portfolioId: controls.portfolioId,
-      period: controls.period,
-      reportStartDate: controls.reportStartDate,
-      reportEndDate: controls.reportEndDate,
-      asOfDate: controls.reviewAsOfDate,
-      reportingCurrency: controls.reviewReportingCurrency,
-      detailBasis: controls.detailBasis,
-      contributionDimension: controls.contributionDimension,
-      attributionDimension: controls.attributionDimension,
-      chartFrequency: controls.chartFrequency,
-      benchmark: controls.benchmark,
-    }) ||
-    !doPerformanceSummaryAndDetailsShareReviewContext(summary, details)
-  ) {
-    throw new Error("Performance analytical detail did not confirm the requested source identity.");
-  }
-  return details;
-}
-
-function requireCurrentPerformanceSummary(
-  summary: WorkbenchPerformanceWorkspaceSummary,
-  controls: PerformanceControlState,
-): WorkbenchPerformanceWorkspaceSummary {
-  if (
-    !isPerformanceSummarySourceCurrent(summary, {
-      portfolioId: controls.portfolioId,
-      period: controls.period,
-      reportStartDate: controls.reportStartDate,
-      reportEndDate: controls.reportEndDate,
-      asOfDate: controls.reviewAsOfDate,
-      reportingCurrency: controls.reviewReportingCurrency,
-      detailBasis: controls.detailBasis,
-      chartFrequency: controls.chartFrequency,
-      benchmark: controls.benchmark,
-    })
-  ) {
-    throw new Error("Performance summary did not confirm the requested source identity.");
-  }
-  return summary;
 }
 
 function buildRefreshStatus(
@@ -957,49 +886,8 @@ function shouldRefreshSummary(
   );
 }
 
-function buildSummaryCacheKey(
-  controls: Pick<
-    PerformanceControlState,
-    | "portfolioId"
-    | "period"
-    | "detailBasis"
-    | "chartFrequency"
-    | "benchmark"
-    | "reportStartDate"
-    | "reportEndDate"
-    | "reviewAsOfDate"
-    | "reviewReportingCurrency"
-  >
-): string {
-  const isExplicitWindow = controls.period === "EXPLICIT";
-  return JSON.stringify({
-    portfolioId: controls.portfolioId,
-    period: controls.period,
-    detailBasis: controls.detailBasis,
-    chartFrequency: controls.chartFrequency,
-    benchmark: controls.benchmark ?? null,
-    reportStartDate: isExplicitWindow ? controls.reportStartDate ?? null : null,
-    reportEndDate: isExplicitWindow ? controls.reportEndDate ?? null : null,
-    reviewAsOfDate: controls.reviewAsOfDate ?? null,
-    reviewReportingCurrency: controls.reviewReportingCurrency ?? null,
-  });
-}
-
-function buildDetailsCacheKey(controls: PerformanceControlState): string {
-  const isExplicitWindow = controls.period === "EXPLICIT";
-  return JSON.stringify({
-    portfolioId: controls.portfolioId,
-    period: controls.period,
-    detailBasis: controls.detailBasis,
-    contributionDimension: controls.contributionDimension,
-    attributionDimension: controls.attributionDimension,
-    chartFrequency: controls.chartFrequency,
-    benchmark: controls.benchmark ?? null,
-    reportStartDate: isExplicitWindow ? controls.reportStartDate ?? null : null,
-    reportEndDate: isExplicitWindow ? controls.reportEndDate ?? null : null,
-    reviewAsOfDate: controls.reviewAsOfDate ?? null,
-    reviewReportingCurrency: controls.reviewReportingCurrency ?? null,
-  });
+function buildControlQueryIdentity(controls: PerformanceControlState): string {
+  return JSON.stringify(performanceWorkspaceQueryKeys.summary(controls));
 }
 
 function resolveInitialControls({

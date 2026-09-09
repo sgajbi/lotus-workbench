@@ -6,6 +6,7 @@ import {
   performanceWorkspaceSummaryQueryOptions,
 } from "../../src/apps/performance/performance-workspace-query-options";
 import { performanceWorkspaceQueryKeys } from "../../src/apps/performance/performance-workspace-query-keys";
+import { WORKBENCH_QUERY_STALE_TIME_MS } from "../../src/features/platform-runtime/query-policy";
 import {
   buildPerformanceWorkspaceDetails,
   buildPerformanceWorkspaceSummary,
@@ -35,6 +36,7 @@ const context = {
 
 describe("performance workspace query ownership", () => {
   afterEach(() => {
+    vi.useRealTimers();
     getSummaryClientMock.mockReset();
     getDetailsClientMock.mockReset();
   });
@@ -79,6 +81,29 @@ describe("performance workspace query ownership", () => {
 
     expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
     expect(getSummaryClientMock.mock.calls[0]?.[2]).toBeInstanceOf(AbortSignal);
+  });
+
+  it("revalidates an admitted summary after the governed stale window", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-07T10:00:00Z"));
+    const summary = {
+      ...buildPerformanceWorkspaceSummary(),
+      requested_as_of_date: "2026-02-24",
+      requested_reporting_currency: "USD",
+      effective_reporting_currency: "USD",
+      reporting_currency_state: "applied" as const,
+    };
+    getSummaryClientMock.mockResolvedValue(summary);
+    const queryClient = new QueryClient();
+    const options = performanceWorkspaceSummaryQueryOptions(context);
+
+    await queryClient.fetchQuery(options);
+    vi.setSystemTime(
+      new Date(Date.now() + WORKBENCH_QUERY_STALE_TIME_MS + 1),
+    );
+    await queryClient.fetchQuery(options);
+
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(2);
   });
 
   it("refuses mismatched summary evidence before it becomes reusable cache data", async () => {
