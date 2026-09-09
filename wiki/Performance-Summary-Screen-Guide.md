@@ -155,10 +155,10 @@ or moving focus away from the active rail or source control.
   those confirmed controls without another server navigation or a rejected Back-history entry.
 - Withholds that receipt and action in Summary, Analysis, Risk Review, and Adviser Brief because
   their visible horizon, attribution, risk, or narrative evidence includes independent queries;
-  Workbench does not imply those facts were rechecked by the Performance pair. Its pending state and
-  completion are discarded if the adviser changes mode before it settles, so another mode never
-  inherits its lock or confirmation. A permission denial still revokes retained evidence regardless
-  of that mode fence.
+  Workbench does not imply those facts were rechecked by the Performance pair. Its pending or failed
+  state and completion are discarded when the adviser changes mode through the rail or browser
+  history, so another mode never inherits its lock, retry, or confirmation. A permission denial
+  still revokes retained evidence regardless of that mode fence.
 - Uses browser-history `push` for confirmed advisor mode and source-control decisions, reserves
   `replace` for source normalization, and synchronizes Back and Forward into the mounted client
   without discarding keyboard focus or accepting an obsolete request.

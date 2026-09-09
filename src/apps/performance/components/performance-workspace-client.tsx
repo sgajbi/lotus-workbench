@@ -211,6 +211,15 @@ export default function PerformanceWorkspaceClient({
     ? buildControlQueryIdentity(controls)
     : null;
   const queryClient = useQueryClient();
+  const clearModeLocalRecheckState = useCallback(() => {
+    setPendingRefresh((currentRefresh) =>
+      currentRefresh?.intent === "recheck" ? null : currentRefresh,
+    );
+    setRefreshFailure((currentFailure) =>
+      currentFailure?.intent === "recheck" ? null : currentFailure,
+    );
+    setRefreshConfirmation(null);
+  }, []);
   const controlsMatchServerPreload = Boolean(
     initialDataAdmissionEnabledRef.current &&
     controls &&
@@ -323,10 +332,10 @@ export default function PerformanceWorkspaceClient({
     if (modeRef.current === initialMode) {
       return;
     }
+    clearModeLocalRecheckState();
     modeRef.current = initialMode;
     setMode(initialMode);
-    setRefreshConfirmation(null);
-  }, [initialMode]);
+  }, [clearModeLocalRecheckState, initialMode]);
 
   const workspace = useMemo<WorkbenchPerformanceWorkspace | null>(() => {
     if (!currentSummary) {
@@ -945,10 +954,7 @@ export default function PerformanceWorkspaceClient({
       chartFrequency={controls?.chartFrequency ?? initialChartFrequency}
       benchmark={controls?.benchmark}
       onModeChange={(nextMode) => {
-        setRefreshConfirmation(null);
-        setPendingRefresh((currentRefresh) =>
-          currentRefresh?.intent === "recheck" ? null : currentRefresh,
-        );
+        clearModeLocalRecheckState();
         modeRef.current = nextMode;
         setMode(nextMode);
         if (!controls) {
