@@ -54,6 +54,7 @@
     "test:e2e:typography:compare": "node scripts/testing/run-typography-comparison.mjs",
     "test:e2e:performance:populated": "node scripts/testing/run-performance-smoke-scenario.mjs populated",
     "test:e2e:performance:review-context": "node scripts/testing/run-performance-smoke-scenario.mjs populated --focus review-context",
+    "test:e2e:performance:receipt-age": "node scripts/testing/run-performance-smoke-scenario.mjs populated --focus receipt-age",
     "test:e2e:performance:unavailable": "node scripts/testing/run-performance-smoke-scenario.mjs unavailable",
     "test:e2e:performance:refresh-integrity": "node scripts/testing/run-performance-smoke-scenario.mjs refresh-integrity",
     "test:e2e:performance:trend-integrity": "node scripts/testing/run-performance-smoke-scenario.mjs trend-integrity",

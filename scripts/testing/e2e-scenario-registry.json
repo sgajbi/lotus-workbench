@@ -102,6 +102,7 @@
           "spec": "tests/e2e/performance-workbench.smoke.spec.ts",
           "expected_tests": [
             "summary renders the source supportability posture truthfully",
+            "Performance receipt age rechecks exactly one coherent source composite",
             "populated summary preserves its metric and layout contract",
             "performance review uses one governed control bar and a decision-first return table",
             "single-observation Return Path stays compact, semantic, and responsive",
@@ -118,6 +119,9 @@
             "evidence mode proves exception-first calculation assurance"
           ],
           "focuses": {
+            "receipt-age": [
+              "Performance receipt age rechecks exactly one coherent source composite"
+            ],
             "review-context": [
               "review context is source-confirmed across Performance decision modes"
             ],

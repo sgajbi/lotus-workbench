@@ -516,6 +516,66 @@ test.describe('Performance workbench smoke', () => {
     }
   });
 
+  test('Performance receipt age rechecks exactly one coherent source composite', async ({
+    page,
+    request,
+  }, testInfo) => {
+    test.skip(
+      process.env.PERFORMANCE_E2E_FIXTURE !== 'populated',
+      'This deterministic receipt-age proof requires the populated performance fixture.',
+    );
+    test.setTimeout(90_000);
+    const runtime = observeBrowserRuntimeFailures(page);
+    const opened = await openPerformanceWorkbench(page, request);
+    expect(opened.available).toBe(true);
+    expect(fixtureGateway).not.toBeNull();
+
+    const checked = page.getByText(/^Checked (just now|\d+ min ago|\d+ (?:hr|hrs) ago|\d)/);
+    await expect(checked).toBeVisible();
+    const requestCountBeforeIdle = { ...fixtureGateway!.requests };
+    await page.waitForTimeout(1_200);
+    expect(fixtureGateway!.requests.summary).toBe(requestCountBeforeIdle.summary);
+    expect(fixtureGateway!.requests.details).toBe(requestCountBeforeIdle.details);
+
+    await page.getByRole('button', { name: 'Recheck performance' }).click();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Performance evidence rechecked' }),
+    ).toBeVisible();
+    expect(fixtureGateway!.requests.summary).toBe(requestCountBeforeIdle.summary + 1);
+    expect(fixtureGateway!.requests.details).toBe(requestCountBeforeIdle.details + 1);
+    await expect(page.getByRole('button', { name: 'Recheck performance' })).toHaveCount(1);
+
+    const evidenceDirectory = process.env.PERFORMANCE_E2E_EVIDENCE_DIR?.trim();
+    const evidence = {
+      portfolioId: opened.portfolioId,
+      checkedLabel: await checked.textContent(),
+      sourceRequestsBeforeRecheck: requestCountBeforeIdle,
+      sourceRequestsAfterRecheck: { ...fixtureGateway!.requests },
+      summaryRequestDelta: fixtureGateway!.requests.summary - requestCountBeforeIdle.summary,
+      detailsRequestDelta: fixtureGateway!.requests.details - requestCountBeforeIdle.details,
+      routeAfterRecheck: page.url(),
+    };
+    await testInfo.attach('performance-receipt-age', {
+      body: Buffer.from(JSON.stringify(evidence, null, 2)),
+      contentType: 'application/json',
+    });
+    if (evidenceDirectory) {
+      await mkdir(evidenceDirectory, { recursive: true });
+      await writeFile(
+        resolve(evidenceDirectory, 'performance-receipt-age.json'),
+        `${JSON.stringify(evidence, null, 2)}\n`,
+        'utf8',
+      );
+      await page.screenshot({
+        path: resolve(evidenceDirectory, 'performance-receipt-age-desktop.png'),
+        fullPage: true,
+      });
+    }
+
+    await runtime.assertStylesAreHeadManaged();
+    expect(runtime.snapshot()).toEqual([]);
+  });
+
   test('populated summary preserves its metric and layout contract', async ({ page, request }) => {
     test.setTimeout(60_000);
     await page.setViewportSize({ width: 1800, height: 1400 });
