@@ -181,6 +181,7 @@ export default function PerformanceWorkspaceClient({
   const [refreshConfirmation, setRefreshConfirmation] = useState<PerformancePendingRefresh | null>(
     null
   );
+  const initialDataAdmissionEnabledRef = useRef(true);
   const activeRefreshTokenRef = useRef<symbol | null>(null);
   const automaticHydrationIdentityRef = useRef<string | null>(null);
   const lastSourceControlFocusTargetRef = useRef<PerformanceSourceControlFocusTarget | null>(null);
@@ -198,6 +199,7 @@ export default function PerformanceWorkspaceClient({
     : null;
   const queryClient = useQueryClient();
   const controlsMatchServerPreload = Boolean(
+    initialDataAdmissionEnabledRef.current &&
     controls &&
       initialRouteControlsKey &&
       buildPerformanceControlsHref(controls) === initialRouteControlsKey,
@@ -580,6 +582,7 @@ export default function PerformanceWorkspaceClient({
         : { scope: failureScope, sourceError: error };
 
       if (isWorkbenchPermissionBlockedError(refreshError.sourceError)) {
+        initialDataAdmissionEnabledRef.current = false;
         queryClient.removeQueries({
           queryKey: performanceWorkspaceQueryKeys.portfolio(confirmedControls.portfolioId),
         });
@@ -706,6 +709,7 @@ export default function PerformanceWorkspaceClient({
           ? resolvePerformanceWorkspaceRevalidationError(error)
           : { scope: failureScope, sourceError: error };
         if (isWorkbenchPermissionBlockedError(revalidationError.sourceError)) {
+          initialDataAdmissionEnabledRef.current = false;
           queryClient.removeQueries({
             queryKey: performanceWorkspaceQueryKeys.portfolio(controls.portfolioId),
           });
