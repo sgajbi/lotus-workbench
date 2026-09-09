@@ -741,6 +741,64 @@ describe("PerformanceWorkspaceClient", () => {
     expect(replaceMock).not.toHaveBeenCalled();
   });
 
+  it("admits newer source evidence when the refreshed route controls are unchanged", async () => {
+    const initialSummary = buildSummary();
+    const refreshedSummary = buildSummary({
+      net_performance: {
+        ...initialSummary.net_performance,
+        portfolio_return_pct: 7.1,
+      },
+    });
+    const props = buildDefaultClientProps(initialSummary, buildDetails());
+    const { queryClient, rerender } = render(
+      <PerformanceWorkspaceClient {...props} />,
+    );
+
+    expect(screen.getByTestId("return")).toHaveTextContent(DEFAULT_PORTFOLIO_RETURN);
+
+    rerender(
+      <PerformanceWorkspaceClient
+        {...props}
+        initialSummary={refreshedSummary}
+        initialDetails={buildDetails()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("return")).toHaveTextContent("7.1");
+    });
+    expect(
+      queryClient.getQueryData(
+        performanceWorkspaceSummaryQueryOptions(defaultQueryContext).queryKey,
+      ),
+    ).toEqual(refreshedSummary);
+    expect(getSummaryClientMock).not.toHaveBeenCalled();
+    expect(getDetailsClientMock).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a refreshed route load failure instead of presenting retained cache", async () => {
+    const props = buildDefaultClientProps(buildSummary(), buildDetails());
+    const { rerender } = render(<PerformanceWorkspaceClient {...props} />);
+
+    expect(screen.getByTestId("return")).toHaveTextContent(DEFAULT_PORTFOLIO_RETURN);
+
+    rerender(
+      <PerformanceWorkspaceClient
+        {...props}
+        initialSummary={null}
+        initialDetails={null}
+        initialLoadIssue={{ state: "unavailable", status: 502 }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("load-issue")).toHaveTextContent("unavailable");
+      expect(screen.getByTestId("return")).toHaveTextContent("none");
+    });
+    expect(getSummaryClientMock).not.toHaveBeenCalled();
+    expect(getDetailsClientMock).not.toHaveBeenCalled();
+  });
+
   it("reports that an already-confirmed request did not dispatch a refresh", async () => {
     render(
       <PerformanceWorkspaceClient
