@@ -27,6 +27,11 @@ import type { PerformanceWorkspaceMode } from "../performance-workspace-modes";
 import { assemblePerformanceWorkspace } from "../workspace-assembler";
 import { getNormalizedInitialPerformanceDetailControls } from "../performance-detail-control-resolution";
 import {
+  capturePerformancePortfoliosRequiringConfirmation,
+  confirmPerformancePortfolio,
+  revokePerformancePortfolio,
+} from "../performance-source-revocation";
+import {
   admitPerformanceQueryData,
   fetchPerformanceWorkspaceRevalidation,
   fetchPerformanceWorkspaceSummary,
@@ -110,6 +115,7 @@ export default function PerformanceWorkspaceClient({
   initialPortfolioContext = null,
 }: PerformanceWorkspaceClientProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const sourceConfirmedInitialDetails = useMemo(
     () =>
       initialDetails &&
@@ -192,9 +198,11 @@ export default function PerformanceWorkspaceClient({
   const activeHydrationTokenRef = useRef<symbol | null>(null);
   const [revokedPortfolioIds, setRevokedPortfolioIds] = useState<ReadonlySet<string>>(
     () =>
-      captureAuthorityBoundaryRevision() > 0 && initialControls
-        ? new Set([initialControls.portfolioId])
-        : new Set(),
+      capturePerformancePortfoliosRequiringConfirmation(
+        queryClient,
+        initialControls?.portfolioId,
+        captureAuthorityBoundaryRevision(),
+      ),
   );
   const pendingRouteEchoKeyRef = useRef<string | null>(null);
   const automaticHydrationIdentityRef = useRef<string | null>(null);
@@ -221,7 +229,6 @@ export default function PerformanceWorkspaceClient({
   currentControlsIdentityRef.current = controls
     ? buildControlQueryIdentity(controls)
     : null;
-  const queryClient = useQueryClient();
   const clearModeLocalRecheckState = useCallback(() => {
     if (
       activeRefreshTokenRef.current !== null &&
@@ -714,6 +721,11 @@ export default function PerformanceWorkspaceClient({
         { advanceReceipt: isExplicitRecheck },
       );
       setControls(resolvedDetails.controls);
+      confirmPerformancePortfolio(
+        queryClient,
+        resolvedDetails.controls.portfolioId,
+        captureAuthorityBoundaryRevision(),
+      );
       setRevokedPortfolioIds((currentIds) =>
         withoutPortfolioId(currentIds, resolvedDetails.controls.portfolioId),
       );
@@ -754,6 +766,7 @@ export default function PerformanceWorkspaceClient({
         : { scope: failureScope, sourceError: error };
 
       if (isWorkbenchPermissionBlockedError(refreshError.sourceError)) {
+        revokePerformancePortfolio(queryClient, confirmedControls.portfolioId);
         setRevokedPortfolioIds((currentIds) =>
           withPortfolioId(currentIds, confirmedControls.portfolioId),
         );
@@ -891,6 +904,11 @@ export default function PerformanceWorkspaceClient({
           resolvedDetails.details,
           resolvedDetails.dataUpdatedAt,
         );
+        confirmPerformancePortfolio(
+          queryClient,
+          resolvedDetails.controls.portfolioId,
+          captureAuthorityBoundaryRevision(),
+        );
         setRevokedPortfolioIds((currentIds) =>
           withoutPortfolioId(currentIds, resolvedDetails.controls.portfolioId),
         );
@@ -928,6 +946,7 @@ export default function PerformanceWorkspaceClient({
           ? resolvePerformanceWorkspaceRevalidationError(error)
           : { scope: failureScope, sourceError: error };
         if (isWorkbenchPermissionBlockedError(revalidationError.sourceError)) {
+          revokePerformancePortfolio(queryClient, controls.portfolioId);
           setRevokedPortfolioIds((currentIds) =>
             withPortfolioId(currentIds, controls.portfolioId),
           );
