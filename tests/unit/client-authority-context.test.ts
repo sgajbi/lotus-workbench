@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   captureActiveAuthorityContext,
+  captureAuthorityRequestContext,
   reconcileResponseAuthorityContext,
   resetClientAuthorityContextForTests,
   StaleAuthorityResponseError,
@@ -24,7 +25,10 @@ describe("client authority context", () => {
     const listener = vi.fn();
     subscribeToAuthorityChanges(listener);
 
-    reconcileResponseAuthorityContext(response(FIRST_AUTHORITY), null);
+    reconcileResponseAuthorityContext(
+      response(FIRST_AUTHORITY),
+      captureAuthorityRequestContext(),
+    );
 
     expect(captureActiveAuthorityContext()).toBe(FIRST_AUTHORITY);
     expect(listener).not.toHaveBeenCalled();
@@ -33,29 +37,60 @@ describe("client authority context", () => {
   it("notifies consumers exactly once when the admitted authority changes", () => {
     const listener = vi.fn();
     subscribeToAuthorityChanges(listener);
-    reconcileResponseAuthorityContext(response(FIRST_AUTHORITY), null);
+    reconcileResponseAuthorityContext(
+      response(FIRST_AUTHORITY),
+      captureAuthorityRequestContext(),
+    );
 
-    reconcileResponseAuthorityContext(response(SECOND_AUTHORITY), FIRST_AUTHORITY);
-    reconcileResponseAuthorityContext(response(SECOND_AUTHORITY), SECOND_AUTHORITY);
+    reconcileResponseAuthorityContext(
+      response(SECOND_AUTHORITY),
+      captureAuthorityRequestContext(),
+    );
+    reconcileResponseAuthorityContext(
+      response(SECOND_AUTHORITY),
+      captureAuthorityRequestContext(),
+    );
 
     expect(captureActiveAuthorityContext()).toBe(SECOND_AUTHORITY);
     expect(listener).toHaveBeenCalledTimes(1);
   });
 
   it("fences a late response from the previous authority", () => {
-    reconcileResponseAuthorityContext(response(FIRST_AUTHORITY), null);
-    reconcileResponseAuthorityContext(response(SECOND_AUTHORITY), FIRST_AUTHORITY);
+    reconcileResponseAuthorityContext(
+      response(FIRST_AUTHORITY),
+      captureAuthorityRequestContext(),
+    );
+    const oldRequest = captureAuthorityRequestContext();
+    reconcileResponseAuthorityContext(
+      response(SECOND_AUTHORITY),
+      captureAuthorityRequestContext(),
+    );
 
     expect(() =>
-      reconcileResponseAuthorityContext(response(FIRST_AUTHORITY), FIRST_AUTHORITY),
+      reconcileResponseAuthorityContext(response(FIRST_AUTHORITY), oldRequest),
     ).toThrow(StaleAuthorityResponseError);
     expect(captureActiveAuthorityContext()).toBe(SECOND_AUTHORITY);
   });
 
   it("does not invent authority from absent or malformed response metadata", () => {
-    reconcileResponseAuthorityContext(response(), null);
-    reconcileResponseAuthorityContext(response("browser-selected"), null);
+    reconcileResponseAuthorityContext(response(), captureAuthorityRequestContext());
+    reconcileResponseAuthorityContext(
+      response("browser-selected"),
+      captureAuthorityRequestContext(),
+    );
 
     expect(captureActiveAuthorityContext()).toBeNull();
+  });
+
+  it("fences an older initial response after a newer authority is established", () => {
+    const olderRequest = captureAuthorityRequestContext();
+    const newerRequest = captureAuthorityRequestContext();
+
+    reconcileResponseAuthorityContext(response(SECOND_AUTHORITY), newerRequest);
+
+    expect(() =>
+      reconcileResponseAuthorityContext(response(FIRST_AUTHORITY), olderRequest),
+    ).toThrow(StaleAuthorityResponseError);
+    expect(captureActiveAuthorityContext()).toBe(SECOND_AUTHORITY);
   });
 });

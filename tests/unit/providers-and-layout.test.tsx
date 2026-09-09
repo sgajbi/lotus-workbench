@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import RootLayout from "@/app/layout";
 import Providers from "@/app/providers";
 import {
+  captureAuthorityRequestContext,
   reconcileResponseAuthorityContext,
   resetClientAuthorityContextForTests,
 } from "@/features/workbench/client-authority-context";
@@ -62,13 +63,13 @@ describe("Providers", () => {
         new Response("{}", {
           headers: { "X-Workbench-Authority-Context": "a".repeat(64) },
         }),
-        null,
+        captureAuthorityRequestContext(),
       );
       reconcileResponseAuthorityContext(
         new Response("{}", {
           headers: { "X-Workbench-Authority-Context": "b".repeat(64) },
         }),
-        "a".repeat(64),
+        captureAuthorityRequestContext(),
       );
     });
 
