@@ -1,0 +1,25 @@
+{
+  "portfolioId": "PB_SG_GLOBAL_BAL_001",
+  "checkedLabel": "Checked just now",
+  "sourceRequestsBeforeRecheck": {
+    "summary": 2,
+    "details": 1,
+    "riskSummary": 0,
+    "riskConcentration": 0,
+    "riskDrawdown": 0,
+    "riskRolling": 0,
+    "riskAttribution": 0
+  },
+  "sourceRequestsAfterRecheck": {
+    "summary": 3,
+    "details": 2,
+    "riskSummary": 0,
+    "riskConcentration": 0,
+    "riskDrawdown": 0,
+    "riskRolling": 0,
+    "riskAttribution": 0
+  },
+  "summaryRequestDelta": 1,
+  "detailsRequestDelta": 1,
+  "routeAfterRecheck": "http://127.0.0.1:31030/performance?portfolioId=PB_SG_GLOBAL_BAL_001&period=YTD&detailBasis=NET&contributionDimension=asset_class&attributionDimension=asset_class&chartFrequency=monthly&benchmark=BMK_GLOBAL_BALANCED_60_40"
+}
