@@ -21,7 +21,10 @@ import {
   getPerformanceWorkspaceModeDefinition,
   type PerformanceWorkspaceMode,
 } from "../performance-workspace-modes";
-import { PERFORMANCE_WORKFLOW_LABELS } from "../performance-terminology";
+import {
+  PERFORMANCE_REFRESH_COPY,
+  PERFORMANCE_WORKFLOW_LABELS,
+} from "../performance-terminology";
 import {
   getPerformanceWorkspacePresentation,
 } from "../view-model";
@@ -101,8 +104,8 @@ export default function PerformanceWorkspaceView({
       <WorkbenchDataAge updatedAt={sourceReceipt.checkedAt} />
       <SourceRefreshAction
         refreshScope={sourceReceipt.refreshScope}
-        idleLabel="Recheck performance"
-        busyLabel="Rechecking…"
+        idleLabel={PERFORMANCE_REFRESH_COPY.recheckAction}
+        busyLabel={PERFORMANCE_REFRESH_COPY.recheckingAction}
         isRefreshing={sourceReceipt.isRefreshing}
         onRefresh={sourceReceipt.onRefresh}
       />
@@ -272,12 +275,12 @@ function getRefreshStatusTitle(
 ) {
   if (refreshStatus.intent === "recheck") {
     if (refreshStatus.kind === "pending") {
-      return "Rechecking performance evidence";
+      return PERFORMANCE_REFRESH_COPY.recheck.pending.title;
     }
     if (refreshStatus.kind === "confirmed") {
-      return "Performance evidence rechecked";
+      return PERFORMANCE_REFRESH_COPY.recheck.confirmed.title;
     }
-    return "Performance evidence could not be rechecked";
+    return PERFORMANCE_REFRESH_COPY.recheck.failed.title;
   }
 
   if (refreshStatus.kind === "pending") {
@@ -302,10 +305,10 @@ function getRefreshStatusEyebrow(
 ) {
   if (refreshStatus.intent === "recheck") {
     return refreshStatus.kind === "pending"
-      ? "Checking source evidence"
+      ? PERFORMANCE_REFRESH_COPY.recheck.pending.eyebrow
       : refreshStatus.kind === "confirmed"
-        ? "Source evidence checked"
-        : "Recheck incomplete";
+        ? PERFORMANCE_REFRESH_COPY.recheck.confirmed.eyebrow
+        : PERFORMANCE_REFRESH_COPY.recheck.failed.eyebrow;
   }
 
   if (refreshStatus.kind === "failed") {
@@ -328,12 +331,9 @@ function getRefreshStatusMessage(
 ) {
   if (refreshStatus.intent === "recheck") {
     if (refreshStatus.kind === "pending") {
-      return "The last source-confirmed performance view remains available while its complete evidence set is rechecked.";
+      return PERFORMANCE_REFRESH_COPY.recheck.pending.message;
     }
-    const supportSuffix = refreshStatus.status
-      ? ` Source request returned HTTP ${refreshStatus.status}.`
-      : "";
-    return `The complete performance view was not rechecked. The last source-confirmed view remains in place.${supportSuffix}`;
+    return PERFORMANCE_REFRESH_COPY.recheck.failed.message;
   }
 
   if (refreshStatus.kind === "pending") {
