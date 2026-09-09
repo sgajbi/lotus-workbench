@@ -7995,3 +7995,53 @@ revalidation, normalized detail recovery, refresh-failure retention, permission 
 late-response fencing. This changes internal state ownership, not the Performance screen's business
 purpose, facts, actions, or visible workflow. Repository context changes; no wiki source change is
 required.
+
+## 2026-09-09 — Performance composite receipt age and exact recheck (#787)
+
+### Decision question
+
+How should every Performance decision mode expose when its admitted summary/detail composite was
+checked, without presenting browser receipt time as source business freshness or adding another
+refresh authority?
+
+### Evidence consulted
+
+1. [TanStack Query Query reference](https://tanstack.com/query/latest/docs/framework/react/reference/classes/Query)
+   defines `dataUpdatedAt` as Query cache state and describes in-flight request reuse.
+2. [TanStack Query QueryClient reference](https://tanstack.com/query/latest/docs/reference/QueryClient)
+   defines exact invalidation, explicit refetching, and the difference between cached and
+   source-contacting reads.
+3. [WAI ARIA22](https://www.w3.org/WAI/WCAG21/Techniques/aria/ARIA22) recommends a polite status
+   announcement for asynchronous completion without moving keyboard focus.
+4. The Portfolio Review delivery under #1043 already establishes the Workbench vocabulary:
+   browser receipt is **Checked**, source business date remains **As of**, and the oldest required
+   receipt governs a composite.
+
+### Adopted decisions
+
+1. Put one quiet receipt/recheck control beside the Performance page title so Summary, Analysis,
+   Adviser Brief, Risk Review, and Evidence share it instead of repeating controls per mode.
+2. Show the oldest admitted summary/detail `dataUpdatedAt`; if either required receipt is absent,
+   invalid, or not admitted, show **Check time unavailable**.
+3. Make **Recheck performance** invalidate and fetch the exact composite Query once, then promote
+   summary and detail atomically only after both still match the active review context.
+4. Keep the prior admitted receipt and analytics when an ordinary recheck fails. Announce success
+   only after both reads succeed; preserve the existing permission-blocked and late-result fences.
+5. Keep the shared 30-second stale policy for ordinary navigation and avoid a same-route server
+   navigation after explicit recheck, which would duplicate the two source reads.
+
+### Rejected decisions
+
+A source-freshness badge; labelling receipt time **Updated**, **Current**, or **Fresh**; using the
+newest partial receipt; a polling loop; a page-local clock store; per-mode controls; or treating one
+successful endpoint as complete Performance evidence.
+
+### Validation and publication decision
+
+Query and client tests cover fresh composite reuse, forced exact recheck, oldest receipt, partial
+failure, retained evidence, and success-only confirmation. A populated optimized-browser scenario
+proves one summary and one detail read, no idle reads, one control across modes, accessible status,
+and rendered evidence under `docs/evidence/issue-787-performance-receipt-age/`. The visible
+Performance workflow changes, so the Performance Summary guide and repository context change and
+the wiki must be published after merge. Existing frontend governance already owns this pattern; no
+central skill change is justified.
