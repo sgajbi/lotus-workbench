@@ -79,6 +79,26 @@ describe("WorkbenchDataAge", () => {
     expect(screen.getByText("Checked 1 min ago")).toBeInTheDocument();
   });
 
+  it("resynchronises its clock when a newer receipt arrives after exact-time mode", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime("2026-09-09T02:00:00.000Z");
+    const { rerender } = render(
+      <WorkbenchDataAge updatedAt={Date.now() - 25 * 60 * 60_000} />,
+    );
+
+    expect(screen.getByText(/Checked 08 Sept 2026/)).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(2 * 60_000);
+    });
+    rerender(<WorkbenchDataAge updatedAt={Date.now()} />);
+    act(() => {
+      vi.advanceTimersByTime(0);
+    });
+
+    expect(screen.getByText("Checked just now")).toBeInTheDocument();
+  });
+
   it.each([
     [0, "Checked just now"],
     [60_000, "Checked 1 min ago"],

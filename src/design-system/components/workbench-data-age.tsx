@@ -125,10 +125,21 @@ export default function WorkbenchDataAge({
   const hasModel = model !== null;
 
   useEffect(() => {
-    if (fixedNow !== undefined || !hasModel || updatedAt === null) {
+    if (
+      fixedNow !== undefined ||
+      updatedAt === null ||
+      !Number.isFinite(updatedAt) ||
+      updatedAt <= 0
+    ) {
       return;
     }
-    const delay = getNextAgeUpdateDelay(updatedAt, effectiveNow);
+    const liveNow = Date.now();
+    if (updatedAt - liveNow > CLOCK_SKEW_TOLERANCE_MS) {
+      return;
+    }
+    const delay = hasModel
+      ? getNextAgeUpdateDelay(updatedAt, effectiveNow)
+      : 0;
     if (delay === null) {
       return;
     }
