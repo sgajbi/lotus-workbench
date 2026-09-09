@@ -189,6 +189,9 @@ export default function PerformanceWorkspaceClient({
   const activeRefreshTokenRef = useRef<symbol | null>(null);
   const activeRefreshIntentRef = useRef<"selection" | "recheck" | null>(null);
   const activeHydrationTokenRef = useRef<symbol | null>(null);
+  const [revokedPortfolioIds, setRevokedPortfolioIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const pendingRouteEchoKeyRef = useRef<string | null>(null);
   const automaticHydrationIdentityRef = useRef<string | null>(null);
   const lastSourceControlFocusTargetRef = useRef<PerformanceSourceControlFocusTarget | null>(null);
@@ -205,6 +208,9 @@ export default function PerformanceWorkspaceClient({
     loadIssueState: initialLoadIssue?.state ?? null,
     loadIssueStatus: initialLoadIssue?.status ?? null,
   });
+  const routePortfolioRevoked = Boolean(
+    initialControls && revokedPortfolioIds.has(initialControls.portfolioId),
+  );
   const currentControlsIdentityRef = useRef(
     controls ? buildControlQueryIdentity(controls) : null,
   );
@@ -231,6 +237,8 @@ export default function PerformanceWorkspaceClient({
   const controlsMatchServerPreload = Boolean(
     initialDataAdmissionEnabledRef.current &&
     controls &&
+    !revokedPortfolioIds.has(controls.portfolioId) &&
+      !routePortfolioRevoked &&
       initialRouteControlsKey &&
       buildPerformanceControlsHref(controls) === initialRouteControlsKey,
   );
@@ -239,7 +247,10 @@ export default function PerformanceWorkspaceClient({
       initialData: controlsMatchServerPreload ? initialSummary ?? undefined : undefined,
     }),
   );
-  const currentSummary = loadIssue
+  const currentPortfolioRevoked = Boolean(
+    controls && revokedPortfolioIds.has(controls.portfolioId),
+  );
+  const currentSummary = loadIssue || currentPortfolioRevoked || routePortfolioRevoked
     ? null
     : summaryQuery.data ?? null;
   const detailsQuery = useQuery(
@@ -249,7 +260,7 @@ export default function PerformanceWorkspaceClient({
         : undefined,
     }),
   );
-  const currentDetails = loadIssue
+  const currentDetails = loadIssue || currentPortfolioRevoked || routePortfolioRevoked
     ? null
     : detailsQuery.data ?? null;
   const detailsStatus: PerformanceDetailsStatus = currentDetails
@@ -286,6 +297,7 @@ export default function PerformanceWorkspaceClient({
     const isConfirmedNavigationEcho = Boolean(
       initialSummary &&
       controls &&
+      !routePortfolioRevoked &&
       pendingRouteEchoKeyRef.current === initialRouteControlsKey &&
       buildPerformanceControlsHref(controls) === initialRouteControlsKey,
     );
@@ -301,9 +313,12 @@ export default function PerformanceWorkspaceClient({
     activeRefreshTokenRef.current = null;
     activeHydrationTokenRef.current = null;
     automaticHydrationIdentityRef.current = null;
-    void queryClient.cancelQueries({ queryKey: performanceWorkspaceQueryKeys.all });
-    initialDataAdmissionEnabledRef.current = true;
-    if (initialSummary) {
+    void queryClient.cancelQueries({
+      queryKey: performanceWorkspaceQueryKeys.all,
+      predicate: (query) => query.queryKey[3] !== "revalidation",
+    });
+    initialDataAdmissionEnabledRef.current = !routePortfolioRevoked;
+    if (initialSummary && !routePortfolioRevoked) {
       const routeReceiptTime = Date.now();
       queryClient.setQueryData(
         performanceWorkspaceSummaryQueryOptions(initialControls).queryKey,
@@ -322,7 +337,13 @@ export default function PerformanceWorkspaceClient({
       }
     }
     setControls(initialControls);
-    setLoadIssue(initialSummary ? null : initialLoadIssue ?? null);
+    setLoadIssue(
+      routePortfolioRevoked
+        ? null
+        : initialSummary
+          ? null
+          : initialLoadIssue ?? null,
+    );
     setPendingRefresh(null);
     setRefreshFailure(null);
     setRefreshConfirmation(null);
@@ -333,6 +354,8 @@ export default function PerformanceWorkspaceClient({
     initialRouteControlsKey,
     initialSummary,
     queryClient,
+    revokedPortfolioIds,
+    routePortfolioRevoked,
     sourceConfirmedInitialDetails,
   ]);
 
@@ -687,6 +710,9 @@ export default function PerformanceWorkspaceClient({
         { advanceReceipt: isExplicitRecheck },
       );
       setControls(resolvedDetails.controls);
+      setRevokedPortfolioIds((currentIds) =>
+        withoutPortfolioId(currentIds, resolvedDetails.controls.portfolioId),
+      );
       setLoadIssue(null);
       setRefreshFailure(null);
       setRefreshConfirmation({
@@ -724,6 +750,9 @@ export default function PerformanceWorkspaceClient({
         : { scope: failureScope, sourceError: error };
 
       if (isWorkbenchPermissionBlockedError(refreshError.sourceError)) {
+        setRevokedPortfolioIds((currentIds) =>
+          withPortfolioId(currentIds, confirmedControls.portfolioId),
+        );
         queryClient.removeQueries({
           queryKey: performanceWorkspaceQueryKeys.portfolio(confirmedControls.portfolioId),
         });
@@ -766,10 +795,14 @@ export default function PerformanceWorkspaceClient({
 
   useEffect(() => {
     const routeLoadFailed = initialSummary === null && initialLoadIssue != null;
+    const portfolioRequiresSourceReconfirmation = Boolean(
+      controls && revokedPortfolioIds.has(controls.portfolioId),
+    );
     if (
       !controls ||
-      !currentSummary ||
+      (!currentSummary && !portfolioRequiresSourceReconfirmation) ||
       routeLoadFailed ||
+      loadIssue?.state === "permission_blocked" ||
       activeRefreshTokenRef.current !== null
     ) {
       if (routeLoadFailed) {
@@ -784,7 +817,9 @@ export default function PerformanceWorkspaceClient({
       currentSummary,
     );
     const controlsIdentity = buildControlQueryIdentity(controls);
-    const hydrationIdentity = JSON.stringify(detailsOptions.queryKey);
+    const hydrationIdentity = JSON.stringify(
+      currentSummary ? detailsOptions.queryKey : summaryOptions.queryKey,
+    );
     if (automaticHydrationIdentityRef.current === hydrationIdentity) {
       return;
     }
@@ -852,6 +887,9 @@ export default function PerformanceWorkspaceClient({
           resolvedDetails.details,
           resolvedDetails.dataUpdatedAt,
         );
+        setRevokedPortfolioIds((currentIds) =>
+          withoutPortfolioId(currentIds, resolvedDetails.controls.portfolioId),
+        );
         setControls(resolvedDetails.controls);
         if (
           buildPerformanceControlsHref(resolvedDetails.controls) !==
@@ -886,6 +924,9 @@ export default function PerformanceWorkspaceClient({
           ? resolvePerformanceWorkspaceRevalidationError(error)
           : { scope: failureScope, sourceError: error };
         if (isWorkbenchPermissionBlockedError(revalidationError.sourceError)) {
+          setRevokedPortfolioIds((currentIds) =>
+            withPortfolioId(currentIds, controls.portfolioId),
+          );
           initialDataAdmissionEnabledRef.current = false;
           queryClient.removeQueries({
             queryKey: performanceWorkspaceQueryKeys.portfolio(controls.portfolioId),
@@ -912,7 +953,9 @@ export default function PerformanceWorkspaceClient({
     currentDetails,
     initialLoadIssue,
     initialSummary,
+    loadIssue,
     queryClient,
+    revokedPortfolioIds,
     resolveDetailsForControls,
     router,
     currentSummary,
@@ -1016,6 +1059,28 @@ function isPerformanceQueryFresh(
       !state.isInvalidated &&
       Date.now() - state.dataUpdatedAt < WORKBENCH_QUERY_STALE_TIME_MS,
   );
+}
+
+function withPortfolioId(
+  portfolioIds: ReadonlySet<string>,
+  portfolioId: string,
+): ReadonlySet<string> {
+  if (portfolioIds.has(portfolioId)) {
+    return portfolioIds;
+  }
+  return new Set([...portfolioIds, portfolioId]);
+}
+
+function withoutPortfolioId(
+  portfolioIds: ReadonlySet<string>,
+  portfolioId: string,
+): ReadonlySet<string> {
+  if (!portfolioIds.has(portfolioId)) {
+    return portfolioIds;
+  }
+  const nextPortfolioIds = new Set(portfolioIds);
+  nextPortfolioIds.delete(portfolioId);
+  return nextPortfolioIds;
 }
 
 function applyPerformanceControlPatch(

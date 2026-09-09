@@ -520,7 +520,11 @@ describe("PerformanceWorkspaceClient", () => {
     await act(async () => screen.getByRole("button", { name: "Switch Risk Mode" }).click());
     await waitFor(() => expect(screen.getByTestId("mode")).toHaveTextContent("risk"));
 
-    await act(async () => rejectSummary(Object.assign(new Error("Forbidden"), { status: 403 })));
+    await act(async () => {
+      rejectSummary(Object.assign(new Error("Forbidden"), { status: 403 }));
+      await summaryRequest.catch(() => undefined);
+      await Promise.resolve();
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId("load-issue")).toHaveTextContent("permission_blocked");
@@ -534,6 +538,8 @@ describe("PerformanceWorkspaceClient", () => {
   });
 
   it("does not apply an obsolete permission denial to a newly selected portfolio", async () => {
+    const originalSummary = buildSummary();
+    const originalDetails = buildDetails();
     let rejectSummary!: (error: unknown) => void;
     const summaryRequest = new Promise<WorkbenchPerformanceWorkspaceSummary>((_, reject) => {
       rejectSummary = reject;
@@ -542,7 +548,7 @@ describe("PerformanceWorkspaceClient", () => {
 
     const result = render(
       <PerformanceWorkspaceClient
-        {...buildDefaultClientProps()}
+        {...buildDefaultClientProps(originalSummary, originalDetails)}
         initialMode="evidence"
       />,
     );
@@ -568,10 +574,54 @@ describe("PerformanceWorkspaceClient", () => {
     );
     await waitFor(() => expect(screen.getByTestId("return")).toHaveTextContent("8.2"));
 
-    await act(async () => rejectSummary(Object.assign(new Error("Forbidden"), { status: 403 })));
+    await act(async () => {
+      rejectSummary(Object.assign(new Error("Forbidden"), { status: 403 }));
+      await summaryRequest.catch(() => undefined);
+      await Promise.resolve();
+    });
 
-    await waitFor(() => expect(screen.getByTestId("load-issue")).toHaveTextContent("none"));
+    await waitFor(() => {
+      expect(screen.getByTestId("load-issue")).toHaveTextContent("none");
+      expect(
+        result.queryClient.getQueryData(
+          performanceWorkspaceSummaryQueryOptions(defaultQueryContext).queryKey,
+        ),
+      ).toBeUndefined();
+    });
     expect(screen.getByTestId("return")).toHaveTextContent("8.2");
+
+    let resolveReconfirmedSummary!: (
+      summary: WorkbenchPerformanceWorkspaceSummary,
+    ) => void;
+    getSummaryClientMock.mockReturnValueOnce(
+      new Promise<WorkbenchPerformanceWorkspaceSummary>((resolve) => {
+        resolveReconfirmedSummary = resolve;
+      }),
+    );
+    getDetailsClientMock.mockResolvedValueOnce(originalDetails);
+    result.rerender(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(originalSummary, originalDetails)}
+        initialMode="evidence"
+      />,
+    );
+
+    await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("return")).toHaveTextContent("none");
+
+    await act(async () =>
+      resolveReconfirmedSummary(
+        buildSummary({
+          net_performance: {
+            ...originalSummary.net_performance,
+            portfolio_return_pct: 6.4,
+          },
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(screen.getByTestId("return")).toHaveTextContent("6.4"));
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
   });
 
   it("retains the prior receipt and withholds success when composite recheck fails", async () => {
@@ -2681,6 +2731,10 @@ describe("PerformanceWorkspaceClient", () => {
         portfolio_return_pct: 18.4,
       },
     });
+    getSummaryClientMock.mockResolvedValueOnce(restoredSummary);
+    getDetailsClientMock.mockResolvedValueOnce(
+      buildDetails({ period: "3Y", report_start_date: "2023-03-28" }),
+    );
     result.rerender(
       <PerformanceWorkspaceClient
         {...buildDefaultClientProps(
@@ -2696,6 +2750,8 @@ describe("PerformanceWorkspaceClient", () => {
       expect(screen.getByTestId("period")).toHaveTextContent("3Y");
       expect(screen.getByTestId("return")).toHaveTextContent("18.4");
     });
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(2);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
     expect(
       result.queryClient.getQueryData(
         performanceWorkspaceSummaryQueryOptions({
