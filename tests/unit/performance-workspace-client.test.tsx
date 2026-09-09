@@ -352,6 +352,25 @@ describe("PerformanceWorkspaceClient", () => {
     });
     expect(screen.getByTestId("return")).toHaveTextContent(DEFAULT_PORTFOLIO_RETURN);
     expect(screen.getByTestId("chart-points")).toHaveTextContent("1");
+
+    getSummaryClientMock.mockResolvedValueOnce(
+      buildSummary({
+        correlation_id: "corr-performance-recovered",
+        net_performance: {
+          ...initialSummary.net_performance,
+          portfolio_return_pct: 3.1,
+        },
+      }),
+    );
+    getDetailsClientMock.mockResolvedValueOnce(buildDetails());
+    screen.getByRole("button", { name: "Retry Selection" }).click();
+
+    await waitFor(() => {
+      expect(getSummaryClientMock).toHaveBeenCalledTimes(2);
+      expect(getDetailsClientMock).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
+      expect(screen.getByTestId("return")).toHaveTextContent("3.1");
+    });
   });
 
   it("retries the failed summary before confirming remount recovery", async () => {
