@@ -2,12 +2,7 @@
 
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  type QueryClient,
-  type QueryKey,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { AppPageShell } from "@/design-system";
 import type { PortfolioWorkspace } from "@/apps/portfolio/types";
@@ -28,8 +23,10 @@ import type { PerformanceWorkspaceMode } from "../performance-workspace-modes";
 import { assemblePerformanceWorkspace } from "../workspace-assembler";
 import { getNormalizedInitialPerformanceDetailControls } from "../performance-detail-control-resolution";
 import {
+  admitPerformanceQueryData,
+  fetchPerformanceWorkspaceRevalidation,
+  fetchPerformanceWorkspaceSummary,
   performanceWorkspaceDetailsQueryOptions,
-  performanceWorkspaceRevalidationQueryOptions,
   performanceWorkspaceSummaryQueryOptions,
   resolvePerformanceWorkspaceRevalidationError,
 } from "../performance-workspace-query-options";
@@ -86,20 +83,10 @@ type PerformanceRefreshFailure = PerformancePendingRefresh & {
 type ResolvedPerformanceDetails = {
   details: WorkbenchPerformanceWorkspaceDetails;
   controls: PerformanceControlState;
+  dataUpdatedAt?: number;
 };
 
 export const PERFORMANCE_REFRESH_CONFIRMATION_DURATION_MS = 5_000;
-
-function admitPerformanceQueryData<TData>(
-  queryClient: QueryClient,
-  queryKey: QueryKey,
-  data: TData,
-) {
-  if (queryClient.getQueryData<TData>(queryKey) === data) {
-    return;
-  }
-  queryClient.setQueryData(queryKey, data);
-}
 
 export default function PerformanceWorkspaceClient({
   initialSummary,
@@ -358,9 +345,11 @@ export default function PerformanceWorkspaceClient({
     summaryEvidence: WorkbenchPerformanceWorkspaceSummary,
     options: { allowInitialFallback?: boolean } = {}
   ): Promise<ResolvedPerformanceDetails> => {
-    let resolvedDetails = await queryClient.fetchQuery(
-      performanceWorkspaceDetailsQueryOptions(nextControls, summaryEvidence),
+    let sourceOptions = performanceWorkspaceDetailsQueryOptions(
+      nextControls,
+      summaryEvidence,
     );
+    let resolvedDetails = await queryClient.fetchQuery(sourceOptions);
     let resolvedControls = buildResolvedDetailControls(nextControls, resolvedDetails);
 
     if (options.allowInitialFallback) {
@@ -383,20 +372,25 @@ export default function PerformanceWorkspaceClient({
           contributionDimension: normalizedInitialControls.contributionDimension,
           attributionDimension: normalizedInitialControls.attributionDimension,
         };
-        resolvedDetails = await queryClient.fetchQuery(
-          performanceWorkspaceDetailsQueryOptions(resolvedControls, summaryEvidence),
+        sourceOptions = performanceWorkspaceDetailsQueryOptions(
+          resolvedControls,
+          summaryEvidence,
         );
+        resolvedDetails = await queryClient.fetchQuery(sourceOptions);
       }
     }
 
+    const dataUpdatedAt = queryClient.getQueryState(sourceOptions.queryKey)?.dataUpdatedAt;
     admitPerformanceQueryData(
       queryClient,
       performanceWorkspaceDetailsQueryOptions(resolvedControls, summaryEvidence).queryKey,
       resolvedDetails,
+      dataUpdatedAt,
     );
     return {
       details: resolvedDetails,
       controls: resolvedControls,
+      dataUpdatedAt,
     };
   }, [queryClient]);
 
@@ -496,26 +490,37 @@ export default function PerformanceWorkspaceClient({
     let stagedCompositeRequest = false;
     try {
       let resolvedSummary = currentSummary;
+      let summaryDataUpdatedAt = currentSummary
+        ? queryClient.getQueryState(
+            performanceWorkspaceSummaryQueryOptions(confirmedControls).queryKey,
+          )?.dataUpdatedAt
+        : undefined;
       let detailRequestControls = requestedControls;
       let stagedDetails: ResolvedPerformanceDetails | null = null;
 
       if (options.stageComposite) {
         stagedCompositeRequest = true;
-        const revalidated = await queryClient.fetchQuery(
-          performanceWorkspaceRevalidationQueryOptions(requestedControls),
+        const revalidated = await fetchPerformanceWorkspaceRevalidation(
+          queryClient,
+          requestedControls,
         );
-        resolvedSummary = revalidated.summary;
+        resolvedSummary = revalidated.data.summary;
+        summaryDataUpdatedAt = revalidated.dataUpdatedAt;
         stagedDetails = {
           controls: buildResolvedDetailControls(
             requestedControls,
-            revalidated.details,
+            revalidated.data.details,
           ),
-          details: revalidated.details,
+          details: revalidated.data.details,
+          dataUpdatedAt: revalidated.dataUpdatedAt,
         };
       } else if (refreshesSummary) {
-        resolvedSummary = await queryClient.fetchQuery(
-          performanceWorkspaceSummaryQueryOptions(requestedControls),
+        const summary = await fetchPerformanceWorkspaceSummary(
+          queryClient,
+          requestedControls,
         );
+        resolvedSummary = summary.data;
+        summaryDataUpdatedAt = summary.dataUpdatedAt;
         detailRequestControls = buildResolvedSummaryControls(requestedControls, resolvedSummary);
       }
 
@@ -535,6 +540,7 @@ export default function PerformanceWorkspaceClient({
         queryClient,
         performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
         resolvedSummary,
+        summaryDataUpdatedAt,
       );
       admitPerformanceQueryData(
         queryClient,
@@ -543,6 +549,7 @@ export default function PerformanceWorkspaceClient({
           resolvedSummary,
         ).queryKey,
         resolvedDetails.details,
+        resolvedDetails.dataUpdatedAt,
       );
       setControls(resolvedDetails.controls);
       setLoadIssue(null);
@@ -626,23 +633,29 @@ export default function PerformanceWorkspaceClient({
     }
     let failureScope: PerformanceRefreshScope = "summary";
     const hydrationRequest = currentDetails
-      ? queryClient
-          .fetchQuery(performanceWorkspaceRevalidationQueryOptions(controls))
-          .then(({ summary: resolvedSummary, details }) => ({
-            resolvedSummary,
+      ? fetchPerformanceWorkspaceRevalidation(queryClient, controls).then(
+          ({ data, dataUpdatedAt }) => ({
+            resolvedSummary: data.summary,
+            summaryDataUpdatedAt: dataUpdatedAt,
             resolvedDetails: {
-              controls: buildResolvedDetailControls(controls, details),
-              details,
+              controls: buildResolvedDetailControls(controls, data.details),
+              details: data.details,
+              dataUpdatedAt,
             },
-          }))
-      : queryClient.fetchQuery(summaryOptions).then((resolvedSummary) => {
+          }),
+        )
+      : fetchPerformanceWorkspaceSummary(queryClient, controls).then((summary) => {
           failureScope = "details";
-          return resolveDetailsForControls(controls, resolvedSummary, {
+          return resolveDetailsForControls(controls, summary.data, {
             allowInitialFallback: true,
-          }).then((resolvedDetails) => ({ resolvedDetails, resolvedSummary }));
+          }).then((resolvedDetails) => ({
+            resolvedDetails,
+            resolvedSummary: summary.data,
+            summaryDataUpdatedAt: summary.dataUpdatedAt,
+          }));
         });
     void hydrationRequest
-      .then(({ resolvedDetails, resolvedSummary }) => {
+      .then(({ resolvedDetails, resolvedSummary, summaryDataUpdatedAt }) => {
         if (
           activeRefreshTokenRef.current !== null ||
           currentControlsIdentityRef.current !== hydrationIdentity
@@ -653,6 +666,7 @@ export default function PerformanceWorkspaceClient({
           queryClient,
           performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
           resolvedSummary,
+          summaryDataUpdatedAt,
         );
         admitPerformanceQueryData(
           queryClient,
@@ -661,6 +675,7 @@ export default function PerformanceWorkspaceClient({
             resolvedSummary,
           ).queryKey,
           resolvedDetails.details,
+          resolvedDetails.dataUpdatedAt,
         );
         setControls(resolvedDetails.controls);
         if (

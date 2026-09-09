@@ -1,4 +1,9 @@
-import { queryOptions, skipToken } from "@tanstack/react-query";
+import {
+  type QueryClient,
+  type QueryKey,
+  queryOptions,
+  skipToken,
+} from "@tanstack/react-query";
 
 import {
   getWorkbenchPerformanceWorkspaceDetailsClient,
@@ -34,6 +39,27 @@ class PerformanceWorkspaceRevalidationError extends Error {
     super(`Performance ${scope} revalidation failed.`, { cause: sourceError });
     this.name = "PerformanceWorkspaceRevalidationError";
   }
+}
+
+type PerformanceQueryReceipt<TData> = Readonly<{
+  data: TData;
+  dataUpdatedAt?: number;
+}>;
+
+export function admitPerformanceQueryData<TData>(
+  queryClient: QueryClient,
+  queryKey: QueryKey,
+  data: TData,
+  dataUpdatedAt?: number,
+) {
+  if (queryClient.getQueryData<TData>(queryKey) === data) {
+    return;
+  }
+  queryClient.setQueryData(
+    queryKey,
+    data,
+    dataUpdatedAt === undefined ? undefined : { updatedAt: dataUpdatedAt },
+  );
 }
 
 export function performanceWorkspaceSummaryQueryOptions(
@@ -99,6 +125,30 @@ export function performanceWorkspaceRevalidationQueryOptions(
       return { summary, details };
     },
   });
+}
+
+export async function fetchPerformanceWorkspaceSummary(
+  queryClient: QueryClient,
+  context: PerformanceWorkspaceQueryContext,
+): Promise<PerformanceQueryReceipt<WorkbenchPerformanceWorkspaceSummary>> {
+  const options = performanceWorkspaceSummaryQueryOptions(context);
+  const data = await queryClient.fetchQuery(options);
+  return {
+    data,
+    dataUpdatedAt: queryClient.getQueryState(options.queryKey)?.dataUpdatedAt,
+  };
+}
+
+export async function fetchPerformanceWorkspaceRevalidation(
+  queryClient: QueryClient,
+  context: PerformanceWorkspaceQueryContext,
+) {
+  const options = performanceWorkspaceRevalidationQueryOptions(context);
+  const data = await queryClient.fetchQuery(options);
+  return {
+    data,
+    dataUpdatedAt: queryClient.getQueryState(options.queryKey)?.dataUpdatedAt,
+  };
 }
 
 export function resolvePerformanceWorkspaceRevalidationError(error: unknown) {

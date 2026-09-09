@@ -140,6 +140,12 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
       </button>
       <button
         type="button"
+        onClick={() => onRequestChange?.({ period: "3Y", chartFrequency: "weekly" })}
+      >
+        Switch 3Y weekly
+      </button>
+      <button
+        type="button"
         onClick={() =>
           onRequestChange?.(
             { period: "3Y" },
@@ -1032,6 +1038,59 @@ describe("PerformanceWorkspaceClient", () => {
     expect(result.queryClient.getQueryState(detailsKey)?.dataUpdatedAt).toBe(
       detailsReceiptTime,
     );
+  });
+
+  it("preserves source receipt time when a normalized summary is admitted under confirmed controls", async () => {
+    const normalizedSummary = buildSummary({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+      requested_chart_frequency_supported: false,
+      net_performance: {
+        ...buildSummary().net_performance,
+        portfolio_return_pct: 2.2,
+      },
+    });
+    getSummaryClientMock.mockResolvedValueOnce(normalizedSummary);
+    getDetailsClientMock
+      .mockRejectedValueOnce(new Error("Performance detail unavailable"))
+      .mockResolvedValueOnce(
+        buildDetails({ period: "3Y", report_start_date: "2023-03-28" }),
+      );
+    const result = render(
+      <PerformanceWorkspaceClient {...buildDefaultClientProps()} />,
+    );
+
+    screen.getByRole("button", { name: "Switch 3Y weekly" }).click();
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("failed");
+    });
+    const requestedSummaryKey = performanceWorkspaceSummaryQueryOptions({
+      ...defaultQueryContext,
+      period: "3Y",
+      chartFrequency: "weekly",
+    }).queryKey;
+    const sourceReceiptTime = result.queryClient.getQueryState(
+      requestedSummaryKey,
+    )?.dataUpdatedAt;
+    expect(sourceReceiptTime).toBeTypeOf("number");
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    screen.getByRole("button", { name: "Retry Selection" }).click();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
+      expect(screen.getByTestId("return")).toHaveTextContent("2.2");
+    });
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(2);
+    expect(
+      result.queryClient.getQueryState(
+        performanceWorkspaceSummaryQueryOptions({
+          ...defaultQueryContext,
+          period: "3Y",
+        }).queryKey,
+      )?.dataUpdatedAt,
+    ).toBe(sourceReceiptTime);
   });
 
   it("uses server-provided initial details without an immediate client refetch", async () => {
