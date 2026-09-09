@@ -24,6 +24,11 @@ $env:PORTFOLIO_E2E_EVIDENCE_DIR = "docs/evidence/issue-1043-portfolio-receipt-ag
 npm run test:e2e:portfolio:query-freshness
 ```
 
+```bash
+PORTFOLIO_E2E_EVIDENCE_DIR=docs/evidence/issue-1043-portfolio-receipt-age \
+  npm run test:e2e:portfolio:query-freshness
+```
+
 The scenario must report two executed tests and zero skipped tests. The JSON receipt proof records
 the source business date, exact receipt timestamp, and before/after request counts; the screenshot
 is reviewer evidence, not a substitute for those assertions.
