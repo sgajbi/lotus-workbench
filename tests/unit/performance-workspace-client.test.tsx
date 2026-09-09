@@ -1339,6 +1339,51 @@ describe("PerformanceWorkspaceClient", () => {
     expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
   });
 
+  it("surfaces a failed client-navigation route echo instead of retained evidence", async () => {
+    const confirmedSummary = buildSummary({
+      period: "3Y",
+      report_start_date: "2023-03-28",
+      correlation_id: "corr-performance-client-confirmed",
+      net_performance: {
+        ...buildSummary().net_performance,
+        portfolio_return_pct: 18.4,
+      },
+    });
+    getSummaryClientMock.mockResolvedValueOnce(confirmedSummary);
+    getDetailsClientMock.mockResolvedValueOnce(
+      buildDetails({
+        period: "3Y",
+        report_start_date: "2023-03-28",
+        correlation_id: "corr-performance-client-confirmed",
+      }),
+    );
+    const props = buildDefaultClientProps();
+    const { rerender } = render(<PerformanceWorkspaceClient {...props} />);
+
+    screen.getByRole("button", { name: "Switch 3Y" }).click();
+    await waitFor(() => {
+      expect(screen.getByTestId("return")).toHaveTextContent("18.4");
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
+    });
+
+    rerender(
+      <PerformanceWorkspaceClient
+        {...props}
+        initialSummary={null}
+        initialDetails={null}
+        initialLoadIssue={{ state: "unavailable", status: 502 }}
+        initialPeriod="3Y"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("load-issue")).toHaveTextContent("unavailable");
+      expect(screen.getByTestId("return")).toHaveTextContent("none");
+    });
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+  });
+
   it("preserves source receipt time when a normalized summary is admitted under confirmed controls", async () => {
     const normalizedSummary = buildSummary({
       period: "3Y",
