@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import AdvisorBookWorkspace from "@/features/advisor-book/components/advisor-book-workspace";
 import { WorkbenchApiError } from "@/features/workbench/api-client";
+import { renderWithQueryClient } from "../helpers/query-client-test-harness";
 
 const getAdvisorBookMock = vi.fn();
 const routerPushMock = vi.fn();
@@ -81,6 +82,10 @@ const readyResponse = {
   },
 } as const;
 
+function renderAdvisorBookWorkspace() {
+  return renderWithQueryClient(<AdvisorBookWorkspace />);
+}
+
 describe("AdvisorBookWorkspace", () => {
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -95,7 +100,7 @@ describe("AdvisorBookWorkspace", () => {
 
   it("moves from source loading to a dense own-book summary and portfolio handoff", async () => {
     getAdvisorBookMock.mockResolvedValue(readyResponse);
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading your book");
     expect(await screen.findByText("Book available")).toBeInTheDocument();
@@ -136,6 +141,53 @@ describe("AdvisorBookWorkspace", () => {
     expect(screen.queryByText(/source-backed|portfolio membership/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/membership contract/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/team book|household|AUM|attention rank/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Checked just now")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recheck book" })).toBeInTheDocument();
+  });
+
+  it("rechecks the current register once and keeps the receipt beside its result scope", async () => {
+    getAdvisorBookMock.mockResolvedValue(readyResponse);
+    renderAdvisorBookWorkspace();
+    await screen.findByText("Book available");
+
+    fireEvent.click(screen.getByRole("button", { name: "Recheck book" }));
+
+    await waitFor(() => expect(getAdvisorBookMock).toHaveBeenCalledTimes(2));
+    expect(screen.getByText("Checked just now")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Portfolios in my book" })).toBeInTheDocument();
+    expect(screen.queryByText(/recheck failed/i)).not.toBeInTheDocument();
+  });
+
+  it("retains admitted assignments and their receipt when a recheck fails", async () => {
+    getAdvisorBookMock
+      .mockResolvedValueOnce(readyResponse)
+      .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 502));
+    renderAdvisorBookWorkspace();
+    await screen.findByText("Book available");
+
+    fireEvent.click(screen.getByRole("button", { name: "Recheck book" }));
+
+    expect(await screen.findByText(/Book recheck failed/)).toHaveTextContent(
+      "displayed assignments remain from the previous successful check",
+    );
+    expect(screen.getByText("Checked just now")).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Portfolios in my book" })).toBeInTheDocument();
+    expect(getAdvisorBookMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("removes admitted rows when an explicit recheck is permission denied", async () => {
+    getAdvisorBookMock
+      .mockResolvedValueOnce(readyResponse)
+      .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 403));
+    renderAdvisorBookWorkspace();
+    await screen.findByText("Book available");
+
+    fireEvent.click(screen.getByRole("button", { name: "Recheck book" }));
+
+    expect(await screen.findByText("Book access is not available")).toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Portfolios in my book" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Checked just now")).not.toBeInTheDocument();
+    expect(getAdvisorBookMock).toHaveBeenCalledTimes(2);
   });
 
   it("keeps repeated source limitations and raw references in one collapsed disclosure", async () => {
@@ -149,7 +201,7 @@ describe("AdvisorBookWorkspace", () => {
       },
     });
 
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
     await screen.findByText("Available with limitations");
 
     const disclosure = screen.getByTestId("advisor-book-operating-evidence");
@@ -169,7 +221,7 @@ describe("AdvisorBookWorkspace", () => {
       new URLSearchParams("asOfDate=not-a-date&clientId=CIF_SG_002&offset=25"),
     );
 
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
 
     expect(screen.getByText("Business date not confirmed")).toBeInTheDocument();
     expect(screen.getByText(/Portfolio assignments have not been requested/i)).toBeInTheDocument();
@@ -192,7 +244,7 @@ describe("AdvisorBookWorkspace", () => {
       new URLSearchParams("asOfDate=2026-04-10&asOfDate=2026-04-11"),
     );
 
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
 
     expect(screen.getByText("Business date not confirmed")).toBeInTheDocument();
     expect(screen.getByText(/supplied more than once/i)).toBeInTheDocument();
@@ -207,7 +259,7 @@ describe("AdvisorBookWorkspace", () => {
   ])("does not request source data for invalid review context %s", (query) => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams(query));
 
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
 
     expect(screen.getByText("Business date not confirmed")).toBeInTheDocument();
     expect(screen.getByText(/conflicting or unsupported context/i)).toBeInTheDocument();
@@ -224,7 +276,7 @@ describe("AdvisorBookWorkspace", () => {
     vi.stubEnv("NEXT_PUBLIC_WORKBENCH_ADVISOR_BOOK_AS_OF_DATE", "2026-04-10");
     useSearchParamsMock.mockReturnValue(new URLSearchParams());
 
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
 
     expect(screen.getByText("Business date not confirmed")).toBeInTheDocument();
     expect(screen.getByText(/local business date cannot be used/i)).toBeInTheDocument();
@@ -239,7 +291,7 @@ describe("AdvisorBookWorkspace", () => {
       ...readyResponse,
       page: { ...readyResponse.page, offset: 25, total_count: 26 },
     });
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
     await screen.findByText("Book available");
 
     const clientReference = screen.getByRole("textbox", { name: "Client reference" });
@@ -270,7 +322,7 @@ describe("AdvisorBookWorkspace", () => {
         sort_order: "desc",
       },
     });
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
     await screen.findByText("Book available");
 
     expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveValue("client_id");
@@ -302,7 +354,7 @@ describe("AdvisorBookWorkspace", () => {
     );
     getAdvisorBookMock.mockResolvedValue(readyResponse);
 
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
     await screen.findByText("Book available");
 
     expect(screen.getByRole("combobox", { name: "Sort by" })).toHaveValue("client_id");
@@ -315,9 +367,9 @@ describe("AdvisorBookWorkspace", () => {
     expect(screen.queryByText(/Displayed order: Client reference, descending/i)).not.toBeInTheDocument();
   });
 
-  it("adopts the URL client filter when returning to an earlier query", async () => {
+  it("adopts URL filters and reuses the earlier exact view when returning", async () => {
     getAdvisorBookMock.mockResolvedValue(readyResponse);
-    const { rerender } = render(<AdvisorBookWorkspace />);
+    const { rerender } = renderAdvisorBookWorkspace();
     await screen.findByText("Book available");
 
     const clientReference = screen.getByRole("textbox", {
@@ -339,6 +391,7 @@ describe("AdvisorBookWorkspace", () => {
     expect(filteredClientReference).toBe(clientReference);
     expect(filteredClientReference).toHaveValue("CIF_SG_002");
     expect(filteredClientReference).toHaveFocus();
+    await waitFor(() => expect(getAdvisorBookMock).toHaveBeenCalledTimes(2));
 
     useSearchParamsMock.mockReturnValue(new URLSearchParams("asOfDate=2026-04-10"));
     rerender(<AdvisorBookWorkspace />);
@@ -349,18 +402,16 @@ describe("AdvisorBookWorkspace", () => {
     expect(restoredClientReference).toBe(clientReference);
     expect(restoredClientReference).toHaveValue("");
     expect(restoredClientReference).toHaveFocus();
-    await waitFor(() => {
-      const lastQuery = getAdvisorBookMock.mock.calls.at(-1)?.[0];
-      expect(lastQuery).toMatchObject({
-        asOfDate: "2026-04-10",
-        clientId: undefined,
-      });
+    expect(getAdvisorBookMock).toHaveBeenCalledTimes(2);
+    expect(getAdvisorBookMock.mock.calls[0]?.[0]).toMatchObject({
+      asOfDate: "2026-04-10",
+      clientId: undefined,
     });
   });
 
   it("shows a permission-specific boundary without substituting the global catalogue", async () => {
     getAdvisorBookMock.mockRejectedValue(new WorkbenchApiError("advisor book", 403));
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
 
     expect(await screen.findByText("Book access is not available")).toBeInTheDocument();
     expect(screen.getByText(/does not currently provide access/i)).toBeInTheDocument();
@@ -374,7 +425,7 @@ describe("AdvisorBookWorkspace", () => {
     getAdvisorBookMock
       .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 502))
       .mockResolvedValueOnce(readyResponse);
-    render(<AdvisorBookWorkspace />);
+    renderAdvisorBookWorkspace();
 
     expect(await screen.findByText(/HTTP status 502/i)).toBeInTheDocument();
     expect(screen.queryByText(/Reference 502/i)).not.toBeInTheDocument();

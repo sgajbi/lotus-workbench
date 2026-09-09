@@ -78,21 +78,41 @@
 .resultScope {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 4px 16px;
   padding-block: 12px 8px;
 }
 
-.resultScope strong {
+.resultSummary {
+  display: grid;
+  gap: 2px;
+}
+
+.resultSummary strong {
   color: var(--lotus-text-strong, #152231);
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 }
 
-.resultScope span {
+.resultSummary span {
   color: var(--lotus-text-muted, #66717f);
   font-size: 0.75rem;
+}
+
+.receiptActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.recheckFailure {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-left: 3px solid var(--warn-border);
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 0.8125rem;
 }
 
 .portfolioCell {
@@ -264,6 +284,10 @@
 
   .resultScope {
     display: grid;
+  }
+
+  .receiptActions {
+    justify-content: space-between;
   }
 
   .pagination {
