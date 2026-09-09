@@ -32,5 +32,10 @@ $env:PERFORMANCE_E2E_EVIDENCE_DIR = "docs/evidence/issue-787-performance-receipt
 npm run test:e2e:performance:receipt-age
 ```
 
+```bash
+PERFORMANCE_E2E_EVIDENCE_DIR="docs/evidence/issue-787-performance-receipt-age" \
+  npm run test:e2e:performance:receipt-age
+```
+
 The governed runner owns isolated Workbench and fixture-Gateway ports and does not reuse or stop the
 shared canonical runtime.
