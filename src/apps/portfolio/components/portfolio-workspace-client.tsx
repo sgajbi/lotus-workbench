@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-query";
 
 import {
+  getOldestWorkbenchReceiptTime,
   WorkbenchRefreshStatus,
   WorkbenchToolbarPlaceholder,
 } from "@/design-system";
@@ -732,7 +733,10 @@ export default function PortfolioWorkspaceClient({
     summaryResponseIsCurrent &&
     shellQuery.dataUpdatedAt > 0 &&
     summaryQuery.dataUpdatedAt > 0
-      ? Math.min(shellQuery.dataUpdatedAt, summaryQuery.dataUpdatedAt)
+      ? getOldestWorkbenchReceiptTime(
+          shellQuery.dataUpdatedAt,
+          summaryQuery.dataUpdatedAt,
+        )
       : null;
 
   async function recheckPortfolio() {

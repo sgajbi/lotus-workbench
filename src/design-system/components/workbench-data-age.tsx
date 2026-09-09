@@ -25,6 +25,24 @@ export type WorkbenchDataAgeModel = {
   dateTime: string;
 };
 
+export function getOldestWorkbenchReceiptTime(
+  ...receiptTimes: Array<number | null | undefined>
+): number | null {
+  const admittedReceiptTimes = receiptTimes.filter(
+    (receiptTime): receiptTime is number =>
+      typeof receiptTime === "number" &&
+      Number.isFinite(receiptTime) &&
+      receiptTime > 0,
+  );
+  if (
+    admittedReceiptTimes.length === 0 ||
+    admittedReceiptTimes.length !== receiptTimes.length
+  ) {
+    return null;
+  }
+  return Math.min(...admittedReceiptTimes);
+}
+
 export function formatWorkbenchDataAge(
   updatedAt: number | null,
   now = Date.now(),
@@ -105,9 +123,10 @@ export default function WorkbenchDataAge({
   const [clockNow, setClockNow] = useState(() => fixedNow ?? Date.now());
   const effectiveNow = fixedNow ?? clockNow;
   const model = formatWorkbenchDataAge(updatedAt, effectiveNow);
+  const hasModel = model !== null;
 
   useEffect(() => {
-    if (fixedNow !== undefined || !model || updatedAt === null) {
+    if (fixedNow !== undefined || !hasModel || updatedAt === null) {
       return;
     }
     const delay = getNextAgeUpdateDelay(updatedAt, effectiveNow);
@@ -116,7 +135,7 @@ export default function WorkbenchDataAge({
     }
     const timeout = window.setTimeout(() => setClockNow(Date.now()), delay);
     return () => window.clearTimeout(timeout);
-  }, [effectiveNow, fixedNow, model, updatedAt]);
+  }, [effectiveNow, fixedNow, hasModel, updatedAt]);
 
   if (!model) {
     return (
