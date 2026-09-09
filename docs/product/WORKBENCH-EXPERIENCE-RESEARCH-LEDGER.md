@@ -8054,3 +8054,52 @@ evidence under `docs/evidence/issue-787-performance-receipt-age/`. The visible
 Performance workflow changes, so the Performance Summary guide and repository context change and
 the wiki must be published after merge. Existing frontend governance already owns this pattern; no
 central skill change is justified.
+
+## 2026-09-10 — Adviser Book receipt age and deliberate recheck (#1048)
+
+### Decision question
+
+How should an adviser know when the displayed own-book register was checked and deliberately
+revalidate it without creating background reads or confusing browser receipt time with source
+freshness?
+
+### Evidence consulted
+
+1. [BlackRock Aladdin Wealth personalized portfolio management](https://www.blackrock.com/aladdin/platforms/solutions/aladdin-wealth/personalized-portfolio-management-technology)
+   emphasizes scalable monitoring and exception-led workflows across a book of business.
+2. [Salesforce Financial Services Cloud user guide](https://resources.docs.salesforce.com/latest/latest/en-us/sfdc/pdf/financial_services.pdf)
+   documents own-book list views and filtering as the relationship manager's operational starting
+   point.
+3. [Carbon data table guidance](https://carbondesignsystem.com/components/data-table/usage/)
+   places global table actions in the table toolbar and uses progressive disclosure for secondary
+   evidence.
+4. The delivered Portfolio and Performance receipt patterns establish **Checked** as browser
+   receipt language and reserve **As of** and source provenance for business evidence.
+
+### Adopted decisions
+
+1. Keep the register compact and list-first. Place one receipt and global recheck beside the exact
+   result scope rather than adding another card or page-level toolbar.
+2. Key Query state by every Gateway-supported filter, sort, page, business date, and recovery mode.
+3. Reuse an unchanged register without automatic mount, focus, or reconnect reads. Contact the
+   source again only through **Recheck book**, filter/page change, or explicit initial-error recovery.
+4. Preserve the last admitted register and unchanged receipt after an ordinary recheck failure,
+   while clearly stating that the recheck failed. Remove rows after an authenticated permission
+   refusal.
+5. Fence delayed results to their exact register identity and forward Query cancellation through
+   the existing BFF transport.
+
+### Rejected decisions
+
+Polling; focus-triggered revalidation; a new cache, timer, or formatter; treating provenance time
+as browser receipt; inventing AUM, household, attention, or book-priority facts not owned by the
+source contract; and adding another screen-level summary card.
+
+### Validation and publication decision
+
+Focused API, Query, component, and browser tests prove cancellation, exact identity, late-response
+fencing, remount/focus/reconnect reuse, one deliberate recheck read, retained-register failure,
+permission revocation, and responsive rendering. The visible Adviser Book workflow changes, so its
+screen guide and repository context change and the wiki must be published after merge. Existing
+frontend governance and the shared `WorkbenchDataAge` primitive already own the reusable pattern;
+no new skill or abstraction is justified.
