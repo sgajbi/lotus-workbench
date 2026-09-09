@@ -186,11 +186,12 @@
         "activeAuthorityContext",
         "nextRequestSequence",
         "latestAcceptedRequestSequence",
+        "authorityBoundaryRevision",
         "authorityChangeListeners"
       ],
       "classification": "browser_ephemeral",
-      "purpose": "Opaque browser-realm marker, bounded request-order fence, and listeners used to reject stale responses and clear protected Query plus feature-owned state when verified server authority changes or is explicitly withdrawn.",
-      "bounds": "One fixed-length authority digest, two monotonic request counters, and one listener per mounted Workbench provider in the browser realm.",
+      "purpose": "Opaque browser-realm marker, bounded request-order fence, authority-boundary revision, and listeners used to reject stale responses, clear protected Query plus feature-owned state, and prevent pre-change server props being readmitted when verified server authority changes or is explicitly withdrawn.",
+      "bounds": "One fixed-length authority digest, three monotonic counters, and one listener per mounted Workbench provider in the browser realm.",
       "replicaBehavior": "Browser-local only; the marker carries no principal claims and cannot admit a request.",
       "businessAuthority": false,
       "sessionAuthority": false
