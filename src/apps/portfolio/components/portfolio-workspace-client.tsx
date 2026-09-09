@@ -746,6 +746,7 @@ export default function PortfolioWorkspaceClient({
     }
     const requestedScope = refreshScope;
     const requestedGeneration = workspaceSourceGeneration;
+    setRefreshAnnouncement(null);
     const [shellResult, detailResult] = await Promise.all([
       shellQuery.refetch(),
       summaryQuery.refetch(),

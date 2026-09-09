@@ -333,6 +333,52 @@ describe("PortfolioWorkspaceClient", () => {
     expect(getSummaryDetailsMock).toHaveBeenCalledTimes(2);
   });
 
+  it("clears a previous success while a later recheck fails", async () => {
+    const workspace = buildWorkspace();
+    const details = confirmedDetails({
+      as_of_date: workspace.as_of_date,
+      positions: [],
+    });
+    getSummaryDetailsMock
+      .mockResolvedValueOnce(details)
+      .mockResolvedValueOnce(details)
+      .mockResolvedValueOnce(null);
+    getShellWorkspaceMock.mockResolvedValue(workspace);
+
+    render(
+      <PortfolioWorkspaceClient
+        portfolios={buildPortfolioCatalog("MANUAL_PB_USD_001")}
+        selectedPortfolioId="MANUAL_PB_USD_001"
+        initialWorkspace={workspace}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("source-checked-at")).not.toHaveTextContent(
+        "unavailable",
+      ),
+    );
+    await act(async () => {
+      screen.getByRole("button", { name: "Recheck portfolio" }).click();
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Portfolio evidence rechecked.",
+    );
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Recheck portfolio" }).click();
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Portfolio detail could not be refreshed",
+    );
+    expect(
+      screen.queryByText("Portfolio evidence rechecked."),
+    ).not.toBeInTheDocument();
+    expect(getShellWorkspaceMock).toHaveBeenCalledTimes(2);
+    expect(getSummaryDetailsMock).toHaveBeenCalledTimes(3);
+  });
+
   it("commits a review period and URL only after source detail is confirmed", async () => {
     getSummaryDetailsMock.mockResolvedValue({ positions: [] });
     render(
