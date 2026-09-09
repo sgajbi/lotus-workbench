@@ -22,14 +22,20 @@ export type AdvisorBookQuery = {
   limit?: number;
 };
 
-export async function getAdvisorBook(query: AdvisorBookQuery): Promise<AdvisorBookResponse> {
+export async function getAdvisorBook(
+  query: AdvisorBookQuery,
+  options: Readonly<{ signal?: AbortSignal }> = {},
+): Promise<AdvisorBookResponse> {
   const search = buildAdvisorBookSearchParams(query);
 
   return await observeWorkbenchResource("advisor-book.portfolios", async () => {
     const payload = await fetchWorkbenchJson<unknown>(
       buildWorkbenchUrl("client", "/advisor-book/portfolios", search),
       "advisor book",
-      { headers: buildAnalyticsUiCorrelationHeaders() },
+      {
+        headers: buildAnalyticsUiCorrelationHeaders(),
+        signal: options.signal,
+      },
     );
     const response = parseAdvisorBookResponse(payload);
     if (response.scope.as_of_date !== query.asOfDate) {

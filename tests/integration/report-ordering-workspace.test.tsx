@@ -95,6 +95,9 @@ function buildAdvisorBookResult({
   return {
     loading: false,
     error: null,
+    recheckError: null,
+    rechecking: false,
+    checkedAt: 1_771_000_000_000,
     reload: vi.fn(),
     response: {
       correlation_id: "corr-book",
@@ -1089,6 +1092,9 @@ describe("ReportOrderingWorkspace", () => {
     advisorBookMock.mockReturnValue({
       loading: false,
       error: new Error("book unavailable"),
+      recheckError: null,
+      rechecking: false,
+      checkedAt: null,
       reload: vi.fn(),
       response: null,
     });
