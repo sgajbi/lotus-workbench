@@ -383,7 +383,7 @@ describe("PerformanceWorkspaceClient", () => {
     getSummaryClientMock.mockReturnValueOnce(summaryRequest);
     getDetailsClientMock.mockResolvedValueOnce(initialDetails);
 
-    render(
+    const result = render(
       <PerformanceWorkspaceClient
         {...buildDefaultClientProps(initialSummary, initialDetails)}
         initialMode="evidence"
@@ -392,7 +392,12 @@ describe("PerformanceWorkspaceClient", () => {
 
     screen.getByRole("button", { name: "Recheck performance" }).click();
     await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(1));
-    await act(async () => screen.getByRole("button", { name: "Switch Risk Mode" }).click());
+    result.rerender(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="risk"
+      />,
+    );
     await waitFor(() => expect(screen.getByTestId("mode")).toHaveTextContent("risk"));
     expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
     expect(screen.getByTestId("refresh-kind")).toHaveTextContent("none");
@@ -403,6 +408,31 @@ describe("PerformanceWorkspaceClient", () => {
     await waitFor(() => expect(screen.getByTestId("refresh-kind")).toHaveTextContent("none"));
     expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
+  });
+
+  it("clears a failed Evidence recheck and its retry when the adviser changes mode", async () => {
+    getSummaryClientMock.mockRejectedValueOnce({ status: 502 });
+
+    render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps()}
+        initialMode="evidence"
+      />,
+    );
+
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+    await waitFor(() => expect(screen.getByTestId("refresh-kind")).toHaveTextContent("failed"));
+
+    await act(async () => screen.getByRole("button", { name: "Switch Risk Mode" }).click());
+    await waitFor(() => {
+      expect(screen.getByTestId("mode")).toHaveTextContent("risk");
+      expect(screen.getByTestId("refresh-kind")).toHaveTextContent("none");
+      expect(screen.getByTestId("updating")).toHaveTextContent("false");
+    });
+
+    screen.getByRole("button", { name: "Retry Selection" }).click();
+    expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
+    expect(getDetailsClientMock).not.toHaveBeenCalled();
   });
 
   it("revokes retained evidence when an obsolete recheck completes with a permission denial", async () => {
