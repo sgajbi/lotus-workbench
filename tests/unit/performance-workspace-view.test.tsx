@@ -233,6 +233,7 @@ describe("PerformanceWorkspaceView", () => {
         checkedAt,
         refreshScope: "PF_1001:performance:YTD",
         isRefreshing: false,
+        canRecheck: true,
         onRefresh,
       },
     });
@@ -246,6 +247,7 @@ describe("PerformanceWorkspaceView", () => {
   });
 
   it("uses explicit recheck copy without relabelling source business freshness", () => {
+    const onRetryRefresh = vi.fn();
     renderWorkspaceView({
       refreshStatus: {
         kind: "failed",
@@ -255,12 +257,16 @@ describe("PerformanceWorkspaceView", () => {
         confirmedContext: "YTD · NET returns · Monthly observations",
         status: 502,
       },
+      onRetryRefresh,
     });
 
     const alert = screen.getByRole("alert");
     expect(alert).toHaveTextContent("Performance evidence could not be rechecked");
     expect(alert).toHaveTextContent("previously confirmed view remains in place");
     expect(alert).not.toHaveTextContent(/fresh|current/i);
+    expect(
+      screen.getByRole("button", { name: "Recheck performance evidence" }),
+    ).toBeInTheDocument();
   });
 
   it("presents a failed detail selection as a recoverable business exception", () => {

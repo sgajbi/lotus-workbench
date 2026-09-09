@@ -107,6 +107,7 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
     } | null;
     sourceReceipt?: {
       checkedAt: number | null;
+      canRecheck: boolean;
       onRefresh: () => Promise<unknown>;
     };
     onRetryRefresh?: () => void;
@@ -213,9 +214,11 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
       <button type="button" onClick={() => onRetryRefresh?.()}>
         Retry Selection
       </button>
-      <button type="button" onClick={() => void sourceReceipt?.onRefresh()}>
-        Recheck performance
-      </button>
+      {sourceReceipt?.canRecheck ? (
+        <button type="button" onClick={() => void sourceReceipt.onRefresh()}>
+          Recheck performance
+        </button>
+      ) : null}
     </div>
   ),
 }));
@@ -451,6 +454,26 @@ describe("PerformanceWorkspaceClient", () => {
     expect(screen.getByTestId("source-checked-at")).toHaveTextContent(initialCheckedAt!);
     expect(getSummaryClientMock).toHaveBeenCalledTimes(1);
     expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("withholds the Evidence recheck action while a selection refresh is active", async () => {
+    let resolveSummary!: (summary: WorkbenchPerformanceWorkspaceSummary) => void;
+    const summaryRequest = new Promise<WorkbenchPerformanceWorkspaceSummary>((resolve) => {
+      resolveSummary = resolve;
+    });
+    getSummaryClientMock.mockReturnValueOnce(summaryRequest);
+    getDetailsClientMock.mockResolvedValueOnce(buildDetails());
+
+    render(<PerformanceWorkspaceClient {...buildDefaultClientProps()} />);
+    screen.getByRole("button", { name: "Switch 3Y" }).click();
+    await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(1));
+    await act(async () => screen.getByRole("button", { name: "Switch Evidence Mode" }).click());
+
+    expect(screen.getByTestId("mode")).toHaveTextContent("evidence");
+    expect(screen.getByTestId("refresh-intent")).toHaveTextContent("selection");
+    expect(screen.queryByRole("button", { name: /recheck/i })).not.toBeInTheDocument();
+
+    await act(async () => resolveSummary(buildSummary({ period: "3Y" })));
   });
 
   it("clears a failed Evidence recheck and its retry when the adviser changes mode", async () => {

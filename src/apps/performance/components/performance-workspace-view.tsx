@@ -102,13 +102,15 @@ export default function PerformanceWorkspaceView({
   const sourceReceiptAction = sourceReceipt ? (
     <div className={styles.sourceReceipt}>
       <WorkbenchDataAge updatedAt={sourceReceipt.checkedAt} />
-      <SourceRefreshAction
-        refreshScope={sourceReceipt.refreshScope}
-        idleLabel={PERFORMANCE_REFRESH_COPY.recheckAction}
-        busyLabel={PERFORMANCE_REFRESH_COPY.recheckingAction}
-        isRefreshing={sourceReceipt.isRefreshing}
-        onRefresh={sourceReceipt.onRefresh}
-      />
+      {sourceReceipt.canRecheck ? (
+        <SourceRefreshAction
+          refreshScope={sourceReceipt.refreshScope}
+          idleLabel={PERFORMANCE_REFRESH_COPY.recheckAction}
+          busyLabel={PERFORMANCE_REFRESH_COPY.recheckingAction}
+          isRefreshing={sourceReceipt.isRefreshing}
+          onRefresh={sourceReceipt.onRefresh}
+        />
+      ) : null}
     </div>
   ) : undefined;
 
@@ -235,6 +237,16 @@ export default function PerformanceWorkspaceView({
                     confirmedContext={refreshStatus.confirmedContext}
                     onRetry={refreshStatus.kind === "failed" ? onRetryRefresh : undefined}
                     retrying={false}
+                    retryLabel={
+                      refreshStatus.intent === "recheck"
+                        ? PERFORMANCE_REFRESH_COPY.retryAction
+                        : undefined
+                    }
+                    retryText={
+                      refreshStatus.intent === "recheck"
+                        ? PERFORMANCE_REFRESH_COPY.retryAction
+                        : undefined
+                    }
                     className="performance-refresh-status"
                   />
                 )
