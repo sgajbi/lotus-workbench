@@ -10,6 +10,7 @@ import {
 } from "@/design-system";
 import type { PortfolioWorkspace } from "@/apps/portfolio/types";
 import { getWorkbenchApiErrorStatus, isWorkbenchPermissionBlockedError } from "@/features/workbench/api";
+import { captureAuthorityBoundaryRevision } from "@/features/workbench/client-authority-context";
 import type {
   WorkbenchPerformanceWorkspace,
   WorkbenchPerformanceWorkspaceDetails,
@@ -190,7 +191,10 @@ export default function PerformanceWorkspaceClient({
   const activeRefreshIntentRef = useRef<"selection" | "recheck" | null>(null);
   const activeHydrationTokenRef = useRef<symbol | null>(null);
   const [revokedPortfolioIds, setRevokedPortfolioIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
+    () =>
+      captureAuthorityBoundaryRevision() > 0 && initialControls
+        ? new Set([initialControls.portfolioId])
+        : new Set(),
   );
   const pendingRouteEchoKeyRef = useRef<string | null>(null);
   const automaticHydrationIdentityRef = useRef<string | null>(null);

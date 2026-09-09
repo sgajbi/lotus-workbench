@@ -22,6 +22,11 @@ import {
   performanceWorkspaceSummaryQueryOptions,
 } from "../../src/apps/performance/performance-workspace-query-options";
 import { WORKBENCH_QUERY_STALE_TIME_MS } from "../../src/features/platform-runtime/query-policy";
+import {
+  captureAuthorityRequestContext,
+  reconcileResponseAuthorityContext,
+  resetClientAuthorityContextForTests,
+} from "../../src/features/workbench/client-authority-context";
 
 const replaceMock = vi.fn();
 const pushMock = vi.fn();
@@ -295,6 +300,7 @@ describe("PerformanceWorkspaceClient", () => {
     getDetailsClientMock.mockReset();
     restoreFocusMock.mockReset();
     requestResultMock.mockReset();
+    resetClientAuthorityContextForTests();
   });
 
   it("shows the oldest admitted receipt in Evidence and rechecks the exact composite", async () => {
@@ -621,6 +627,66 @@ describe("PerformanceWorkspaceClient", () => {
     );
 
     await waitFor(() => expect(screen.getByTestId("return")).toHaveTextContent("6.4"));
+    expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("requires source reconfirmation after an authority-boundary remount", async () => {
+    const originalSummary = buildSummary();
+    const originalDetails = buildDetails();
+    reconcileResponseAuthorityContext(
+      new Response("{}", {
+        headers: { "X-Workbench-Authority-Context": "a".repeat(64) },
+      }),
+      captureAuthorityRequestContext(),
+    );
+    let rejectSummary!: (error: unknown) => void;
+    const deniedRequest = new Promise<WorkbenchPerformanceWorkspaceSummary>((_, reject) => {
+      rejectSummary = reject;
+    });
+    getSummaryClientMock.mockReturnValueOnce(deniedRequest);
+
+    const firstMount = render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(originalSummary, originalDetails)}
+        initialMode="evidence"
+      />,
+    );
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+    await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      rejectSummary(Object.assign(new Error("Forbidden"), { status: 403 }));
+      await deniedRequest.catch(() => undefined);
+      await Promise.resolve();
+    });
+
+    reconcileResponseAuthorityContext(
+      new Response("{}", {
+        headers: { "X-Workbench-Authority-Context": "b".repeat(64) },
+      }),
+      captureAuthorityRequestContext(),
+    );
+    firstMount.queryClient.clear();
+    firstMount.unmount();
+
+    const reconfirmedSummary = buildSummary({
+      net_performance: {
+        ...originalSummary.net_performance,
+        portfolio_return_pct: 7.1,
+      },
+    });
+    getSummaryClientMock.mockResolvedValueOnce(reconfirmedSummary);
+    getDetailsClientMock.mockResolvedValueOnce(originalDetails);
+    renderWithQueryClient(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(originalSummary, originalDetails)}
+        initialMode="evidence"
+      />,
+      firstMount.queryClient,
+    );
+
+    expect(screen.getByTestId("return")).toHaveTextContent("none");
+    await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(screen.getByTestId("return")).toHaveTextContent("7.1"));
     expect(getDetailsClientMock).toHaveBeenCalledTimes(1);
   });
 

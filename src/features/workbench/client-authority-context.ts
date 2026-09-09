@@ -13,6 +13,7 @@ type AuthorityRequestContext = Readonly<{
 let activeAuthorityContext: string | null = null;
 let nextRequestSequence = 0;
 let latestAcceptedRequestSequence = 0;
+let authorityBoundaryRevision = 0;
 const authorityChangeListeners = new Set<AuthorityChangeListener>();
 
 export class StaleAuthorityResponseError extends Error {
@@ -24,6 +25,10 @@ export class StaleAuthorityResponseError extends Error {
 
 export function captureActiveAuthorityContext(): string | null {
   return typeof window === "undefined" ? null : activeAuthorityContext;
+}
+
+export function captureAuthorityBoundaryRevision(): number {
+  return typeof window === "undefined" ? 0 : authorityBoundaryRevision;
 }
 
 export function captureAuthorityRequestContext(): AuthorityRequestContext {
@@ -82,6 +87,7 @@ export function reconcileResponseAuthorityContext(
     requestContext.sequence,
   );
   if (previousAuthority !== null || authorityStateWasEstablished) {
+    authorityBoundaryRevision += 1;
     for (const listener of authorityChangeListeners) listener();
   }
 }
@@ -97,5 +103,6 @@ export function resetClientAuthorityContextForTests(): void {
   activeAuthorityContext = null;
   nextRequestSequence = 0;
   latestAcceptedRequestSequence = 0;
+  authorityBoundaryRevision = 0;
   authorityChangeListeners.clear();
 }
