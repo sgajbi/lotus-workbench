@@ -75,6 +75,7 @@ type PerformancePendingRefresh = {
 
 type PerformanceRefreshFailure = PerformancePendingRefresh & {
   status?: number;
+  retryComposite?: boolean;
 };
 
 type ResolvedPerformanceDetails = {
@@ -451,6 +452,7 @@ export default function PerformanceWorkspaceClient({
     options: {
       focusTarget?: PerformanceSourceControlFocusTarget;
       forceScope?: PerformanceRefreshScope;
+      stageComposite?: boolean;
     } = {}
   ) {
     const refreshesSummary =
@@ -474,11 +476,26 @@ export default function PerformanceWorkspaceClient({
     });
 
     let failureScope = initialScope;
+    let stagedCompositeRequest = false;
     try {
       let resolvedSummary = currentSummary;
       let detailRequestControls = requestedControls;
+      let stagedDetails: ResolvedPerformanceDetails | null = null;
 
-      if (refreshesSummary) {
+      if (options.stageComposite) {
+        stagedCompositeRequest = true;
+        const revalidated = await queryClient.fetchQuery(
+          performanceWorkspaceRevalidationQueryOptions(requestedControls),
+        );
+        resolvedSummary = revalidated.summary;
+        stagedDetails = {
+          controls: buildResolvedDetailControls(
+            requestedControls,
+            revalidated.details,
+          ),
+          details: revalidated.details,
+        };
+      } else if (refreshesSummary) {
         resolvedSummary = await queryClient.fetchQuery(
           performanceWorkspaceSummaryQueryOptions(requestedControls),
         );
@@ -490,10 +507,9 @@ export default function PerformanceWorkspaceClient({
       }
 
       failureScope = "details";
-      const resolvedDetails = await resolveDetailsForControls(
-        detailRequestControls,
-        resolvedSummary,
-      );
+      const resolvedDetails =
+        stagedDetails ??
+        (await resolveDetailsForControls(detailRequestControls, resolvedSummary));
       if (activeRefreshTokenRef.current !== refreshToken) {
         return;
       }
@@ -533,21 +549,26 @@ export default function PerformanceWorkspaceClient({
         return;
       }
 
-      if (isWorkbenchPermissionBlockedError(error)) {
+      const refreshError = stagedCompositeRequest
+        ? resolvePerformanceWorkspaceRevalidationError(error)
+        : { scope: failureScope, sourceError: error };
+
+      if (isWorkbenchPermissionBlockedError(refreshError.sourceError)) {
         queryClient.removeQueries({
           queryKey: performanceWorkspaceQueryKeys.portfolio(confirmedControls.portfolioId),
         });
         setRefreshFailure(null);
         setLoadIssue({
           state: "permission_blocked",
-          status: getWorkbenchApiErrorStatus(error) ?? undefined,
+          status: getWorkbenchApiErrorStatus(refreshError.sourceError) ?? undefined,
         });
       } else {
         setRefreshFailure({
-          scope: failureScope,
+          scope: refreshError.scope,
           requestedControls,
           confirmedControls,
-          status: getWorkbenchApiErrorStatus(error) ?? undefined,
+          status: getWorkbenchApiErrorStatus(refreshError.sourceError) ?? undefined,
+          retryComposite: stagedCompositeRequest,
         });
       }
     } finally {
@@ -665,6 +686,7 @@ export default function PerformanceWorkspaceClient({
           confirmedControls: controls,
           status:
             getWorkbenchApiErrorStatus(revalidationError.sourceError) ?? undefined,
+          retryComposite: currentDetails !== null,
         });
       });
   }, [
@@ -733,7 +755,10 @@ export default function PerformanceWorkspaceClient({
         }
         void runRefresh(refreshFailure.requestedControls, controls, {
           focusTarget: lastSourceControlFocusTargetRef.current ?? undefined,
-          forceScope: refreshFailure.scope,
+          forceScope: refreshFailure.retryComposite
+            ? "summary"
+            : refreshFailure.scope,
+          stageComposite: refreshFailure.retryComposite,
         });
       }}
       isUpdating={isUpdating}
