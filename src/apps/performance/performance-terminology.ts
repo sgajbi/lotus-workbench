@@ -53,6 +53,7 @@ export const PERFORMANCE_WORKFLOW_LABELS = {
 export const PERFORMANCE_REFRESH_COPY = {
   recheckAction: "Recheck performance",
   recheckingAction: "Rechecking…",
+  retryAction: "Recheck performance evidence",
   recheck: {
     pending: {
       eyebrow: "Checking source evidence",

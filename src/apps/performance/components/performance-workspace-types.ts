@@ -27,6 +27,7 @@ export type PerformanceSourceReceipt = {
   checkedAt: number | null;
   refreshScope: string;
   isRefreshing: boolean;
+  canRecheck: boolean;
   onRefresh: () => Promise<unknown>;
 };
 

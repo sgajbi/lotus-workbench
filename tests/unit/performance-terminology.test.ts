@@ -120,6 +120,7 @@ describe("performance terminology", () => {
     expect(PERFORMANCE_REFRESH_COPY).toMatchObject({
       recheckAction: "Recheck performance",
       recheckingAction: "Rechecking…",
+      retryAction: "Recheck performance evidence",
       recheck: {
         pending: { title: "Rechecking performance evidence" },
         confirmed: { title: "Performance evidence rechecked" },

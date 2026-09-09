@@ -947,7 +947,8 @@ export default function PerformanceWorkspaceClient({
           ? {
               checkedAt: performanceCheckedAt,
               refreshScope: performanceRefreshScope,
-              isRefreshing: isUpdating,
+              isRefreshing: pendingRefresh?.intent === "recheck",
+              canRecheck: !isUpdating || pendingRefresh?.intent === "recheck",
               onRefresh: () =>
                 runRefresh(controls, controls, {
                   intent: "recheck",
