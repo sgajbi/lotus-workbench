@@ -111,7 +111,9 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   Specialized verified routes never forward browser authority headers: they verify the session,
   resolve current grants, admit exact route and portfolio scope, and send only the delegated
   credential. The browser observes an opaque authority-context digest; a change cancels and clears
-  Query state, and a late response from the previous authority is rejected.
+  Query state, remounts the protected feature tree to discard component-owned state, and rejects a
+  late response from the previous authority. Authenticated denial explicitly clears established
+  authority, including logout, expiry, revocation, and unavailable grant authority.
 - The configured verified path deliberately returns `grant_store_unavailable` until the production
   tenant-membership and grant authority exists. Do not infer IAM grants from portfolio-party data or
   restore configured development headers as a fallback.
