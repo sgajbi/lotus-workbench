@@ -187,6 +187,7 @@ export default function PerformanceWorkspaceClient({
   );
   const initialDataAdmissionEnabledRef = useRef(true);
   const activeRefreshTokenRef = useRef<symbol | null>(null);
+  const activeRefreshIntentRef = useRef<"selection" | "recheck" | null>(null);
   const activeHydrationTokenRef = useRef<symbol | null>(null);
   const pendingRouteEchoKeyRef = useRef<string | null>(null);
   const automaticHydrationIdentityRef = useRef<string | null>(null);
@@ -212,6 +213,13 @@ export default function PerformanceWorkspaceClient({
     : null;
   const queryClient = useQueryClient();
   const clearModeLocalRecheckState = useCallback(() => {
+    if (
+      activeRefreshTokenRef.current !== null &&
+      activeRefreshIntentRef.current === "recheck"
+    ) {
+      activeRefreshTokenRef.current = null;
+      activeRefreshIntentRef.current = null;
+    }
     setPendingRefresh((currentRefresh) =>
       currentRefresh?.intent === "recheck" ? null : currentRefresh,
     );
@@ -581,6 +589,7 @@ export default function PerformanceWorkspaceClient({
     const initialScope: PerformanceRefreshScope = refreshesSummary ? "summary" : "details";
     const refreshToken = Symbol("performance-workspace-refresh");
     activeRefreshTokenRef.current = refreshToken;
+    activeRefreshIntentRef.current = options.intent ?? "selection";
     activeHydrationTokenRef.current = null;
     await queryClient.cancelQueries({
       queryKey: performanceWorkspaceQueryKeys.portfolio(requestedControls.portfolioId),
@@ -710,10 +719,6 @@ export default function PerformanceWorkspaceClient({
         restorePerformanceSourceControlFocus(options.focusTarget);
       }
     } catch (error) {
-      if (activeRefreshTokenRef.current !== refreshToken) {
-        return;
-      }
-
       const refreshError = stagedCompositeRequest
         ? resolvePerformanceWorkspaceRevalidationError(error)
         : { scope: failureScope, sourceError: error };
@@ -729,7 +734,10 @@ export default function PerformanceWorkspaceClient({
           status: getWorkbenchApiErrorStatus(refreshError.sourceError) ?? undefined,
         });
       } else {
-        if (isExplicitRecheck && modeRef.current !== requestedMode) {
+        if (
+          activeRefreshTokenRef.current !== refreshToken ||
+          (isExplicitRecheck && modeRef.current !== requestedMode)
+        ) {
           return;
         }
         setRefreshFailure({
@@ -744,6 +752,7 @@ export default function PerformanceWorkspaceClient({
     } finally {
       if (activeRefreshTokenRef.current === refreshToken) {
         activeRefreshTokenRef.current = null;
+        activeRefreshIntentRef.current = null;
         setPendingRefresh(null);
       }
     }
