@@ -31,7 +31,7 @@ export function performanceWorkspaceSummaryQueryOptions(
   return queryOptions({
     ...workbenchStrictQueryDefaults,
     queryKey: context
-      ? performanceWorkspaceQueryKeys.summary(context)
+      ? performanceWorkspaceQueryKeys.summaryResponse(context)
       : performanceWorkspaceQueryKeys.unavailable("summary"),
     queryFn: context
       ? async ({ signal }) =>

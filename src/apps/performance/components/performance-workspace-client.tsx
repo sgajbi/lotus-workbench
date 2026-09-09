@@ -199,20 +199,20 @@ export default function PerformanceWorkspaceClient({
       initialData: controlsMatchServerPreload ? initialSummary ?? undefined : undefined,
     }),
   );
-  const summary = loadIssue?.state === "permission_blocked"
+  const currentSummary = loadIssue?.state === "permission_blocked"
     ? null
     : summaryQuery.data ?? null;
   const detailsQuery = useQuery(
-    performanceWorkspaceDetailsQueryOptions(controls, summary, {
+    performanceWorkspaceDetailsQueryOptions(controls, currentSummary, {
       initialData: controlsMatchServerPreload
         ? sourceConfirmedInitialDetails ?? undefined
         : undefined,
     }),
   );
-  const details = loadIssue?.state === "permission_blocked"
+  const currentDetails = loadIssue?.state === "permission_blocked"
     ? null
     : detailsQuery.data ?? null;
-  const detailsStatus: PerformanceDetailsStatus = details
+  const detailsStatus: PerformanceDetailsStatus = currentDetails
     ? "ready"
     : detailsQuery.fetchStatus === "fetching"
       ? "loading"
@@ -256,14 +256,14 @@ export default function PerformanceWorkspaceClient({
   }, [initialMode]);
 
   const workspace = useMemo<WorkbenchPerformanceWorkspace | null>(() => {
-    if (!summary) {
+    if (!currentSummary) {
       return null;
     }
-    return assemblePerformanceWorkspace(summary, details);
-  }, [details, summary]);
+    return assemblePerformanceWorkspace(currentSummary, currentDetails);
+  }, [currentDetails, currentSummary]);
   const isUpdating = pendingRefresh !== null;
   const isDetailsPending =
-    Boolean(summary) &&
+    Boolean(currentSummary) &&
     (pendingRefresh !== null || detailsStatus === "idle" || detailsStatus === "loading");
   const refreshStatus = buildRefreshStatus(
     pendingRefresh,
@@ -465,7 +465,7 @@ export default function PerformanceWorkspaceClient({
 
     let failureScope = initialScope;
     try {
-      let resolvedSummary = summary;
+      let resolvedSummary = currentSummary;
       let detailRequestControls = requestedControls;
 
       if (refreshesSummary) {
@@ -551,8 +551,8 @@ export default function PerformanceWorkspaceClient({
   useEffect(() => {
     if (
       !controls ||
-      !summary ||
-      details ||
+      !currentSummary ||
+      currentDetails ||
       detailsQuery.fetchStatus === "fetching" ||
       refreshFailure?.scope === "details"
     ) {
@@ -560,7 +560,7 @@ export default function PerformanceWorkspaceClient({
     }
 
     const hydrationIdentity = buildControlQueryIdentity(controls);
-    void resolveDetailsForControls(controls, summary, { allowInitialFallback: true })
+    void resolveDetailsForControls(controls, currentSummary, { allowInitialFallback: true })
       .then((resolvedDetails) => {
         if (
           activeRefreshTokenRef.current !== null ||
@@ -570,12 +570,12 @@ export default function PerformanceWorkspaceClient({
         }
         queryClient.setQueryData(
           performanceWorkspaceSummaryQueryOptions(resolvedDetails.controls).queryKey,
-          summary,
+          currentSummary,
         );
         queryClient.setQueryData(
           performanceWorkspaceDetailsQueryOptions(
             resolvedDetails.controls,
-            summary,
+            currentSummary,
           ).queryKey,
           resolvedDetails.details,
         );
@@ -623,21 +623,21 @@ export default function PerformanceWorkspaceClient({
       });
   }, [
     controls,
-    details,
+    currentDetails,
     detailsQuery.fetchStatus,
     mode,
     queryClient,
     refreshFailure?.scope,
     resolveDetailsForControls,
     router,
-    summary,
+    currentSummary,
   ]);
 
   const currentContextNotice = buildPerformanceReviewContextNotice({
     requestedAsOfDate: controls?.reviewAsOfDate ?? initialAsOfDate,
     requestedReportingCurrency:
       controls?.reviewReportingCurrency ?? initialReportingCurrency,
-    source: summary,
+    source: currentSummary,
   });
   const shellContextNotice = currentContextNotice
     ? {
@@ -652,7 +652,7 @@ export default function PerformanceWorkspaceClient({
       pageKey="performance"
       className="performance-page portfolio-page"
       reviewContext={buildPerformanceReviewContextStrip({
-        workspace: workspace ?? summary,
+        workspace: workspace ?? currentSummary,
         portfolioContext: initialPortfolioContext,
         notice: shellContextNotice,
         currencyPresentation:
@@ -887,7 +887,7 @@ function shouldRefreshSummary(
 }
 
 function buildControlQueryIdentity(controls: PerformanceControlState): string {
-  return JSON.stringify(performanceWorkspaceQueryKeys.summary(controls));
+  return JSON.stringify(performanceWorkspaceQueryKeys.summaryResponse(controls));
 }
 
 function resolveInitialControls({

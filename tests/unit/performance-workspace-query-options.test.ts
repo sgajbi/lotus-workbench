@@ -42,20 +42,20 @@ describe("performance workspace query ownership", () => {
   });
 
   it("keys every request variable and removes irrelevant dates outside an explicit window", () => {
-    const base = performanceWorkspaceQueryKeys.summary({
+    const base = performanceWorkspaceQueryKeys.summaryResponse({
       ...context,
       reportStartDate: "2026-01-01",
       reportEndDate: "2026-02-24",
     });
-    const differentContribution = performanceWorkspaceQueryKeys.summary({
+    const differentContribution = performanceWorkspaceQueryKeys.summaryResponse({
       ...context,
       contributionDimension: "sector",
     });
 
-    expect(base).toEqual(performanceWorkspaceQueryKeys.summary(context));
+    expect(base).toEqual(performanceWorkspaceQueryKeys.summaryResponse(context));
     expect(differentContribution).not.toEqual(base);
     expect(
-      performanceWorkspaceQueryKeys.summary({
+      performanceWorkspaceQueryKeys.summaryResponse({
         ...context,
         period: "EXPLICIT",
         reportStartDate: "2026-01-01",

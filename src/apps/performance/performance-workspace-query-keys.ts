@@ -40,7 +40,7 @@ export const performanceWorkspaceQueryKeys = {
     [...performanceWorkspaceQueryKeys.all, "unavailable", resource] as const,
   portfolio: (portfolioId: string) =>
     [...performanceWorkspaceQueryKeys.all, portfolioId] as const,
-  summary: (context: PerformanceWorkspaceQueryContext) =>
+  summaryResponse: (context: PerformanceWorkspaceQueryContext) =>
     [
       ...performanceWorkspaceQueryKeys.portfolio(context.portfolioId),
       "summary",
@@ -57,4 +57,3 @@ export const performanceWorkspaceQueryKeys = {
       { summaryEvidence },
     ] as const,
 };
-
