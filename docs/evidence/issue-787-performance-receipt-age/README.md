@@ -6,8 +6,9 @@ fixture journey. It does not certify upstream valuation or market-data freshness
 ## Business invariant
 
 The Performance header shows the oldest admitted summary/detail browser receipt as **Checked** and
-offers one **Recheck performance** action across Summary, Analysis, and Evidence. It is deliberately
-absent from Risk Review and Adviser Brief because those modes render independently queried facts.
+offers one **Recheck performance** action in Evidence, where those two contracts are the complete
+visible evidence set. It is deliberately absent from Summary, Analysis, Risk Review, and Adviser
+Brief because those modes render additional independently queried facts.
 An explicit recheck performs
 exactly one summary read and one detail read, confirms success only after both remain coherent with
 the active review context, and leaves the source-owned **As of** date distinct.
