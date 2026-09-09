@@ -1,0 +1,11 @@
+{
+  "generatedAtUtc": "2026-09-09T02:13:22.650Z",
+  "portfolioId": "PB_SG_GLOBAL_BAL_001",
+  "governedStaleTimeMs": 30000,
+  "freshRevisitAtApproximateAgeMs": 20000,
+  "initialDetailRequestCount": 4,
+  "freshRevisitDetailRequestCount": 4,
+  "openWorkspaceRevalidationRequestCount": 8,
+  "postRevalidationRevisitRequestCount": 8,
+  "observedPath": "performance-snapshot"
+}

@@ -816,6 +816,81 @@ test.describe('Portfolio workbench smoke', () => {
     }
   });
 
+  test('portfolio receipt age stays separate from business date and explicit recheck reaches both sources', async ({
+    page,
+    request,
+  }) => {
+    test.skip(
+      process.env.PORTFOLIO_E2E_PROOF_SCENARIO !== 'query-freshness',
+      'Portfolio receipt-age proof requires the governed owned-fixture scenario.'
+    );
+    test.setTimeout(45_000);
+    const shellRequests: string[] = [];
+    const performanceRequests: string[] = [];
+    page.on('request', (browserRequest) => {
+      const url = browserRequest.url();
+      if (url.includes('/api/bff/api/v1/portfolio/portfolios/') && url.includes('/workspace')) {
+        shellRequests.push(url);
+      }
+      if (
+        url.includes('/api/bff/api/v1/portfolio/portfolios/') &&
+        url.includes('/performance-snapshot')
+      ) {
+        performanceRequests.push(url);
+      }
+    });
+
+    const session = await openPortfolioReview(page, request);
+    expect(session).toEqual({ portfolioId: 'PB_SG_GLOBAL_BAL_001', available: true });
+    await expect(page.getByText('MTD return')).toBeVisible();
+    const receiptTime = page.locator('time[aria-label^="Portfolio evidence checked"]');
+    await expect(receiptTime).toContainText(/^Checked /);
+    const businessDate = await page.getByLabel('As of').inputValue();
+    expect(businessDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(await receiptTime.getAttribute('datetime')).toMatch(
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
+    );
+    expect(await receiptTime.getAttribute('title')).toMatch(/^Exact check time: .* UTC$/);
+
+    const initialPerformanceRequestCount = performanceRequests.length;
+    const recheck = page.getByRole('button', { name: 'Recheck portfolio' });
+    await expect(recheck).toBeEnabled();
+    await recheck.click();
+
+    await expect.poll(() => shellRequests.length).toBe(1);
+    await expect
+      .poll(() => performanceRequests.length)
+      .toBe(initialPerformanceRequestCount * 2);
+    await expect(page.getByText('Portfolio evidence rechecked.', { exact: true })).toBeVisible();
+    await expect(receiptTime).toHaveText('Checked just now');
+
+    const evidenceDirectory = process.env.PORTFOLIO_E2E_EVIDENCE_DIR;
+    if (evidenceDirectory) {
+      await mkdir(evidenceDirectory, { recursive: true });
+      await page.locator('.portfolio-workspace-toolbar').screenshot({
+        path: resolve(evidenceDirectory, 'portfolio-receipt-age.png'),
+      });
+      await writeFile(
+        resolve(evidenceDirectory, 'portfolio-receipt-age-evidence.json'),
+        `${JSON.stringify(
+          {
+            generatedAtUtc: new Date().toISOString(),
+            portfolioId: session.portfolioId,
+            businessDate,
+            receiptDateTime: await receiptTime.getAttribute('datetime'),
+            receiptExactDisclosure: await receiptTime.getAttribute('title'),
+            shellRequestsAfterRecheck: shellRequests.length,
+            detailPerformanceRequestsBeforeRecheck: initialPerformanceRequestCount,
+            detailPerformanceRequestsAfterRecheck: performanceRequests.length,
+          },
+          null,
+          2
+        )}\n`,
+        'utf8'
+      );
+    }
+  });
+
   test('historical review stays unavailable until aggregate evidence can refresh atomically', async ({
     page,
     request,
