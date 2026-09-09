@@ -7910,14 +7910,18 @@ assessment?
 
 ### Evidence consulted
 
-1. TanStack Query publishes `dataUpdatedAt` as cache receipt metadata and provides explicit
-   refetching and bounded stale-time controls.
-2. Qualtrics dashboard guidance distinguishes when data was last checked from the date represented
-   by the underlying business records.
-3. Palantir guidance uses relative age for recent evidence and an exact timestamp for older
-   evidence, supporting fast scanning without hiding precise lineage.
-4. WAI-ARIA status guidance supports a polite confirmation after an explicit asynchronous action
-   without moving keyboard focus.
+1. [TanStack Query `useQuery`](https://tanstack.com/query/v4/docs/framework/react/reference/useQuery)
+   publishes `dataUpdatedAt` as cache receipt metadata and provides explicit refetching and bounded
+   stale-time controls.
+2. [Qualtrics dashboard data freshness](https://www.qualtrics.com/support/vocalize/dashboard-data-freshness/)
+   distinguishes when data was last checked from the date represented by the underlying business
+   records.
+3. [Palantir data freshness guidance](https://www.palantir.com/docs/foundry/workshop/widgets-data-freshness)
+   uses relative age for recent evidence and an exact timestamp for older evidence, supporting fast
+   scanning without hiding precise lineage.
+4. [WAI-ARIA status guidance](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html)
+   supports a polite confirmation after an explicit asynchronous action without moving keyboard
+   focus.
 
 ### Adopted decisions
 
