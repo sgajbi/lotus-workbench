@@ -673,13 +673,12 @@ export default function PerformanceWorkspaceClient({
         requestedControls,
         confirmedControls: resolvedDetails.controls,
       });
-      if (options.intent !== "recheck") {
-        acceptedRouteControlsKeyRef.current = buildPerformanceControlsHref(
-          resolvedDetails.controls,
-        );
-        pendingRouteEchoKeyRef.current = buildPerformanceControlsHref(
-          resolvedDetails.controls,
-        );
+      const resolvedControlsHref = buildPerformanceControlsHref(resolvedDetails.controls);
+      const routeControlsChanged =
+        resolvedControlsHref !== buildPerformanceControlsHref(confirmedControls);
+      if (options.intent !== "recheck" || routeControlsChanged) {
+        acceptedRouteControlsKeyRef.current = resolvedControlsHref;
+        pendingRouteEchoKeyRef.current = resolvedControlsHref;
         startTransition(() => {
           router.push(buildPerformanceControlsHref(resolvedDetails.controls, modeRef.current), {
             scroll: false,

@@ -8029,7 +8029,8 @@ refresh authority?
 4. Keep the prior admitted receipt and analytics when an ordinary recheck fails. Announce success
    only after both reads succeed; preserve the existing permission-blocked and late-result fences.
 5. Keep the shared 30-second stale policy for ordinary navigation and avoid a same-route server
-   navigation after explicit recheck, which would duplicate the two source reads.
+   navigation after explicit recheck, which would duplicate the two source reads. When the source
+   normalizes an unsupported control, update the URL to the exact confirmed selection.
 
 ### Rejected decisions
 
