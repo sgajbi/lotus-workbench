@@ -701,10 +701,7 @@ export default function PerformanceWorkspaceClient({
         restorePerformanceSourceControlFocus(options.focusTarget);
       }
     } catch (error) {
-      if (
-        activeRefreshTokenRef.current !== refreshToken ||
-        (isExplicitRecheck && modeRef.current !== requestedMode)
-      ) {
+      if (activeRefreshTokenRef.current !== refreshToken) {
         return;
       }
 
@@ -723,6 +720,9 @@ export default function PerformanceWorkspaceClient({
           status: getWorkbenchApiErrorStatus(refreshError.sourceError) ?? undefined,
         });
       } else {
+        if (isExplicitRecheck && modeRef.current !== requestedMode) {
+          return;
+        }
         setRefreshFailure({
           intent: options.intent ?? "selection",
           scope: refreshError.scope,
@@ -925,7 +925,7 @@ export default function PerformanceWorkspaceClient({
       loadIssue={loadIssue}
       refreshStatus={refreshStatus}
       sourceReceipt={
-        controls && mode !== "risk" && mode !== "advisor"
+        controls && mode === "evidence"
           ? {
               checkedAt: performanceCheckedAt,
               refreshScope: performanceRefreshScope,

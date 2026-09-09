@@ -531,6 +531,14 @@ test.describe('Performance workbench smoke', () => {
     expect(fixtureGateway).not.toBeNull();
 
     const checked = page.getByText(/^Checked (just now|\d+ min ago|\d+ (?:hr|hrs) ago|\d)/);
+    await expect(page.getByRole('button', { name: 'Recheck performance' })).toHaveCount(0);
+    await expect(checked).toHaveCount(0);
+    await (await openPerformanceWorkflowStep(page, /^Performance analysis/i)).click();
+    await expect(page).toHaveURL(/(?:\?|&)mode=analysis(?:&|$)/);
+    await expect(page.getByRole('button', { name: 'Recheck performance' })).toHaveCount(0);
+    await expect(checked).toHaveCount(0);
+    await (await openPerformanceWorkflowStep(page, /^Evidence/i)).click();
+    await expect(page).toHaveURL(/(?:\?|&)mode=evidence(?:&|$)/);
     await expect(checked).toBeVisible();
     const requestCountBeforeIdle = { ...fixtureGateway!.requests };
     await page.waitForTimeout(1_200);

@@ -80,7 +80,7 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
   }: {
     workspace: WorkbenchPerformanceWorkspace | null;
     mode: string;
-    onModeChange?: (mode: "summary" | "analysis" | "advisor" | "risk") => void;
+    onModeChange?: (mode: "summary" | "analysis" | "advisor" | "risk" | "evidence") => void;
     period: string;
     onRequestChange?: (
       patch: {
@@ -204,6 +204,9 @@ vi.mock("../../src/apps/performance/components/performance-workspace-view", () =
       <button type="button" onClick={() => onModeChange?.("advisor")}>
         Switch Adviser Brief Mode
       </button>
+      <button type="button" onClick={() => onModeChange?.("evidence")}>
+        Switch Evidence Mode
+      </button>
       <button type="button" onClick={() => onModeChange?.("risk")}>
         Switch Risk Mode
       </button>
@@ -291,13 +294,18 @@ describe("PerformanceWorkspaceClient", () => {
     requestResultMock.mockReset();
   });
 
-  it("shows the oldest admitted receipt and rechecks the exact composite", async () => {
+  it("shows the oldest admitted receipt in Evidence and rechecks the exact composite", async () => {
     const initialSummary = buildSummary();
     const initialDetails = buildDetails();
     getSummaryClientMock.mockResolvedValueOnce(initialSummary);
     getDetailsClientMock.mockResolvedValueOnce(initialDetails);
 
-    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+    render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="evidence"
+      />,
+    );
 
     const initialCheckedAt = Number(screen.getByTestId("source-checked-at").textContent);
     expect(initialCheckedAt).toBeGreaterThan(0);
@@ -333,6 +341,22 @@ describe("PerformanceWorkspaceClient", () => {
     expect(getDetailsClientMock).not.toHaveBeenCalled();
   });
 
+  it.each(["summary", "analysis"] as const)(
+    "does not present a summary-detail receipt as whole-page %s evidence",
+    (initialMode) => {
+      render(
+        <PerformanceWorkspaceClient
+          {...buildDefaultClientProps()}
+          initialMode={initialMode}
+        />,
+      );
+
+      expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
+      expect(getSummaryClientMock).not.toHaveBeenCalled();
+      expect(getDetailsClientMock).not.toHaveBeenCalled();
+    },
+  );
+
   it("does not present a summary-detail receipt as the age of the independently queried adviser brief", () => {
     const initialSummary = buildSummary();
     const initialDetails = buildDetails();
@@ -359,7 +383,12 @@ describe("PerformanceWorkspaceClient", () => {
     getSummaryClientMock.mockReturnValueOnce(summaryRequest);
     getDetailsClientMock.mockResolvedValueOnce(initialDetails);
 
-    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+    render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="evidence"
+      />,
+    );
 
     screen.getByRole("button", { name: "Recheck performance" }).click();
     await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(1));
@@ -374,13 +403,50 @@ describe("PerformanceWorkspaceClient", () => {
     expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
   });
 
+  it("revokes retained evidence when an obsolete recheck completes with a permission denial", async () => {
+    let rejectSummary!: (error: unknown) => void;
+    const summaryRequest = new Promise<WorkbenchPerformanceWorkspaceSummary>((_, reject) => {
+      rejectSummary = reject;
+    });
+    getSummaryClientMock.mockReturnValueOnce(summaryRequest);
+
+    const result = render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps()}
+        initialMode="evidence"
+      />,
+    );
+
+    screen.getByRole("button", { name: "Recheck performance" }).click();
+    await waitFor(() => expect(getSummaryClientMock).toHaveBeenCalledTimes(1));
+    await act(async () => screen.getByRole("button", { name: "Switch Risk Mode" }).click());
+    await waitFor(() => expect(screen.getByTestId("mode")).toHaveTextContent("risk"));
+
+    await act(async () => rejectSummary(Object.assign(new Error("Forbidden"), { status: 403 })));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("load-issue")).toHaveTextContent("permission_blocked");
+      expect(screen.getByTestId("return")).toHaveTextContent("none");
+    });
+    expect(
+      result.queryClient.getQueryData(
+        performanceWorkspaceSummaryQueryOptions(defaultQueryContext).queryKey,
+      ),
+    ).toBeUndefined();
+  });
+
   it("retains the prior receipt and withholds success when composite recheck fails", async () => {
     const initialSummary = buildSummary();
     const initialDetails = buildDetails();
     getSummaryClientMock.mockResolvedValueOnce(initialSummary);
     getDetailsClientMock.mockRejectedValueOnce({ status: 502 });
 
-    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+    render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="evidence"
+      />,
+    );
     const initialCheckedAt = screen.getByTestId("source-checked-at").textContent;
 
     screen.getByRole("button", { name: "Recheck performance" }).click();
@@ -403,7 +469,12 @@ describe("PerformanceWorkspaceClient", () => {
       .mockRejectedValueOnce({ status: 502 })
       .mockResolvedValueOnce(initialDetails);
 
-    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+    render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="evidence"
+      />,
+    );
 
     screen.getByRole("button", { name: "Recheck performance" }).click();
     await waitFor(() => {
@@ -434,7 +505,12 @@ describe("PerformanceWorkspaceClient", () => {
     );
 
     const replaceState = vi.spyOn(window.history, "replaceState");
-    render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
+    render(
+      <PerformanceWorkspaceClient
+        {...buildDefaultClientProps(initialSummary, initialDetails)}
+        initialMode="evidence"
+      />,
+    );
 
     screen.getByRole("button", { name: "Recheck performance" }).click();
 
@@ -445,7 +521,7 @@ describe("PerformanceWorkspaceClient", () => {
     expect(replaceState).toHaveBeenCalledWith(
       window.history.state,
       "",
-      "/performance?portfolioId=PF_1001&period=YTD&detailBasis=NET&contributionDimension=sector&attributionDimension=asset_class&chartFrequency=monthly&benchmark=BMK_GLOBAL_BALANCED_60_40",
+      "/performance?portfolioId=PF_1001&period=YTD&mode=evidence&detailBasis=NET&contributionDimension=sector&attributionDimension=asset_class&chartFrequency=monthly&benchmark=BMK_GLOBAL_BALANCED_60_40",
     );
     expect(pushMock).not.toHaveBeenCalled();
     expect(replaceMock).not.toHaveBeenCalled();
