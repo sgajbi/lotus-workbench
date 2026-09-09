@@ -12,6 +12,8 @@ import TextField from "@mui/material/TextField";
 
 import {
   PageToolbar,
+  SourceRefreshAction,
+  WorkbenchDataAge,
   WorkbenchChoiceGroup,
   WorkbenchToolbarGroup,
 } from "@/design-system";
@@ -23,6 +25,15 @@ import type {
 import { PORTFOLIO_CURRENCY_LABELS } from "../portfolio-terminology";
 import { PORTFOLIO_TIME_WINDOW_OPTIONS } from "../view-model";
 import choiceStyles from "./portfolio-choice-groups.module.css";
+import styles from "./portfolio-workspace-toolbar.module.css";
+
+type PortfolioSourceReceipt = {
+  checkedAt: number | null;
+  refreshScope: string;
+  isRefreshing: boolean;
+  onRefresh: () => Promise<unknown>;
+  announcement?: string;
+};
 
 export default function PortfolioWorkspaceToolbar({
   controls,
@@ -30,6 +41,7 @@ export default function PortfolioWorkspaceToolbar({
   onControlsChange,
   onExport,
   quickActions,
+  sourceReceipt,
   contextChangePending = false,
 }: {
   controls: PortfolioWorkspaceControls;
@@ -37,6 +49,7 @@ export default function PortfolioWorkspaceToolbar({
   onControlsChange: (patch: Partial<PortfolioWorkspaceControls>) => void;
   onExport: () => void;
   quickActions: Array<{ key: string; label: string; href: string }>;
+  sourceReceipt?: PortfolioSourceReceipt;
   contextChangePending?: boolean;
 }) {
   const [actionsAnchor, setActionsAnchor] = useState<HTMLElement | null>(null);
@@ -132,6 +145,26 @@ export default function PortfolioWorkspaceToolbar({
 
         <div className="portfolio-workspace-toolbar-sidecar">
           <div className="portfolio-workspace-toolbar-actions">
+            {sourceReceipt ? (
+              <div className={styles.sourceReceipt}>
+                <WorkbenchDataAge
+                  updatedAt={sourceReceipt.checkedAt}
+                  subject="Portfolio evidence"
+                />
+                <SourceRefreshAction
+                  refreshScope={sourceReceipt.refreshScope}
+                  idleLabel="Recheck portfolio"
+                  busyLabel="Rechecking…"
+                  isRefreshing={sourceReceipt.isRefreshing}
+                  onRefresh={sourceReceipt.onRefresh}
+                />
+                {sourceReceipt.announcement ? (
+                  <span className="sr-only" role="status" aria-live="polite">
+                    {sourceReceipt.announcement}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
             <Button
               variant="outlined"
               size="small"

@@ -1,10 +1,75 @@
 import React from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import PortfolioWorkspaceToolbar from "@/apps/portfolio/components/portfolio-workspace-toolbar";
 
 describe("PortfolioWorkspaceToolbar", () => {
+  it("coalesces repeated recheck actions while the same request is pending", async () => {
+    let completeRefresh: (() => void) | undefined;
+    const onRefresh = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          completeRefresh = resolve;
+        }),
+    );
+
+    render(
+      <PortfolioWorkspaceToolbar
+        controls={{
+          asOfDate: "2026-03-29",
+          reportingCurrency: "USD",
+          viewMode: "summary",
+          timeWindow: "30D",
+          customStartDate: "",
+          customEndDate: "",
+          columnMode: "essential",
+          hideEmptyModules: false,
+          focusExceptions: false,
+        }}
+        context={{
+          selectedAsOfDate: "2026-03-29",
+          selectedReportingCurrency: "USD",
+          timeWindow: "30D",
+          periodLabel: "30D",
+          viewMode: "summary",
+          columnMode: "essential",
+          hideEmptyModules: false,
+          focusExceptions: false,
+          effectivePeriodStartDate: "2026-03-01",
+          effectivePeriodEndDate: "2026-03-29",
+          usesCustomDateRange: false,
+          hasHistoricalGap: false,
+          currencyOptions: ["USD"],
+          historicalSnapshotState: "supported",
+          historicalSnapshotReason: "Historical portfolio records are supported.",
+          supportsHistoricalSnapshots: true,
+          reportingCurrencyRestatementState: "supported",
+          reportingCurrencyRestatementReason: "Reporting currency is supported.",
+          supportsReportingCurrencyRestatement: true,
+        }}
+        onControlsChange={vi.fn()}
+        onExport={vi.fn()}
+        quickActions={[]}
+        sourceReceipt={{
+          checkedAt: Date.now() - 2 * 60_000,
+          refreshScope: "PORT_1001|2026-03-29|USD|30D",
+          isRefreshing: false,
+          onRefresh,
+        }}
+      />,
+    );
+
+    const recheck = screen.getByRole("button", { name: "Recheck portfolio" });
+    fireEvent.click(recheck);
+    fireEvent.click(recheck);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      completeRefresh?.();
+    });
+  });
+
   it("renders only controls that change visible review evidence and exposes source-backed actions", () => {
     const onControlsChange = vi.fn();
     const onExport = vi.fn();
@@ -49,6 +114,12 @@ describe("PortfolioWorkspaceToolbar", () => {
         quickActions={[
           { key: "review", label: "Review performance", href: "/performance?portfolioId=PORT_1001" },
         ]}
+        sourceReceipt={{
+          checkedAt: Date.now() - 2 * 60_000,
+          refreshScope: "PORT_1001|2026-03-29|USD|30D",
+          isRefreshing: false,
+          onRefresh: vi.fn().mockResolvedValue(undefined),
+        }}
       />
     );
 
@@ -86,6 +157,8 @@ describe("PortfolioWorkspaceToolbar", () => {
     expect(onExport).toHaveBeenCalledTimes(1);
 
     expect(screen.queryByRole("button", { name: /Filters/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/^Checked /)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Recheck portfolio" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     const actionsMenu = screen.getByRole("menu");
     expect(within(actionsMenu).getByRole("link", { name: "Review performance" })).toHaveAttribute(

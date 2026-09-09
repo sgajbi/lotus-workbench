@@ -88,6 +88,7 @@ vi.mock(
     default: ({
       controls,
       onControlsChange,
+      sourceReceipt,
     }: {
       controls: {
         viewMode: "summary" | "detailed";
@@ -99,12 +100,31 @@ vi.mock(
         viewMode?: "summary" | "detailed";
         timeWindow?: "30D" | "YTD" | "1Y";
       }) => void;
+      sourceReceipt?: {
+        checkedAt: number | null;
+        isRefreshing: boolean;
+        onRefresh: () => Promise<unknown>;
+        announcement?: string;
+      };
     }) => (
       <div>
         <div data-testid="view-mode">{controls.viewMode}</div>
         <div data-testid="time-window">{controls.timeWindow}</div>
         <div data-testid="as-of-date">{controls.asOfDate}</div>
         <div data-testid="reporting-currency">{controls.reportingCurrency}</div>
+        <div data-testid="source-checked-at">
+          {sourceReceipt?.checkedAt ?? "unavailable"}
+        </div>
+        <button
+          type="button"
+          disabled={sourceReceipt?.isRefreshing}
+          onClick={() => void sourceReceipt?.onRefresh()}
+        >
+          Recheck portfolio
+        </button>
+        {sourceReceipt?.announcement ? (
+          <div role="status">{sourceReceipt.announcement}</div>
+        ) : null}
         <button
           type="button"
           onClick={() => onControlsChange({ viewMode: "detailed" })}
@@ -233,6 +253,84 @@ describe("PortfolioWorkspaceClient", () => {
     routerPushMock.mockReset();
     resetAnalyticsUiMetricEvents();
     window.localStorage.clear();
+  });
+
+  it("shows the oldest admitted receipt and rechecks both exact Portfolio sources", async () => {
+    const workspace = buildWorkspace();
+    getSummaryDetailsMock.mockResolvedValue(
+      confirmedDetails({
+        as_of_date: workspace.as_of_date,
+        positions: [],
+      }),
+    );
+    getShellWorkspaceMock.mockResolvedValue(workspace);
+
+    render(
+      <PortfolioWorkspaceClient
+        portfolios={buildPortfolioCatalog("MANUAL_PB_USD_001")}
+        selectedPortfolioId="MANUAL_PB_USD_001"
+        initialWorkspace={workspace}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("source-checked-at")).not.toHaveTextContent(
+        "unavailable",
+      ),
+    );
+    const firstCheckedAt = Number(screen.getByTestId("source-checked-at").textContent);
+    expect(firstCheckedAt).toBeGreaterThan(0);
+    expect(getShellWorkspaceMock).not.toHaveBeenCalled();
+
+    await act(async () => {
+      screen.getByRole("button", { name: "Recheck portfolio" }).click();
+    });
+
+    await waitFor(() => expect(getShellWorkspaceMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(getSummaryDetailsMock).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Portfolio evidence rechecked.",
+    );
+    expect(
+      Number(screen.getByTestId("source-checked-at").textContent),
+    ).toBeGreaterThanOrEqual(firstCheckedAt);
+  });
+
+  it("does not claim a successful recheck when one current source fails", async () => {
+    const workspace = buildWorkspace();
+    getSummaryDetailsMock
+      .mockResolvedValueOnce(
+        confirmedDetails({
+          as_of_date: workspace.as_of_date,
+          positions: [],
+        }),
+      )
+      .mockResolvedValueOnce(null);
+    getShellWorkspaceMock.mockResolvedValue(workspace);
+
+    render(
+      <PortfolioWorkspaceClient
+        portfolios={buildPortfolioCatalog("MANUAL_PB_USD_001")}
+        selectedPortfolioId="MANUAL_PB_USD_001"
+        initialWorkspace={workspace}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("source-checked-at")).not.toHaveTextContent(
+        "unavailable",
+      ),
+    );
+    await act(async () => {
+      screen.getByRole("button", { name: "Recheck portfolio" }).click();
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Portfolio detail could not be refreshed",
+    );
+    expect(screen.queryByText("Portfolio evidence rechecked.")).not.toBeInTheDocument();
+    expect(getShellWorkspaceMock).toHaveBeenCalledTimes(1);
+    expect(getSummaryDetailsMock).toHaveBeenCalledTimes(2);
   });
 
   it("commits a review period and URL only after source detail is confirmed", async () => {
