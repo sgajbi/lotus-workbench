@@ -946,6 +946,9 @@ export default function PerformanceWorkspaceClient({
       benchmark={controls?.benchmark}
       onModeChange={(nextMode) => {
         setRefreshConfirmation(null);
+        setPendingRefresh((currentRefresh) =>
+          currentRefresh?.intent === "recheck" ? null : currentRefresh,
+        );
         modeRef.current = nextMode;
         setMode(nextMode);
         if (!controls) {

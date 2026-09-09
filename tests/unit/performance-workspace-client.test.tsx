@@ -395,6 +395,8 @@ describe("PerformanceWorkspaceClient", () => {
     await act(async () => screen.getByRole("button", { name: "Switch Risk Mode" }).click());
     await waitFor(() => expect(screen.getByTestId("mode")).toHaveTextContent("risk"));
     expect(screen.getByTestId("source-checked-at")).toHaveTextContent("unavailable");
+    expect(screen.getByTestId("refresh-kind")).toHaveTextContent("none");
+    expect(screen.getByTestId("updating")).toHaveTextContent("false");
 
     await act(async () => resolveSummary(initialSummary));
 

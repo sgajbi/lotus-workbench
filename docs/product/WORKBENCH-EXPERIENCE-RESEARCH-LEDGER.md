@@ -8029,8 +8029,9 @@ refresh authority?
    summary and detail atomically only after both still match the active review context.
 4. Keep the prior admitted receipt and analytics when an ordinary recheck fails. Announce success
    only after both reads succeed; preserve the existing permission-blocked and late-result fences,
-   including withholding a completion after the adviser changes to a different mode. A permission
-   denial still revokes retained evidence even when its mode-specific completion is obsolete.
+   including clearing its pending presentation and withholding completion after the adviser changes
+   to a different mode. A permission denial still revokes retained evidence even when its
+   mode-specific completion is obsolete.
 5. Keep the shared 30-second stale policy for ordinary navigation and avoid a same-route server
    navigation after explicit recheck, which would duplicate the two source reads. When the source
    normalizes an unsupported control, replace the current query-only history entry with the exact
