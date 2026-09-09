@@ -387,12 +387,19 @@ export default function PerformanceWorkspaceClient({
   const resolveDetailsForControls = useCallback(async (
     nextControls: PerformanceControlState,
     summaryEvidence: WorkbenchPerformanceWorkspaceSummary,
-    options: { allowInitialFallback?: boolean } = {}
+    options: { allowInitialFallback?: boolean; forceSourceRead?: boolean } = {}
   ): Promise<ResolvedPerformanceDetails> => {
     let sourceOptions = performanceWorkspaceDetailsQueryOptions(
       nextControls,
       summaryEvidence,
     );
+    if (options.forceSourceRead) {
+      await queryClient.invalidateQueries({
+        queryKey: sourceOptions.queryKey,
+        exact: true,
+        refetchType: "none",
+      });
+    }
     let resolvedDetails = await queryClient.fetchQuery(sourceOptions);
     let resolvedControls = buildResolvedDetailControls(nextControls, resolvedDetails);
 
@@ -420,6 +427,13 @@ export default function PerformanceWorkspaceClient({
           resolvedControls,
           summaryEvidence,
         );
+        if (options.forceSourceRead) {
+          await queryClient.invalidateQueries({
+            queryKey: sourceOptions.queryKey,
+            exact: true,
+            refetchType: "none",
+          });
+        }
         resolvedDetails = await queryClient.fetchQuery(sourceOptions);
       }
     }
@@ -540,6 +554,7 @@ export default function PerformanceWorkspaceClient({
             performanceWorkspaceSummaryQueryOptions(confirmedControls).queryKey,
           )?.dataUpdatedAt
         : undefined;
+      let forceDetailSourceRead = false;
       let detailRequestControls = requestedControls;
       let stagedDetails: ResolvedPerformanceDetails | null = null;
 
@@ -560,6 +575,12 @@ export default function PerformanceWorkspaceClient({
           dataUpdatedAt: revalidated.dataUpdatedAt,
         };
       } else if (refreshesSummary) {
+        const requestedSummaryKey = performanceWorkspaceSummaryQueryOptions(
+          requestedControls,
+        ).queryKey;
+        forceDetailSourceRead = !isPerformanceQueryFresh(
+          queryClient.getQueryState(requestedSummaryKey),
+        );
         const summary = await fetchPerformanceWorkspaceSummary(
           queryClient,
           requestedControls,
@@ -576,7 +597,9 @@ export default function PerformanceWorkspaceClient({
       failureScope = "details";
       const resolvedDetails =
         stagedDetails ??
-        (await resolveDetailsForControls(detailRequestControls, resolvedSummary));
+        (await resolveDetailsForControls(detailRequestControls, resolvedSummary, {
+          forceSourceRead: forceDetailSourceRead,
+        }));
       if (activeRefreshTokenRef.current !== refreshToken) {
         return;
       }
