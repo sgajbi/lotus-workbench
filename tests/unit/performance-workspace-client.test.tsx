@@ -389,6 +389,7 @@ describe("PerformanceWorkspaceClient", () => {
       }),
     );
 
+    const replaceState = vi.spyOn(window.history, "replaceState");
     render(<PerformanceWorkspaceClient {...buildDefaultClientProps(initialSummary, initialDetails)} />);
 
     screen.getByRole("button", { name: "Recheck performance" }).click();
@@ -397,10 +398,14 @@ describe("PerformanceWorkspaceClient", () => {
       expect(screen.getByTestId("refresh-kind")).toHaveTextContent("confirmed");
       expect(screen.getByTestId("refresh-intent")).toHaveTextContent("recheck");
     });
-    expect(pushMock).toHaveBeenCalledWith(
+    expect(replaceState).toHaveBeenCalledWith(
+      window.history.state,
+      "",
       "/performance?portfolioId=PF_1001&period=YTD&detailBasis=NET&contributionDimension=sector&attributionDimension=asset_class&chartFrequency=monthly&benchmark=BMK_GLOBAL_BALANCED_60_40",
-      { scroll: false },
     );
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(replaceMock).not.toHaveBeenCalled();
+    replaceState.mockRestore();
   });
 
   it("revalidates retained summary and detail evidence when the workspace remounts after stale time", async () => {

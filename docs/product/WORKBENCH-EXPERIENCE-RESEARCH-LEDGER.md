@@ -8030,7 +8030,8 @@ refresh authority?
    only after both reads succeed; preserve the existing permission-blocked and late-result fences.
 5. Keep the shared 30-second stale policy for ordinary navigation and avoid a same-route server
    navigation after explicit recheck, which would duplicate the two source reads. When the source
-   normalizes an unsupported control, update the URL to the exact confirmed selection.
+   normalizes an unsupported control, replace the current query-only history entry with the exact
+   confirmed selection without an App Router navigation or duplicate server read.
 
 ### Rejected decisions
 

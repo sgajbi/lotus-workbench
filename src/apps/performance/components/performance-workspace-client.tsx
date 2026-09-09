@@ -676,7 +676,7 @@ export default function PerformanceWorkspaceClient({
       const resolvedControlsHref = buildPerformanceControlsHref(resolvedDetails.controls);
       const routeControlsChanged =
         resolvedControlsHref !== buildPerformanceControlsHref(confirmedControls);
-      if (options.intent !== "recheck" || routeControlsChanged) {
+      if (options.intent !== "recheck") {
         acceptedRouteControlsKeyRef.current = resolvedControlsHref;
         pendingRouteEchoKeyRef.current = resolvedControlsHref;
         startTransition(() => {
@@ -684,6 +684,14 @@ export default function PerformanceWorkspaceClient({
             scroll: false,
           });
         });
+      } else if (routeControlsChanged) {
+        acceptedRouteControlsKeyRef.current = resolvedControlsHref;
+        pendingRouteEchoKeyRef.current = resolvedControlsHref;
+        window.history.replaceState(
+          window.history.state,
+          "",
+          buildPerformanceControlsHref(resolvedDetails.controls, modeRef.current),
+        );
       }
       if (options.focusTarget) {
         restorePerformanceSourceControlFocus(options.focusTarget);
