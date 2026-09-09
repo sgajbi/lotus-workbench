@@ -191,6 +191,13 @@ export default function PerformanceWorkspaceClient({
     [initialControls],
   );
   const acceptedRouteControlsKeyRef = useRef(initialRouteControlsKey);
+  const acceptedRouteEvidenceRef = useRef({
+    controlsKey: initialRouteControlsKey,
+    summaryResponse: initialSummary,
+    details: sourceConfirmedInitialDetails,
+    loadIssueState: initialLoadIssue?.state ?? null,
+    loadIssueStatus: initialLoadIssue?.status ?? null,
+  });
   const currentControlsIdentityRef = useRef(
     controls ? buildControlQueryIdentity(controls) : null,
   );
@@ -209,7 +216,7 @@ export default function PerformanceWorkspaceClient({
       initialData: controlsMatchServerPreload ? initialSummary ?? undefined : undefined,
     }),
   );
-  const currentSummary = loadIssue?.state === "permission_blocked"
+  const currentSummary = loadIssue
     ? null
     : summaryQuery.data ?? null;
   const detailsQuery = useQuery(
@@ -219,7 +226,7 @@ export default function PerformanceWorkspaceClient({
         : undefined,
     }),
   );
-  const currentDetails = loadIssue?.state === "permission_blocked"
+  const currentDetails = loadIssue
     ? null
     : detailsQuery.data ?? null;
   const detailsStatus: PerformanceDetailsStatus = currentDetails
@@ -231,15 +238,29 @@ export default function PerformanceWorkspaceClient({
         : "idle";
 
   useEffect(() => {
+    if (!initialControls || !initialRouteControlsKey) {
+      return;
+    }
+
+    const acceptedEvidence = acceptedRouteEvidenceRef.current;
     if (
-      !initialControls ||
-      !initialRouteControlsKey ||
-      acceptedRouteControlsKeyRef.current === initialRouteControlsKey
+      acceptedEvidence.controlsKey === initialRouteControlsKey &&
+      acceptedEvidence.summaryResponse === initialSummary &&
+      acceptedEvidence.details === sourceConfirmedInitialDetails &&
+      acceptedEvidence.loadIssueState === (initialLoadIssue?.state ?? null) &&
+      acceptedEvidence.loadIssueStatus === (initialLoadIssue?.status ?? null)
     ) {
       return;
     }
 
     acceptedRouteControlsKeyRef.current = initialRouteControlsKey;
+    acceptedRouteEvidenceRef.current = {
+      controlsKey: initialRouteControlsKey,
+      summaryResponse: initialSummary,
+      details: sourceConfirmedInitialDetails,
+      loadIssueState: initialLoadIssue?.state ?? null,
+      loadIssueStatus: initialLoadIssue?.status ?? null,
+    };
     activeRefreshTokenRef.current = null;
     automaticHydrationIdentityRef.current = null;
     void queryClient.cancelQueries({ queryKey: performanceWorkspaceQueryKeys.all });
