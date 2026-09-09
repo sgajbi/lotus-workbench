@@ -135,6 +135,9 @@ describe("BFF proxy route", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
     expect(response.status).toBe(401);
+    expect(response.headers.get("X-Workbench-Authority-Context")).toBe(
+      "cleared",
+    );
     await expect(response.json()).resolves.toEqual({
       code: "present_but_unverified",
       status: "rejected",
@@ -286,6 +289,9 @@ describe("BFF proxy route", () => {
       expect(fetchMock).not.toHaveBeenCalled();
       expect(response.status).toBe(401);
       expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("X-Workbench-Authority-Context")).toBe(
+        "cleared",
+      );
       await expect(response.json()).resolves.toEqual({
         code: "workbench_authenticated_principal_required",
         status: "rejected",

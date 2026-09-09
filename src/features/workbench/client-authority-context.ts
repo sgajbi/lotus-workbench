@@ -1,4 +1,5 @@
 import {
+  WORKBENCH_AUTHORITY_CONTEXT_CLEARED,
   WORKBENCH_AUTHORITY_CONTEXT_HEADER,
   WORKBENCH_AUTHORITY_CONTEXT_PATTERN,
 } from "./authority-context-contract";
@@ -38,13 +39,23 @@ export function reconcileResponseAuthorityContext(
 ): void {
   if (typeof window === "undefined") return;
   if (!response.headers || typeof response.headers.get !== "function") return;
-  const responseAuthority = response.headers.get(WORKBENCH_AUTHORITY_CONTEXT_HEADER);
-  if (!responseAuthority || !WORKBENCH_AUTHORITY_CONTEXT_PATTERN.test(responseAuthority)) {
+  const responseAuthorityHeader = response.headers.get(
+    WORKBENCH_AUTHORITY_CONTEXT_HEADER,
+  );
+  const responseAuthority =
+    responseAuthorityHeader === WORKBENCH_AUTHORITY_CONTEXT_CLEARED
+      ? null
+      : responseAuthorityHeader &&
+          WORKBENCH_AUTHORITY_CONTEXT_PATTERN.test(responseAuthorityHeader)
+        ? responseAuthorityHeader
+        : undefined;
+  if (responseAuthority === undefined) {
     return;
   }
 
+  const authorityStateWasEstablished = latestAcceptedRequestSequence > 0;
   const responseConflictsWithActiveAuthority =
-    activeAuthorityContext !== null && responseAuthority !== activeAuthorityContext;
+    authorityStateWasEstablished && responseAuthority !== activeAuthorityContext;
   const requestPredatesAcceptedAuthority =
     requestContext.sequence < latestAcceptedRequestSequence;
   const requestWasDispatchedForAnotherAuthority =
@@ -70,7 +81,7 @@ export function reconcileResponseAuthorityContext(
     latestAcceptedRequestSequence,
     requestContext.sequence,
   );
-  if (previousAuthority) {
+  if (previousAuthority !== null || authorityStateWasEstablished) {
     for (const listener of authorityChangeListeners) listener();
   }
 }

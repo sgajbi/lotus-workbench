@@ -19,7 +19,10 @@ import {
   matchesIdeaPresentationReceiptTenantAuthority,
 } from "@/features/workbench/caller-context";
 import { requiresAuthenticatedSessionPrincipal } from "@/features/workbench/authority-mode";
-import { WORKBENCH_AUTHORITY_CONTEXT_HEADER } from "@/features/workbench/authority-context-contract";
+import {
+  WORKBENCH_AUTHORITY_CONTEXT_CLEARED,
+  WORKBENCH_AUTHORITY_CONTEXT_HEADER,
+} from "@/features/workbench/authority-context-contract";
 import {
   buildGatewayBffRequestHeaders,
   readWorkbenchSessionAuthorization,
@@ -38,6 +41,21 @@ import { derivePrincipalAuthorityContext } from "@/features/workbench/principal-
 import { resolveVerifiedBffRouteRequirement } from "@/features/workbench/verified-bff-route";
 
 const BFF_PATH_PREFIX = "/api/bff/";
+
+function protectedResponseHeaders(
+  verifiedPrincipal?: ResolvedPrincipal,
+): Headers {
+  const headers = new Headers({ "cache-control": "no-store" });
+  if (requiresAuthenticatedSessionPrincipal()) {
+    headers.set(
+      WORKBENCH_AUTHORITY_CONTEXT_HEADER,
+      verifiedPrincipal
+        ? derivePrincipalAuthorityContext(verifiedPrincipal)
+        : WORKBENCH_AUTHORITY_CONTEXT_CLEARED,
+    );
+  }
+  return headers;
+}
 
 async function proxy(request: NextRequest, params: { path: string[] }) {
   const upstreamPath = params.path.join("/");
@@ -71,7 +89,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
           { code: principalAuthority.denialClass, status: "rejected" },
           {
             status: principalAuthority.httpStatus,
-            headers: { "cache-control": "no-store" },
+            headers: protectedResponseHeaders(),
           },
         );
       }
@@ -90,7 +108,10 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
     );
     return NextResponse.json(
       { code: rejection.code, status: "rejected" },
-      { status: rejection.status, headers: { "cache-control": "no-store" } },
+      {
+        status: rejection.status,
+        headers: protectedResponseHeaders(verifiedPrincipal),
+      },
     );
   }
   const ideaAuthority = applyIdeaRouteCallerContextHeaders(headers, {
@@ -108,7 +129,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       },
       {
         status: rejection.status,
-        headers: { "cache-control": "no-store" },
+        headers: protectedResponseHeaders(verifiedPrincipal),
       },
     );
   }
@@ -131,7 +152,10 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
     );
     return NextResponse.json(
       { code: rejection.code, status: "rejected" },
-      { status: rejection.status, headers: { "cache-control": "no-store" } },
+      {
+        status: rejection.status,
+        headers: protectedResponseHeaders(verifiedPrincipal),
+      },
     );
   }
   const advisoryCopilotAuthority =
@@ -149,7 +173,10 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
     );
     return NextResponse.json(
       { code: rejection.code, status: "rejected" },
-      { status: rejection.status, headers: { "cache-control": "no-store" } },
+      {
+        status: rejection.status,
+        headers: protectedResponseHeaders(verifiedPrincipal),
+      },
     );
   }
   const reportingAuthority = applyReportOrderingRouteCallerContextHeaders(
@@ -169,7 +196,10 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
         code: rejection.code,
         status: "rejected",
       },
-      { status: rejection.status, headers: { "cache-control": "no-store" } },
+      {
+        status: rejection.status,
+        headers: protectedResponseHeaders(verifiedPrincipal),
+      },
     );
   }
   if (requiresAuthenticatedSessionPrincipal() && !verifiedPrincipal) {
@@ -178,7 +208,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
         code: "workbench_authenticated_principal_required",
         status: "rejected",
       },
-      { status: 401, headers: { "cache-control": "no-store" } },
+      { status: 401, headers: protectedResponseHeaders() },
     );
   }
   if (verifiedGatewayCredential) {
@@ -213,7 +243,7 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
       },
       {
         status: timedOut ? 504 : 502,
-        headers: { "cache-control": "no-store" },
+        headers: protectedResponseHeaders(verifiedPrincipal),
       },
     );
   }
@@ -233,7 +263,10 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
         code: "idea_response_authority_mismatch",
         status: "unavailable",
       },
-      { status: 502, headers: { "cache-control": "no-store" } },
+      {
+        status: 502,
+        headers: protectedResponseHeaders(verifiedPrincipal),
+      },
     );
   }
 

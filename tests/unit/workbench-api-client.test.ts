@@ -11,6 +11,7 @@ import {
 import {
   resetClientAuthorityContextForTests,
   StaleAuthorityResponseError,
+  subscribeToAuthorityChanges,
 } from "@/features/workbench/client-authority-context";
 
 describe("workbench API error classification", () => {
@@ -216,5 +217,34 @@ describe("workbench API error classification", () => {
     await expect(pendingOlderRequest).rejects.toBeInstanceOf(
       StaleAuthorityResponseError,
     );
+  });
+
+  it("clears established authority when the BFF reports authenticated denial", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeToAuthorityChanges(listener);
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response('{"authority":"first"}', {
+            headers: { "X-Workbench-Authority-Context": "a".repeat(64) },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response('{"code":"expired_credential"}', {
+            status: 401,
+            headers: { "X-Workbench-Authority-Context": "cleared" },
+          }),
+        ),
+    );
+
+    await fetchWorkbenchJson("/api/bff/initial", "initial authority");
+    await expect(
+      fetchWorkbenchJson("/api/bff/expired", "expired authority"),
+    ).rejects.toMatchObject({ status: 401 });
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    unsubscribe();
   });
 });

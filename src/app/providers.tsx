@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CssBaseline, ThemeProvider } from "@mui/material";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 
 import { createLotusMuiTheme } from "@/design-system/theme/mui-theme";
 import {
@@ -27,12 +27,14 @@ export default function Providers({ children }: { children: React.ReactNode }) {
         },
       })
   );
+  const [authorityBoundaryRevision, setAuthorityBoundaryRevision] = useState(0);
 
   useEffect(
     () =>
       subscribeToAuthorityChanges(() => {
         void queryClient.cancelQueries();
         queryClient.clear();
+        setAuthorityBoundaryRevision((revision) => revision + 1);
       }),
     [queryClient],
   );
@@ -40,7 +42,9 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <Fragment key={authorityBoundaryRevision}>{children}</Fragment>
+      </QueryClientProvider>
     </ThemeProvider>
   );
 }

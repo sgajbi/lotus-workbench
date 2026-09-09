@@ -1,5 +1,5 @@
-import React from "react";
-import { act, render, screen } from "@testing-library/react";
+import React, { useState } from "react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { AppRouterCacheProvider } from "@mui/material-nextjs/v15-appRouter";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -35,6 +35,11 @@ function QueryClientProbe({ onClient }: { onClient?: (client: QueryClient) => vo
   );
 }
 
+function FeatureStateProbe() {
+  const [value, setValue] = useState("initial");
+  return <button onClick={() => setValue("principal data")}>{value}</button>;
+}
+
 describe("Providers", () => {
   afterEach(() => resetClientAuthorityContextForTests());
 
@@ -54,9 +59,12 @@ describe("Providers", () => {
     render(
       <Providers>
         <QueryClientProbe onClient={(client) => (queryClient = client)} />
+        <FeatureStateProbe />
       </Providers>,
     );
     queryClient!.setQueryData(["protected", "portfolio"], { id: "P1" });
+    fireEvent.click(screen.getByRole("button", { name: "initial" }));
+    expect(screen.getByRole("button", { name: "principal data" })).toBeVisible();
 
     act(() => {
       reconcileResponseAuthorityContext(
@@ -74,6 +82,7 @@ describe("Providers", () => {
     });
 
     expect(queryClient!.getQueryData(["protected", "portfolio"])).toBeUndefined();
+    expect(screen.getByRole("button", { name: "initial" })).toBeVisible();
   });
 });
 
