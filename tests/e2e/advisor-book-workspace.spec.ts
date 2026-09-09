@@ -4,7 +4,9 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 const evidenceDirectory = path.resolve(
-  process.env.ISSUE_811_EVIDENCE_DIR ?? path.join("output", "issue-811"),
+  process.env.ISSUE_1048_EVIDENCE_DIR ??
+    process.env.ISSUE_811_EVIDENCE_DIR ??
+    path.join("output", "issue-811"),
   "advisor-book",
 );
 
