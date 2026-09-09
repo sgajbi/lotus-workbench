@@ -139,7 +139,9 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   displayed composite and is labelled **Checked**. It is browser receipt metadata, not source
   business date, upstream collection time, or certified freshness. Explicit composite rechecks may
   claim success only when every required read succeeds and remains exact-current for the active
-  business context.
+  business context. Portfolio rechecks its shell/detail pair; Performance invalidates and fetches
+  its exact summary/detail revalidation identity once and does not navigate the unchanged route
+  after success, because doing so would duplicate source reads.
 - A source response is displayable only after schema and identity admission. Missing, malformed,
   partial, stale, unsupported, blocked, and conflicting evidence remain distinct.
 - A source mutation is not success by itself. User-visible confirmation requires the exact receipt
