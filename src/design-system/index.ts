@@ -143,7 +143,10 @@ export type { WorkbenchSummaryMetricStripItem } from "./components/workbench-sum
 export { default as WorkbenchLoadingState } from "./components/workbench-loading-state";
 export { default as WorkbenchInlineRefreshNote } from "./components/workbench-inline-refresh-note";
 export { default as WorkbenchDataAge } from "./components/workbench-data-age";
-export type { WorkbenchDataAgeModel } from "./components/workbench-data-age";
+export {
+  getOldestWorkbenchReceiptTime,
+  type WorkbenchDataAgeModel,
+} from "./components/workbench-data-age";
 export {
   buildWorkbenchUnsupportedReviewContextNotice,
   buildWorkbenchSourceContextNotice,

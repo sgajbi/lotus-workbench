@@ -4,11 +4,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import WorkbenchDataAge, {
   formatWorkbenchDataAge,
+  getOldestWorkbenchReceiptTime,
 } from "@/design-system/components/workbench-data-age";
 
 describe("WorkbenchDataAge", () => {
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("uses the oldest contributing receipt and fails closed when one is missing", () => {
+    expect(getOldestWorkbenchReceiptTime(300, 100, 200)).toBe(100);
+    expect(getOldestWorkbenchReceiptTime(300, null, 200)).toBeNull();
+    expect(getOldestWorkbenchReceiptTime(300, 0, 200)).toBeNull();
+    expect(getOldestWorkbenchReceiptTime()).toBeNull();
   });
 
   it("keeps receipt time distinct from source business date", () => {
