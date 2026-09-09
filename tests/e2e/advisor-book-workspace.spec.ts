@@ -134,7 +134,12 @@ async function assertWorkspaceAvailabilityAffordances(page: Page) {
 
 test("supports a keyboard-complete own-book review and portfolio handoff", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await mockAdvisorBook(page);
+  let advisorBookRequestCount = 0;
+  await mockShellFallback(page);
+  await page.route("**/api/bff/api/v1/advisor-book/portfolios?**", async (route) => {
+    advisorBookRequestCount += 1;
+    await route.fulfill({ json: advisorBookResponse });
+  });
   await page.goto("/book?asOfDate=2026-04-10", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByText("Private Banking Workbench", { exact: true })).toBeVisible();
@@ -154,6 +159,11 @@ test("supports a keyboard-complete own-book review and portfolio handoff", async
   ).toBe(4);
   expect((await summaryStrip.boundingBox())?.height).toBeLessThan(150);
   await expect(page.getByRole("table", { name: "Portfolios in my book" })).toBeVisible();
+  await expect(page.getByText(/Checked (just now|\d+ (second|minute)s? ago)/i)).toBeVisible();
+  expect(advisorBookRequestCount).toBe(1);
+  await page.getByRole("button", { name: "Recheck book" }).click();
+  await expect.poll(() => advisorBookRequestCount).toBe(2);
+  await expect(page.getByRole("button", { name: "Recheck book" })).toBeEnabled();
   const sourceRows = page.locator('[data-advisor-book-row="portfolio"]');
   await expect(sourceRows).toHaveCount(advisorBookResponse.items.length);
   for (const sourceItem of advisorBookResponse.items) {
@@ -231,6 +241,34 @@ test("supports a keyboard-complete own-book review and portfolio handoff", async
     "href",
     "/portfolio?portfolioId=PB_SG_GLOBAL_BAL_001&asOfDate=2026-04-10",
   );
+});
+
+test("keeps the admitted book visible when an explicit recheck fails", async ({ page }) => {
+  let advisorBookRequestCount = 0;
+  await mockShellFallback(page);
+  await page.route("**/api/bff/api/v1/advisor-book/portfolios?**", async (route) => {
+    advisorBookRequestCount += 1;
+    if (advisorBookRequestCount === 1) {
+      await route.fulfill({ json: advisorBookResponse });
+      return;
+    }
+    await route.fulfill({
+      status: 502,
+      json: { code: "advisor_book_source_unavailable" },
+    });
+  });
+  await page.goto("/book?asOfDate=2026-04-10", { waitUntil: "domcontentloaded" });
+
+  const table = page.getByRole("table", { name: "Portfolios in my book" });
+  await expect(table).toBeVisible();
+  await page.getByRole("button", { name: "Recheck book" }).click();
+
+  await expect(page.getByText(/Book recheck failed/i)).toBeVisible();
+  await expect(table).toBeVisible();
+  await expect(table.locator('[data-advisor-book-row="portfolio"]')).toHaveCount(
+    advisorBookResponse.items.length,
+  );
+  expect(advisorBookRequestCount).toBe(2);
 });
 
 for (const viewport of [

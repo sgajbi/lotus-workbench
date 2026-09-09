@@ -4,14 +4,16 @@ import { workbenchStrictQueryDefaults } from "@/features/platform-runtime/query-
 
 import { getAdvisorBook, type AdvisorBookQuery } from "./api";
 
+const advisorBookQueryRoot = ["advisor-book"] as const;
+
 export const advisorBookQueryKeys = {
-  all: ["advisor-book"] as const,
+  all: advisorBookQueryRoot,
   portfolios(
     query: AdvisorBookQuery,
     recoverOutOfRange: boolean,
   ) {
     return [
-      ...this.all,
+      ...advisorBookQueryRoot,
       "portfolios",
       {
         asOfDate: query.asOfDate,
