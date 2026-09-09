@@ -182,10 +182,15 @@
     {
       "id": "workbench-client-authority-context",
       "file": "src/features/workbench/client-authority-context.ts",
-      "symbols": ["activeAuthorityContext", "authorityChangeListeners"],
+      "symbols": [
+        "activeAuthorityContext",
+        "nextRequestSequence",
+        "latestAcceptedRequestSequence",
+        "authorityChangeListeners"
+      ],
       "classification": "browser_ephemeral",
-      "purpose": "Opaque browser-realm marker and listeners used to clear protected Query state when verified server authority changes.",
-      "bounds": "One fixed-length authority digest and one listener per mounted Workbench provider in the browser realm.",
+      "purpose": "Opaque browser-realm marker, bounded request-order fence, and listeners used to reject stale responses and clear protected Query state when verified server authority changes.",
+      "bounds": "One fixed-length authority digest, two monotonic request counters, and one listener per mounted Workbench provider in the browser realm.",
       "replicaBehavior": "Browser-local only; the marker carries no principal claims and cannot admit a request.",
       "businessAuthority": false,
       "sessionAuthority": false
