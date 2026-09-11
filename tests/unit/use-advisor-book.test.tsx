@@ -154,6 +154,35 @@ describe("useAdvisorBook", () => {
     expect(result.current.recheckError).toBeInstanceOf(Error);
   });
 
+  it("does not restore admitted rows or advance their receipt after a protected recheck is cancelled", async () => {
+    const response = { correlation_id: "book" };
+    getAdvisorBookMock
+      .mockResolvedValueOnce(response)
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(
+      () => useAdvisorBook({ asOfDate: "2026-04-10" }),
+      { wrapper: createQueryClientWrapper(queryClient) },
+    );
+
+    await waitFor(() => expect(result.current.response).toBe(response));
+    const checkedAt = result.current.checkedAt;
+    let reloadPromise: Promise<void> | undefined;
+    act(() => {
+      reloadPromise = result.current.reload();
+    });
+    await waitFor(() => expect(getAdvisorBookMock).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      void queryClient.cancelQueries();
+      queryClient.clear();
+      await reloadPromise;
+    });
+
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    expect(result.current.checkedAt).toBe(checkedAt);
+  });
+
   it("withholds cached rows after a permission denial", async () => {
     getAdvisorBookMock
       .mockResolvedValueOnce({ correlation_id: "book" })
