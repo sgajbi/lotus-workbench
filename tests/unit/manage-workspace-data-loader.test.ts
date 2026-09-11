@@ -6,6 +6,7 @@ import {
   loadManageWorkspaceData,
 } from "../../src/features/workbench/manage-workspace-data-loader";
 import type { ManageMode } from "../../src/features/workbench/manage-workspace-navigation";
+import { WorkbenchApiError } from "../../src/features/workbench/api-client";
 import { buildManageWorkspaceData } from "./manage-workspace-fixtures";
 
 const apiMocks = vi.hoisted(() => ({
@@ -165,6 +166,57 @@ describe("Manage workspace mode data loading", () => {
     expect(data.wavesError).toBe("Rebalance source timed out");
     expect(apiMocks.listDpmPmOperatingQualityPolicies).not.toHaveBeenCalled();
     expect(apiMocks.getDpmPortfolioMemory).not.toHaveBeenCalled();
+  });
+
+  it("loads the exact Overview source set through the client boundary with one shared signal", async () => {
+    const signal = new AbortController().signal;
+
+    await loadManageWorkspaceData(
+      buildManageWorkspaceData().portfolio,
+      "overview",
+      { signal, target: "client" },
+    );
+
+    expect(apiMocks.getDpmCommandCenter).toHaveBeenCalledWith(
+      { limit: 25 },
+      "client",
+      signal,
+    );
+    expect(apiMocks.getDpmCommandCenterExceptions).toHaveBeenCalledWith(
+      { portfolioId: "PF_1001", state: "ACTIVE", limit: 25 },
+      "client",
+      signal,
+    );
+    expect(apiMocks.getDpmMandateByPortfolio).toHaveBeenCalledWith(
+      "PF_1001",
+      "client",
+      signal,
+    );
+    expect(apiMocks.getDpmMandateHealth).toHaveBeenCalledWith(
+      "MANDATE_PB_SG_GLOBAL_BAL_001",
+      "client",
+      signal,
+    );
+    expect(apiMocks.listDpmWaves).toHaveBeenCalledWith(
+      { triggerType: "EXPLICIT_PORTFOLIO_LIST", limit: 10 },
+      "client",
+      signal,
+    );
+  });
+
+  it("preserves a permission refusal across the composed Overview result", async () => {
+    apiMocks.getDpmCommandCenterExceptions.mockRejectedValueOnce(
+      new WorkbenchApiError("DPM command-center exceptions", 403),
+    );
+
+    const data = await loadManageWorkspaceData(
+      buildManageWorkspaceData().portfolio,
+      "overview",
+    );
+
+    expect(data.sourceAccessWithheld).toBe(true);
+    expect(data.commandCenterExceptions).toBeNull();
+    expect(data.commandCenterExceptionsError).toContain("403");
   });
 
   it("keeps mandate-health transport detail out of the business surface", async () => {
