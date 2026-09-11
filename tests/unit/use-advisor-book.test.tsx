@@ -204,6 +204,39 @@ describe("useAdvisorBook", () => {
     expect(result.current.recheckError).toBeNull();
   });
 
+  it("keeps permission-denied rows withheld until a later recovery succeeds", async () => {
+    const response = { correlation_id: "book" };
+    getAdvisorBookMock
+      .mockResolvedValueOnce(response)
+      .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 403))
+      .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 502))
+      .mockResolvedValueOnce(response);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const { result } = renderHook(
+      () => useAdvisorBook({ asOfDate: "2026-04-10" }),
+      { wrapper: createQueryClientWrapper(queryClient) },
+    );
+
+    await waitFor(() => expect(result.current.response).toBe(response));
+    await act(async () => {
+      await result.current.reload();
+    });
+    await waitFor(() => expect(result.current.response).toBeNull());
+
+    await act(async () => {
+      await result.current.reload();
+    });
+    await waitFor(() => expect(result.current.error).toBeInstanceOf(WorkbenchApiError));
+    expect(result.current.response).toBeNull();
+    expect(result.current.checkedAt).toBeNull();
+
+    await act(async () => {
+      await result.current.reload();
+    });
+    await waitFor(() => expect(result.current.response).toBe(response));
+    expect(getAdvisorBookMock).toHaveBeenCalledTimes(4);
+  });
+
   it("recovers one out-of-range source page before publishing ready state", async () => {
     getAdvisorBookMock
       .mockResolvedValueOnce({
