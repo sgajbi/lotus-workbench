@@ -232,6 +232,45 @@ describe("useAdvisorBook", () => {
     expect(result.current.recheckError).toBeNull();
   });
 
+  it("does not cache the previous authority refusal after its query is cleared", async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    getAdvisorBookMock
+      .mockResolvedValueOnce({ correlation_id: "previous-authority" })
+      .mockImplementationOnce(async () => {
+        queryClient.clear();
+        throw new WorkbenchApiError("advisor book", 403);
+      })
+      .mockResolvedValueOnce({ correlation_id: "current-authority" });
+    const wrapper = createQueryClientWrapper(queryClient);
+    const first = renderHook(
+      () => useAdvisorBook({ asOfDate: "2026-04-10" }),
+      { wrapper },
+    );
+
+    await waitFor(() =>
+      expect(first.result.current.response).toEqual({
+        correlation_id: "previous-authority",
+      }),
+    );
+    await act(async () => {
+      await first.result.current.reload();
+    });
+
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(0);
+    first.unmount();
+
+    const second = renderHook(
+      () => useAdvisorBook({ asOfDate: "2026-04-10" }),
+      { wrapper },
+    );
+    await waitFor(() =>
+      expect(second.result.current.response).toEqual({
+        correlation_id: "current-authority",
+      }),
+    );
+    expect(getAdvisorBookMock).toHaveBeenCalledTimes(3);
+  });
+
   it("keeps permission-denied rows withheld across remount until a later recovery succeeds", async () => {
     const response = { correlation_id: "book" };
     getAdvisorBookMock
