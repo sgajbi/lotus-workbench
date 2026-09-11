@@ -72,6 +72,10 @@ test("Manage Overview keeps the portfolio decision first without repeated destin
     await expect(page.getByLabel("Portfolio operating summary")).toContainText(
       "12,500,000.00 SGD",
     );
+    await expect(page.getByText(/^Checked /)).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Recheck overview" }),
+    ).toBeVisible();
     await expect(page.getByLabel("Manage source evidence")).toBeVisible();
     await expect(page.getByText("Data availability", { exact: true })).toHaveCount(1);
     await expect(page.getByText("Rebalance status", { exact: true })).toHaveCount(1);
@@ -86,6 +90,28 @@ test("Manage Overview keeps the portfolio decision first without repeated destin
       "manage-workspace-rail-workflow-directory",
       "manage-overview-decision-worklist-decision",
     ]);
+
+    if (viewport.width === 1440) {
+      fixtureGateway?.resetRequestPaths();
+      await page.getByRole("button", { name: "Recheck overview" }).click();
+      await expect(
+        page.getByRole("button", { name: "Recheck overview" }),
+      ).toBeEnabled();
+      const paths = fixtureGateway?.getRequestPaths() ?? [];
+      for (const expectedPath of [
+        `/api/v1/workbench/${portfolioId}/portfolio-360`,
+        "/api/v1/dpm/command-center",
+        "/api/v1/dpm/command-center/exceptions",
+        `/api/v1/dpm/command-center/mandates/by-portfolio/${portfolioId}`,
+        `/api/v1/dpm/command-center/mandates/MANDATE_${portfolioId}/health`,
+        "/api/v1/dpm/command-center/waves",
+      ]) {
+        expect(
+          paths.filter((path) => path === expectedPath),
+          `${expectedPath} should be read exactly once by one Overview recheck.`,
+        ).toHaveLength(1);
+      }
+    }
 
     const compactDisclosure = page
       .getByTestId("portfolio-screen-rail-header")
