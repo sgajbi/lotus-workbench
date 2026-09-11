@@ -1,11 +1,16 @@
+import type { RefObject } from "react";
+
 import type { PortfolioReviewContext } from "@/apps/portfolio/portfolio-screen-navigation";
 
 import {
+  ActionButton,
   ScreenStatePanel,
   SectionBlock,
   SemanticBadge,
+  WorkbenchDataAge,
   WorkbenchSummaryMetricStrip,
 } from "@/design-system";
+import type { SourceRefreshState } from "@/design-system";
 import type { ManageWorkspaceData } from "@/features/workbench/manage-workspace-data";
 import { buildManageOverviewModel } from "@/features/workbench/manage-overview-model";
 import { MANAGE_WORKFLOW_LABELS } from "@/features/workbench/manage-terminology";
@@ -16,9 +21,17 @@ import styles from "./manage-overview.module.css";
 export default function ManageOverview({
   data,
   reviewContext,
+  checkedAt = null,
+  actionRef,
+  recheckState = null,
+  onRecheck,
 }: {
   data: ManageWorkspaceData;
   reviewContext: PortfolioReviewContext;
+  checkedAt?: number | null;
+  actionRef?: RefObject<HTMLButtonElement | null>;
+  recheckState?: SourceRefreshState | null;
+  onRecheck?: () => Promise<unknown>;
 }) {
   const model = buildManageOverviewModel(data, reviewContext);
 
@@ -28,11 +41,31 @@ export default function ManageOverview({
       subtitle="Review mandate readiness, resolve open attention items, and continue the selected rebalance workflow."
       className="manage-overview-panel"
       actions={
-        <SemanticBadge tone={model.overviewPostureTone} emphasis="strong">
-          {model.overviewPostureLabel}
-        </SemanticBadge>
+        <div className={styles.receiptActions}>
+          <SemanticBadge tone={model.overviewPostureTone} emphasis="strong">
+            {model.overviewPostureLabel}
+          </SemanticBadge>
+          {checkedAt ? <WorkbenchDataAge updatedAt={checkedAt} /> : null}
+          {onRecheck ? (
+            <ActionButton
+              ref={actionRef}
+              priority="quiet"
+              disabled={recheckState === "pending"}
+              onClick={() => void onRecheck().catch(() => undefined)}
+            >
+              {recheckState === "pending" ? "Rechecking…" : "Recheck overview"}
+            </ActionButton>
+          ) : null}
+        </div>
       }
     >
+      {recheckState === "failed" ? (
+        <p className={styles.recheckFailure} role="status">
+          Overview recheck failed. The displayed portfolio-management evidence remains from the
+          previous successful check.
+        </p>
+      ) : null}
+
       <PortfolioOperatingSummary summary={model.portfolioSummary} />
 
       <WorkbenchSummaryMetricStrip
