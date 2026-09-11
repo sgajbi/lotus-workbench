@@ -110,6 +110,10 @@ handing the user to a focused Manage mode.
   navigation and are not presented as decision-worklist records.
 - Presents portfolio value, positions, cash weight, and risk profile as one compact horizontal
   measure strip ahead of the decision worklist.
+- Shows one **Checked** receipt only when the full Overview composite was admitted, and provides one
+  **Recheck overview** action that rereads the exact portfolio, command-centre, active-exception,
+  mandate, dependent mandate-health, and rebalance-wave sources. Focus, reconnect, and remount do
+  not trigger ambient reads.
 - Assigns one owner to each information job: the Workbench left rail owns Manage destinations, the
   centre workspace owns operating posture and decisions, and the right rail owns only distinct
   source-evidence availability, monitoring-record, and traceability facts. The evidence rail does
@@ -130,6 +134,7 @@ handing the user to a focused Manage mode.
 | User decision or action | Required evidence or gate | Persisted business change |
 | --- | --- | --- |
 | Decide whether the overview is usable | Core portfolio context plus available Manage mandate, health, exception, and wave evidence | None; read-only review |
+| Recheck the displayed overview | The same six-read selected-portfolio composite; every response must succeed and remain bound to the active review context | None; advances browser receipt time only after complete admission |
 | Treat the attention count as zero | Complete, non-degraded, untruncated active-exception response | None |
 | Investigate an attention item | Source-returned item and its next-step link | None from Overview; opens Mandate Health |
 | Continue portfolio management | A source-backed mandate-attention, evidence-boundary, or rebalance record in the decision worklist | None from Overview; opens Mandate Health or Rebalance Waves with portfolio context preserved |
@@ -148,6 +153,7 @@ portfolio instruction, order, execution, settlement record, or approval.
 | Rebalance stage, source readiness, issue count, and support note | Presents source-owned wave posture without execution claims | Gateway over Manage rebalance-wave contracts |
 | Manage workflow navigation | Builds portfolio-preserving Workbench routes to implemented modes once in the shell-owned left rail | Workbench over the registered Manage navigation |
 | Evidence-pack, monitoring-record, and traceability availability | Derives bounded presentation facts from the already returned source evidence; does not create another operating-status authority | Workbench over Gateway-returned Core and Manage evidence |
+| **Checked** receipt and recheck state | Owns Query identity, cancellation, complete-composite admission, and browser receipt time; does not derive business freshness | Workbench client state over the six Gateway-backed reads above |
 
 Workbench uses the BFF and Gateway. It does not call Core or Manage directly. Shared contract detail
 remains in [API Surface](API-Surface), and ownership flow remains in
@@ -161,6 +167,8 @@ remains in [API Surface](API-Surface), and ownership flow remains in
 | Ready for review | Required overview evidence is present and no active attention item is reported | Continue to the required work area; this is not approval or all-clear authority |
 | Action required | Source evidence is usable and one or more active attention items are reported | Review the worklist and open Mandate Health |
 | Evidence incomplete | One or more named overview facts or source surfaces are missing or failed | Use the named partial-state list and open the relevant focused mode when available |
+| Rechecking | Existing admitted evidence remains visible while the exact six-read composite is requested once | Wait for completion; repeated submission is disabled |
+| Recheck failed | Prior admitted evidence and receipt remain visible with an explicit failure message | Use **Recheck overview** again; no failed or partial replacement is promoted |
 | Attention evidence unavailable | No zero-attention conclusion; the worklist explains the missing evidence | Re-establish the source response or follow the support path |
 | Partial source view | Returned items remain visible as **N shown**, with the bounded source view and unconfirmed total stated explicitly | Open Mandate Health to review the available evidence; continue through source views when pagination is available |
 | Empty attention worklist | Source-confirmed statement that the current window has no active items | Continue the review without inferring enterprise-wide absence |
@@ -170,8 +178,12 @@ remains in [API Surface](API-Surface), and ownership flow remains in
 | Portfolio unavailable | Manage workspace unavailable state with supported Portfolio or Performance handoff | Confirm the portfolio context, then follow the approved support process |
 | Permission blocked | The owning source request fails closed; restricted evidence is not rendered as current | Use an entitled role or approved support path |
 
-Overview has no screen-local refresh transaction. Reloading the route re-contacts the Workbench BFF;
-the page does not preserve failed evidence and relabel it current.
+The initial route supplies one server-composed Overview. TanStack Query owns that exact hydrated
+composite in the browser. **Recheck overview** is the only screen-local source transaction: it
+contacts all six required BFF paths once and advances **Checked** only when every response is
+admitted for the active portfolio and review context. An ordinary failure retains the previous
+admitted evidence and receipt with an explicit failure state; a permission refusal withholds the
+evidence. Delayed results cannot cross portfolio or review-context boundaries.
 
 ## Workbench Boundaries
 
