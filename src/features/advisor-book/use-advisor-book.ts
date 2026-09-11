@@ -58,7 +58,13 @@ export function useAdvisorBook(
           });
         }
       } catch (error) {
-        if (isWorkbenchPermissionBlockedError(error)) {
+        const currentQuery = queryClient
+          .getQueryCache()
+          .find({ queryKey: queryDefinition.queryKey, exact: true });
+        if (
+          currentQuery === activeQuery &&
+          isWorkbenchPermissionBlockedError(error)
+        ) {
           queryClient.setQueryData<AdvisorBookQueryResult>(
             queryDefinition.queryKey,
             {
