@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { isWorkbenchPermissionBlockedError } from "@/features/workbench/api-client";
 
 import type { AdvisorBookQuery } from "./api";
-import { advisorBookQueryOptions } from "./advisor-book-query-options";
+import {
+  advisorBookQueryOptions,
+  type AdvisorBookQueryResult,
+} from "./advisor-book-query-options";
 
 export function useAdvisorBook(
   query: AdvisorBookQuery,
@@ -19,16 +21,15 @@ export function useAdvisorBook(
   );
   const sourceQuery = useQuery(queryDefinition);
   const permissionBlocked = isWorkbenchPermissionBlockedError(sourceQuery.error);
-  const queryIdentity = JSON.stringify(queryDefinition.queryKey);
-  const [withheldIdentity, setWithheldIdentity] = useState<string | null>(null);
-  const rowsWithheld = permissionBlocked || withheldIdentity === queryIdentity;
-  const response = rowsWithheld ? null : (sourceQuery.data ?? null);
+  const rowsWithheld = permissionBlocked || sourceQuery.data?.accessWithheld === true;
+  const response = rowsWithheld ? null : (sourceQuery.data?.response ?? null);
   const hasAdmittedResponse = response !== null;
+  const sourceError = sourceQuery.error ?? sourceQuery.data?.refusal ?? null;
 
   return {
     response,
     loading: sourceQuery.isPending || (!hasAdmittedResponse && sourceQuery.isFetching),
-    error: hasAdmittedResponse ? null : sourceQuery.error,
+    error: hasAdmittedResponse ? null : sourceError,
     recheckError:
       hasAdmittedResponse && !sourceQuery.isFetching ? sourceQuery.error : null,
     rechecking: hasAdmittedResponse && sourceQuery.isFetching,
@@ -52,14 +53,21 @@ export function useAdvisorBook(
           result.isSuccess &&
           result.data !== undefined
         ) {
-          setWithheldIdentity(null);
           queryClient.setQueryData(queryDefinition.queryKey, result.data, {
             updatedAt: Math.max(Date.now(), previousReceipt + 1),
           });
         }
       } catch (error) {
         if (isWorkbenchPermissionBlockedError(error)) {
-          setWithheldIdentity(queryIdentity);
+          queryClient.setQueryData<AdvisorBookQueryResult>(
+            queryDefinition.queryKey,
+            {
+              response: null,
+              accessWithheld: true,
+              refusal: error,
+            },
+            { updatedAt: previousReceipt },
+          );
         }
         // Query state owns the user-visible failure; cancellation must not restore cleared data.
       }
