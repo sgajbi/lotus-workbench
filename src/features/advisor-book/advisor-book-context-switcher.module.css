@@ -77,11 +77,18 @@
 }
 
 .optionState {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
   margin: 0;
   padding: 10px;
   color: var(--lotus-text-muted, #66717f);
   background: #ffffff;
   font-size: 0.75rem;
+}
+
+.optionState p {
+  margin: 0;
 }
 
 .support {

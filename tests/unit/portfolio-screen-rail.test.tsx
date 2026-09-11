@@ -6,6 +6,7 @@ import PortfolioScreenRailComponent from "../../src/apps/portfolio/components/po
 
 const usePathnameMock = vi.fn();
 const useAdvisorBookMock = vi.fn();
+const reloadAdvisorBookMock = vi.fn();
 
 function PortfolioScreenRail({
   relationshipIdBase = "portfolio-screen-rail-test",
@@ -70,6 +71,7 @@ describe("PortfolioScreenRail", () => {
     useAdvisorBookMock.mockReturnValue({
       loading: false,
       error: null,
+      reload: reloadAdvisorBookMock,
       response: {
         items: [
           {
@@ -644,6 +646,28 @@ describe("PortfolioScreenRail", () => {
     openPortfolioContextOptions();
 
     expect(useAdvisorBookMock).toHaveBeenCalledOnce();
+  });
+
+  it("offers an explicit retry when portfolio membership cannot be confirmed", () => {
+    useAdvisorBookMock.mockReturnValue({
+      loading: false,
+      error: new Error("source unavailable"),
+      response: null,
+      reload: reloadAdvisorBookMock,
+    });
+    render(
+      <PortfolioScreenRail
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        activeScreen="income"
+      />,
+    );
+
+    openPortfolioContextOptions();
+    expect(screen.getByText(/switching is unavailable/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry portfolios" }));
+
+    expect(reloadAdvisorBookMock).toHaveBeenCalledOnce();
   });
 
   it("does not request portfolio options while the business date is unconfirmed", () => {

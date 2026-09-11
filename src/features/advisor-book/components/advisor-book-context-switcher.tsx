@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { ActionButton } from "@/design-system";
+
 import {
   resolveAdvisorBookAsOfDateFromSearchParams,
   type AdvisorBookAsOfDateResolution,
@@ -117,7 +119,7 @@ function AdvisorBookContextOptionsWithDate({
     () => ({ asOfDate, sortBy: "client_id" as const, sortOrder: "asc" as const, limit: 100 }),
     [asOfDate],
   );
-  const { response, loading, error } = useAdvisorBook(query);
+  const { response, loading, error, reload } = useAdvisorBook(query);
   const searchParams = new URLSearchParams(locationSearch);
   const selectedMembership = response?.items.find((item) => item.portfolio_id === portfolioId);
 
@@ -126,9 +128,12 @@ function AdvisorBookContextOptionsWithDate({
   }
   if (error) {
     return (
-      <p className={`${styles.optionState} ${styles.warning}`}>
-        Switching is unavailable until book membership can be confirmed.
-      </p>
+      <div className={`${styles.optionState} ${styles.warning}`}>
+        <p>Switching is unavailable until book membership can be confirmed.</p>
+        <ActionButton priority="secondary" onClick={() => void reload()}>
+          Retry portfolios
+        </ActionButton>
+      </div>
     );
   }
   if (!response?.items.length) {
