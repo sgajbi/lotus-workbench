@@ -202,13 +202,14 @@ export async function fetchWorkbenchResource<T>(
   target: WorkbenchRequestTarget,
   path: string,
   errorLabel: string,
-  query?: URLSearchParams | string
+  query?: URLSearchParams | string,
+  init?: Pick<RequestInit, "signal">,
 ): Promise<T> {
   return await fetchWorkbenchJson<T>(
     buildWorkbenchUrl(target, path, query),
     errorLabel,
     target === "client"
-      ? { headers: buildAnalyticsUiCorrelationHeaders() }
-      : { headers: buildServerGatewayHeaders() }
+      ? { ...init, headers: buildAnalyticsUiCorrelationHeaders() }
+      : { ...init, headers: buildServerGatewayHeaders() }
   );
 }

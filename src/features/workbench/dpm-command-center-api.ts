@@ -34,7 +34,7 @@ export async function getDpmCommandCenter(params?: {
   asOfDate?: string;
   healthState?: string;
   limit?: number;
-}): Promise<DpmCommandCenterGatewayResponse> {
+}, target: WorkbenchRequestTarget = "server", signal?: AbortSignal): Promise<DpmCommandCenterGatewayResponse> {
   const dpmContext = resolveDefaultDpmContext();
   const query = new URLSearchParams();
   query.set("tenant_id", params?.tenantId ?? dpmContext.commandCenterTenantId);
@@ -52,10 +52,11 @@ export async function getDpmCommandCenter(params?: {
     "dpm.command-center.summary",
     async () =>
       await fetchWorkbenchResource<DpmCommandCenterGatewayResponse>(
-        "server",
+        target,
         "/dpm/command-center",
         "DPM command center",
-        query
+        query,
+        { signal },
       )
   );
 }
@@ -70,7 +71,7 @@ export async function getDpmCommandCenterExceptions(params?: {
   severity?: string;
   limit?: number;
   cursor?: string;
-}, target: WorkbenchRequestTarget = "server"): Promise<DpmCommandCenterGatewayResponse> {
+}, target: WorkbenchRequestTarget = "server", signal?: AbortSignal): Promise<DpmCommandCenterGatewayResponse> {
   const dpmContext = resolveDefaultDpmContext();
   const query = new URLSearchParams();
   query.set("tenant_id", params?.tenantId ?? dpmContext.commandCenterTenantId);
@@ -104,7 +105,8 @@ export async function getDpmCommandCenterExceptions(params?: {
         target,
         "/dpm/command-center/exceptions",
         "DPM command-center exceptions",
-        query
+        query,
+        { signal },
       )
   );
 }
@@ -149,29 +151,37 @@ export async function requestDpmExceptionSummary(params: {
 }
 
 export async function getDpmMandateByPortfolio(
-  portfolioId: string
+  portfolioId: string,
+  target: WorkbenchRequestTarget = "server",
+  signal?: AbortSignal,
 ): Promise<DpmCommandCenterGatewayResponse> {
   return await observeWorkbenchResource(
     "dpm.command-center.mandate.by-portfolio",
     async () =>
       await fetchWorkbenchResource<DpmCommandCenterGatewayResponse>(
-        "server",
+        target,
         `/dpm/command-center/mandates/by-portfolio/${encodeURIComponent(portfolioId)}`,
-        "DPM mandate by portfolio"
+        "DPM mandate by portfolio",
+        undefined,
+        { signal },
       )
   );
 }
 
 export async function getDpmMandateHealth(
-  mandateId: string
+  mandateId: string,
+  target: WorkbenchRequestTarget = "server",
+  signal?: AbortSignal,
 ): Promise<DpmCommandCenterGatewayResponse> {
   return await observeWorkbenchResource(
     "dpm.command-center.mandate.health",
     async () =>
       await fetchWorkbenchResource<DpmCommandCenterGatewayResponse>(
-        "server",
+        target,
         `/dpm/command-center/mandates/${encodeURIComponent(mandateId)}/health`,
-        "DPM mandate health"
+        "DPM mandate health",
+        undefined,
+        { signal },
       )
   );
 }

@@ -111,7 +111,7 @@ export async function listDpmWaves(params?: {
   supportabilityState?: string;
   limit?: number;
   offset?: number;
-}, target: WorkbenchRequestTarget = "server"): Promise<DpmWaveGatewayResponse> {
+}, target: WorkbenchRequestTarget = "server", signal?: AbortSignal): Promise<DpmWaveGatewayResponse> {
   const dpmContext = resolveDefaultDpmContext();
   const query = new URLSearchParams();
   query.set("trigger_type", params?.triggerType ?? "EXPLICIT_PORTFOLIO_LIST");
@@ -131,7 +131,8 @@ export async function listDpmWaves(params?: {
         target,
         "/dpm/command-center/waves",
         "DPM rebalance waves",
-        query
+        query,
+        { signal },
       )
   );
 }

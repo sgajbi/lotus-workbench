@@ -13,6 +13,7 @@ import {
   getDpmPmOperatingQualitySummaryInvocation,
   getDpmPortfolioMemory,
   getDpmProofPack,
+  isWorkbenchPermissionBlockedError,
   listDpmCampaignApprovalInbox,
   listDpmCampaignAssignmentPlan,
   listDpmCampaignDefinitions,
@@ -28,6 +29,7 @@ import {
   listDpmWaves,
   searchDpmPortfolioMemory,
 } from "@/features/workbench/api";
+import type { WorkbenchRequestTarget } from "@/features/workbench/api-client";
 import type { ManageMode } from "@/features/workbench/manage-workspace-navigation";
 import { readDpmCampaignDefinitionRecords } from "@/features/workbench/dpm-campaign-source-records";
 import {
@@ -74,6 +76,8 @@ export const MANAGE_MODE_DATA_REQUIREMENTS = {
 type PortfolioResponse = Awaited<ReturnType<typeof getPortfolio360>>;
 type LoaderContext = {
   portfolioId: string;
+  signal?: AbortSignal;
+  target: WorkbenchRequestTarget;
 };
 type DataSliceLoader = (
   context: LoaderContext,
@@ -81,6 +85,7 @@ type DataSliceLoader = (
 type SourceResult<T> = {
   value: T | null;
   error: string | null;
+  accessWithheld: boolean;
 };
 
 const DATA_SLICE_LOADERS: Record<ManageDataRequirement, DataSliceLoader> = {
@@ -99,48 +104,67 @@ const DATA_SLICE_LOADERS: Record<ManageDataRequirement, DataSliceLoader> = {
 export async function loadManageWorkspaceData(
   portfolio: PortfolioResponse,
   mode: ManageMode,
+  options: Readonly<{
+    signal?: AbortSignal;
+    target?: WorkbenchRequestTarget;
+  }> = {},
 ): Promise<ManageWorkspaceData> {
   const requirements = new Set<ManageDataRequirement>([
     ...MANAGE_SHARED_DATA_REQUIREMENTS,
     ...MANAGE_MODE_DATA_REQUIREMENTS[mode],
   ]);
-  const context = { portfolioId: portfolio.portfolio.portfolio_id };
+  const context = {
+    portfolioId: portfolio.portfolio.portfolio_id,
+    signal: options.signal,
+    target: options.target ?? "server",
+  };
   const slices = await Promise.all(
     [...requirements].map((requirement) => DATA_SLICE_LOADERS[requirement](context)),
   );
 
-  return Object.assign(createEmptyManageWorkspaceData(portfolio), ...slices);
+  const data = Object.assign(createEmptyManageWorkspaceData(portfolio), ...slices);
+  data.sourceAccessWithheld = slices.some((slice) => slice.sourceAccessWithheld === true);
+  return data;
 }
 
-async function loadCommandCenter(): Promise<Partial<ManageWorkspaceData>> {
+async function loadCommandCenter({
+  signal,
+  target,
+}: LoaderContext): Promise<Partial<ManageWorkspaceData>> {
   const result = await readSource(
-    () => getDpmCommandCenter({ limit: 25 }),
+    () => getDpmCommandCenter({ limit: 25 }, target, signal),
     "Mandate readiness is temporarily unavailable.",
   );
   return {
     commandCenter: result.value,
     commandCenterError: result.error,
+    sourceAccessWithheld: result.accessWithheld,
   };
 }
 
 async function loadActiveExceptions({
   portfolioId,
+  signal,
+  target,
 }: LoaderContext): Promise<Partial<ManageWorkspaceData>> {
   const result = await readSource(
-    () => getDpmCommandCenterExceptions({ portfolioId, state: "ACTIVE", limit: 25 }),
+    () => getDpmCommandCenterExceptions({ portfolioId, state: "ACTIVE", limit: 25 }, target, signal),
     "Mandate attention evidence is temporarily unavailable.",
   );
   return {
     commandCenterExceptions: result.value,
     commandCenterExceptionsError: result.error,
+    sourceAccessWithheld: result.accessWithheld,
   };
 }
 
 async function loadMandateHealth({
   portfolioId,
+  signal,
+  target,
 }: LoaderContext): Promise<Partial<ManageWorkspaceData>> {
   const mandateResult = await readSource(
-    () => getDpmMandateByPortfolio(portfolioId),
+    () => getDpmMandateByPortfolio(portfolioId, target, signal),
     "Mandate health evidence is temporarily unavailable.",
   );
   const mandateId = readDpmMandateId(mandateResult.value?.data ?? null);
@@ -150,11 +174,12 @@ async function loadMandateHealth({
       mandateHealth: null,
       mandateHealthError:
         mandateResult.error ?? "Mandate health evidence is unavailable for this portfolio.",
+      sourceAccessWithheld: mandateResult.accessWithheld,
     };
   }
 
   const healthResult = await readSource(
-    () => getDpmMandateHealth(mandateId),
+    () => getDpmMandateHealth(mandateId, target, signal),
     "Mandate health evidence is temporarily unavailable.",
   );
   return {
@@ -163,15 +188,24 @@ async function loadMandateHealth({
     mandateHealthError: healthResult.error
       ? "Mandate health evidence is temporarily unavailable."
       : null,
+    sourceAccessWithheld:
+      mandateResult.accessWithheld || healthResult.accessWithheld,
   };
 }
 
-async function loadRebalanceWaves(): Promise<Partial<ManageWorkspaceData>> {
+async function loadRebalanceWaves({
+  signal,
+  target,
+}: LoaderContext): Promise<Partial<ManageWorkspaceData>> {
   const result = await readSource(
-    () => listDpmWaves({ triggerType: "EXPLICIT_PORTFOLIO_LIST", limit: 10 }),
+    () => listDpmWaves({ triggerType: "EXPLICIT_PORTFOLIO_LIST", limit: 10 }, target, signal),
     "DPM wave endpoint unavailable.",
   );
-  return { waves: result.value, wavesError: result.error };
+  return {
+    waves: result.value,
+    wavesError: result.error,
+    sourceAccessWithheld: result.accessWithheld,
+  };
 }
 
 async function loadPortfolioMemory({
@@ -397,7 +431,9 @@ async function loadOptionalDetail<T>(
   load: (id: string) => Promise<T>,
   fallback: string,
 ): Promise<SourceResult<T>> {
-  return id ? readSource(() => load(id), fallback) : { value: null, error: null };
+  return id
+    ? readSource(() => load(id), fallback)
+    : { value: null, error: null, accessWithheld: false };
 }
 
 async function readSource<T>(
@@ -405,11 +441,12 @@ async function readSource<T>(
   fallback: string,
 ): Promise<SourceResult<T>> {
   try {
-    return { value: await load(), error: null };
+    return { value: await load(), error: null, accessWithheld: false };
   } catch (error) {
     return {
       value: null,
       error: error instanceof Error ? error.message : fallback,
+      accessWithheld: isWorkbenchPermissionBlockedError(error),
     };
   }
 }
@@ -454,6 +491,7 @@ function emptyCampaignWorkflowDetails(): Partial<ManageWorkspaceData> {
 
 function createEmptyManageWorkspaceData(portfolio: PortfolioResponse): ManageWorkspaceData {
   return {
+    sourceAccessWithheld: false,
     portfolio,
     commandCenter: null,
     commandCenterError: null,

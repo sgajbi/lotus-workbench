@@ -1,6 +1,7 @@
 import {
   fetchWorkbenchResource,
   observeWorkbenchResource,
+  type WorkbenchRequestTarget,
 } from "@/features/workbench/api-client";
 import type {
   WorkbenchAnalytics,
@@ -23,7 +24,9 @@ export async function getWorkbenchOverview(portfolioId: string): Promise<Workben
 
 export async function getPortfolio360(
   portfolioId: string,
-  sessionId?: string
+  sessionId?: string,
+  target: WorkbenchRequestTarget = "server",
+  signal?: AbortSignal,
 ): Promise<WorkbenchPortfolio360> {
   const query = sessionId
     ? new URLSearchParams({ session_id: sessionId })
@@ -32,10 +35,11 @@ export async function getPortfolio360(
     "workbench.portfolio-360",
     async () =>
       await fetchWorkbenchResource<WorkbenchPortfolio360>(
-        "server",
+        target,
         `/workbench/${portfolioId}/portfolio-360`,
         "portfolio 360",
-        query
+        query,
+        { signal },
       )
   );
 }

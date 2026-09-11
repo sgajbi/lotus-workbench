@@ -32,6 +32,7 @@ import {
 import { getPortfolio360 } from "@/features/workbench/workbench-core-api";
 
 export type ManageWorkspaceData = {
+  sourceAccessWithheld?: boolean;
   portfolio: Awaited<ReturnType<typeof getPortfolio360>>;
   commandCenter: Awaited<ReturnType<typeof getDpmCommandCenter>> | null;
   commandCenterExceptions: Awaited<ReturnType<typeof getDpmCommandCenterExceptions>> | null;
