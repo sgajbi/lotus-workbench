@@ -1,3 +1,18 @@
+.receiptActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.recheckFailure {
+  margin: 0;
+  color: var(--status-warning-text);
+  font-size: var(--type-body-small-size);
+  line-height: var(--type-body-small-line-height);
+}
+
 .portfolioSummary {
   display: grid;
   grid-template-columns: minmax(14rem, 1.5fr) repeat(3, minmax(8rem, 1fr));
