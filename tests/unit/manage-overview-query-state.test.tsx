@@ -131,6 +131,7 @@ describe("Manage Overview governed receipt", () => {
       createQueryClient(),
     );
 
+    expect(screen.getByText("Evidence incomplete")).toBeInTheDocument();
     expect(screen.queryByText(/^Checked /)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Recheck overview" })).toBeEnabled();
   });
