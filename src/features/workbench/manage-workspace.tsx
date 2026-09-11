@@ -1,55 +1,24 @@
-"use client";
+import type { ReactNode } from "react";
 
-import { useCallback, useMemo, type ReactNode } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-
-import PortfolioScreenRail from "@/apps/portfolio/components/portfolio-screen-rail";
 import type { PortfolioReviewContext } from "@/apps/portfolio/portfolio-screen-navigation";
-import ReviewContextPageRecovery from "@/shell/review-context-page-recovery";
-import {
-  AppPageShell,
-  buildWorkbenchSourceContextNotice,
-  buildWorkbenchUnsupportedReviewContextNotice,
-  combineWorkbenchContextNotices,
-  MainWithSideRailLayout,
-  SemanticBadge,
-  WorkbenchPageContainer,
-  WorkbenchPageFrame,
-  WorkbenchSectionStack,
-  useSourceRefreshAction,
-} from "@/design-system";
 import ConstructionAlternativesPanel from "@/features/workbench/components/construction-alternatives-panel";
 import ManageMandateHealth from "@/features/workbench/components/manage-mandate-health";
-import {
-  buildManageReviewContextStrip,
-  readStringFromResponse,
-} from "@/features/workbench/manage-workspace-view-model";
+import { readStringFromResponse } from "@/features/workbench/manage-workspace-view-model";
 import DpmWaveCommandCenterPanel from "@/features/workbench/components/dpm-wave-command-center-panel";
 import DpmCopilotWorkspace from "@/features/workbench/components/dpm-copilot-workspace";
 import OutcomeReviewPanel from "@/features/workbench/components/outcome-review-panel";
 import PortfolioMemoryPanel from "@/features/workbench/components/portfolio-memory-panel";
 import PmOperatingQualityPanel from "@/features/workbench/components/pm-operating-quality-panel";
 import ProofPackPanel from "@/features/workbench/components/proof-pack-panel";
-import ManageEvidenceRail from "@/features/workbench/components/manage-evidence-rail";
-import ManageOverview from "@/features/workbench/components/manage-overview";
-import { ManageProofPackStateProvider } from "@/features/workbench/manage-proof-pack-state";
-import {
-  buildManageModeItems,
-  getManageModeDefinition,
-  type ManageMode,
-} from "@/features/workbench/manage-workspace-navigation";
+import ManageOverviewWorkspace from "@/features/workbench/manage-overview-workspace";
+import type { ManageMode } from "@/features/workbench/manage-workspace-navigation";
 import {
   readDpmMandateId,
   type ManageWorkspaceData,
 } from "@/features/workbench/manage-workspace-data";
-import { isManageExceptionEvidenceAvailable } from "@/features/workbench/manage-workspace-view-model";
-import {
-  isManageOverviewComplete,
-  isManageOverviewPermissionError,
-  manageOverviewQueryOptions,
-  recheckManageOverview,
-} from "@/features/workbench/manage-overview-query-options";
-import styles from "./manage-workspace.module.css";
+import ManageWorkspaceShell from "@/features/workbench/manage-workspace-shell";
+
+export { ManageWorkspaceUnavailable } from "./manage-workspace-unavailable";
 
 export function ManageWorkspace({
   data,
@@ -62,165 +31,26 @@ export function ManageWorkspace({
   reviewContext: PortfolioReviewContext;
   sessionId?: string;
 }) {
-  const queryClient = useQueryClient();
-  const overviewQueryContext = useMemo(
-    () => ({
-      portfolioId: reviewContext.portfolioId,
-      sessionId,
-      asOfDate: reviewContext.asOfDate,
-      period: reviewContext.period,
-      reportingCurrency: reviewContext.reportingCurrency,
-    }),
-    [
-      reviewContext.asOfDate,
-      reviewContext.period,
-      reviewContext.portfolioId,
-      reviewContext.reportingCurrency,
-      sessionId,
-    ],
-  );
-  const overviewQuery = useQuery(
-    manageOverviewQueryOptions(overviewQueryContext, data),
-  );
-  const activeData = mode === "overview" ? (overviewQuery.data ?? data) : data;
-  const runOverviewRecheck = useCallback(
-    () => recheckManageOverview(queryClient, overviewQueryContext),
-    [overviewQueryContext, queryClient],
-  );
-  const overviewRecheck = useSourceRefreshAction({
-    identity: mode === "overview" ? JSON.stringify(overviewQueryContext) : null,
-    isRefreshing: overviewQuery.fetchStatus === "fetching",
-    hasRefreshFailure: overviewQuery.isError,
-    onRefresh: runOverviewRecheck,
-  });
-
-  if (
-    mode === "overview" &&
-    (activeData.sourceAccessWithheld ||
-      isManageOverviewPermissionError(overviewQuery.error))
-  ) {
+  if (mode === "overview") {
     return (
-      <ManageWorkspaceUnavailable detail="Your authenticated role does not currently provide access to this portfolio-management evidence." />
+      <ManageOverviewWorkspace
+        initialData={data}
+        reviewContext={reviewContext}
+        sessionId={sessionId}
+      />
     );
   }
 
-  const portfolio = activeData.portfolio.portfolio;
-  const modeDefinition = getManageModeDefinition(mode);
-  const dpmMandateId = readDpmMandateId(activeData.mandate?.data ?? null);
-  const hasMandateEvidenceGap = Boolean(
-    activeData.commandCenterError ||
-      activeData.commandCenterExceptionsError ||
-      !isManageExceptionEvidenceAvailable(activeData) ||
-      activeData.mandateHealthError ||
-      !activeData.mandateHealth
-  );
-  const contextNotice = combineWorkbenchContextNotices({
-    title: "Mandate source context",
-    notices: [
-      buildWorkbenchSourceContextNotice({
-        title: "Mandate source context",
-        subject: "Mandate management",
-        requestedAsOfDate: reviewContext.asOfDate,
-        requestedReportingCurrency: reviewContext.reportingCurrency,
-        sourceAsOfDate: activeData.portfolio.as_of_date,
-        sourceCurrency: portfolio.base_currency,
-      }),
-      buildWorkbenchUnsupportedReviewContextNotice({
-        title: "Mandate source context",
-        subject: "Mandate evidence",
-        destination: "mandate management workspace",
-        requestedPeriod: reviewContext.period,
-      }),
-    ],
-  });
+  const dpmMandateId = readDpmMandateId(data.mandate?.data ?? null);
 
   return (
-    <ManageProofPackStateProvider
-      key={portfolio.portfolio_id}
-      initialProofPack={activeData.proofPack}
+    <ManageWorkspaceShell
+      data={data}
+      mode={mode}
+      reviewContext={reviewContext}
     >
-      <AppPageShell
-      pageKey="manage"
-      className={`portfolio-page manage-page ${styles.manageScope}`}
-      reviewContext={buildManageReviewContextStrip(
-        activeData,
-        contextNotice
-          ? {
-              label: contextNotice.title,
-              message: contextNotice.body,
-              tone: "attention",
-            }
-          : null,
-      )}
-    >
-      <WorkbenchPageContainer className="portfolio-page-container manage-page-container">
-        <MainWithSideRailLayout
-          className="manage-layout portfolio-page"
-          railClassName="manage-rail-shell"
-          mainClassName="manage-main"
-          sideClassName="manage-side"
-          sideDensity="comfortable"
-          rail={
-            <PortfolioScreenRail
-              portfolioId={portfolio.portfolio_id}
-              activeScreen="manage"
-              relationshipIdBase="manage-workspace-rail"
-              modeItems={buildManageModeItems(reviewContext, mode)}
-              modeNavigationLabel="Manage workspace navigation"
-            />
-          }
-          main={
-            <WorkbenchPageFrame
-              className={`manage-page-frame manage-page-frame-${mode}`}
-              bodyClassName="manage-page-frame-body"
-              title={modeDefinition.title}
-              subtitle={modeDefinition.description}
-              actions={
-                <>
-                  <SemanticBadge
-                    tone={hasMandateEvidenceGap ? "warn" : "success"}
-                  >
-                    {hasMandateEvidenceGap ? "Needs attention" : "Evidence available"}
-                  </SemanticBadge>
-                </>
-              }
-            >
-              <WorkbenchSectionStack className="manage-page-sections">
-                {renderManageMode(mode, activeData, dpmMandateId, reviewContext, {
-                  checkedAt: isManageOverviewComplete(activeData)
-                    ? overviewQuery.dataUpdatedAt
-                    : null,
-                  actionRef: overviewRecheck.actionRef,
-                  recheckState: overviewRecheck.refreshState,
-                  onRecheck: overviewRecheck.refresh,
-                })}
-              </WorkbenchSectionStack>
-            </WorkbenchPageFrame>
-          }
-          side={
-            <ManageEvidenceRail data={activeData} />
-          }
-        />
-      </WorkbenchPageContainer>
-      </AppPageShell>
-    </ManageProofPackStateProvider>
-  );
-}
-
-export function ManageWorkspaceUnavailable({
-  detail,
-}: {
-  detail: string;
-}) {
-  return (
-    <ReviewContextPageRecovery
-      pageKey="manage"
-      pageTitle="Manage Workspace"
-      pageSubtitle="Confirm the portfolio before using mandate and implementation controls."
-      body={detail}
-      href="/book"
-      actionLabel="Select a portfolio from My book"
-    />
+      {renderManageMode(mode, data, dpmMandateId)}
+    </ManageWorkspaceShell>
   );
 }
 
@@ -228,13 +58,6 @@ function renderManageMode(
   mode: ManageMode,
   data: ManageWorkspaceData,
   mandateId: string | null,
-  reviewContext: PortfolioReviewContext,
-  overviewReceipt: {
-    checkedAt: number | null;
-    actionRef: ReturnType<typeof useSourceRefreshAction>["actionRef"];
-    recheckState: ReturnType<typeof useSourceRefreshAction>["refreshState"];
-    onRecheck: ReturnType<typeof useSourceRefreshAction>["refresh"];
-  },
 ): ReactNode {
   switch (mode) {
     case "mandate":
@@ -345,12 +168,6 @@ function renderManageMode(
       );
     case "overview":
     default:
-      return (
-        <ManageOverview
-          data={data}
-          reviewContext={reviewContext}
-          {...overviewReceipt}
-        />
-      );
+      return null;
   }
 }
