@@ -3,6 +3,13 @@ import { queryOptions } from "@tanstack/react-query";
 import { workbenchStrictQueryDefaults } from "@/features/platform-runtime/query-policy";
 
 import { getAdvisorBook, type AdvisorBookQuery } from "./api";
+import type { AdvisorBookResponse } from "./contracts";
+
+export type AdvisorBookQueryResult = Readonly<{
+  response: AdvisorBookResponse | null;
+  accessWithheld: boolean;
+  refusal: unknown | null;
+}>;
 
 const advisorBookQueryRoot = ["advisor-book"] as const;
 
@@ -55,9 +62,15 @@ export function advisorBookQueryOptions(
           { signal },
         );
       }
-      return response;
+      const result: AdvisorBookQueryResult = {
+        response,
+        accessWithheld: false,
+        refusal: null,
+      };
+      return result;
     },
     refetchOnMount: false,
     refetchOnReconnect: false,
+    retryOnMount: false,
   });
 }

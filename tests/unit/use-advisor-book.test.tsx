@@ -108,6 +108,34 @@ describe("useAdvisorBook", () => {
     expect(second.result.current.checkedAt).toBe(checkedAt);
   });
 
+  it("does not retry a failed register on remount before an explicit recovery", async () => {
+    getAdvisorBookMock
+      .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 502))
+      .mockResolvedValueOnce({ correlation_id: "recovered" });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = createQueryClientWrapper(queryClient);
+    const first = renderHook(
+      () => useAdvisorBook({ asOfDate: "2026-04-10" }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(first.result.current.error).toBeInstanceOf(WorkbenchApiError));
+    first.unmount();
+    const second = renderHook(
+      () => useAdvisorBook({ asOfDate: "2026-04-10" }),
+      { wrapper },
+    );
+    expect(getAdvisorBookMock).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      await second.result.current.reload();
+    });
+    await waitFor(() =>
+      expect(second.result.current.response).toEqual({ correlation_id: "recovered" }),
+    );
+    expect(getAdvisorBookMock).toHaveBeenCalledTimes(2);
+  });
+
   it("advances the receipt after one explicit same-view recheck", async () => {
     const response = { correlation_id: "book" };
     getAdvisorBookMock.mockResolvedValue(response);
@@ -204,7 +232,7 @@ describe("useAdvisorBook", () => {
     expect(result.current.recheckError).toBeNull();
   });
 
-  it("keeps permission-denied rows withheld until a later recovery succeeds", async () => {
+  it("keeps permission-denied rows withheld across remount until a later recovery succeeds", async () => {
     const response = { correlation_id: "book" };
     getAdvisorBookMock
       .mockResolvedValueOnce(response)
@@ -212,28 +240,37 @@ describe("useAdvisorBook", () => {
       .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 502))
       .mockResolvedValueOnce(response);
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const { result } = renderHook(
+    const wrapper = createQueryClientWrapper(queryClient);
+    const first = renderHook(
       () => useAdvisorBook({ asOfDate: "2026-04-10" }),
-      { wrapper: createQueryClientWrapper(queryClient) },
+      { wrapper },
     );
 
-    await waitFor(() => expect(result.current.response).toBe(response));
+    await waitFor(() => expect(first.result.current.response).toBe(response));
     await act(async () => {
-      await result.current.reload();
+      await first.result.current.reload();
     });
-    await waitFor(() => expect(result.current.response).toBeNull());
+    await waitFor(() => expect(first.result.current.response).toBeNull());
+    first.unmount();
+
+    const second = renderHook(
+      () => useAdvisorBook({ asOfDate: "2026-04-10" }),
+      { wrapper },
+    );
+    expect(second.result.current.response).toBeNull();
+    expect(getAdvisorBookMock).toHaveBeenCalledTimes(2);
 
     await act(async () => {
-      await result.current.reload();
+      await second.result.current.reload();
     });
-    await waitFor(() => expect(result.current.error).toBeInstanceOf(WorkbenchApiError));
-    expect(result.current.response).toBeNull();
-    expect(result.current.checkedAt).toBeNull();
+    await waitFor(() => expect(second.result.current.error).toBeInstanceOf(WorkbenchApiError));
+    expect(second.result.current.response).toBeNull();
+    expect(second.result.current.checkedAt).toBeNull();
 
     await act(async () => {
-      await result.current.reload();
+      await second.result.current.reload();
     });
-    await waitFor(() => expect(result.current.response).toBe(response));
+    await waitFor(() => expect(second.result.current.response).toBe(response));
     expect(getAdvisorBookMock).toHaveBeenCalledTimes(4);
   });
 
