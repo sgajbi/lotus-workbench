@@ -23,7 +23,7 @@ export function useAdvisorBook(
 
   return {
     response,
-    loading: sourceQuery.isPending,
+    loading: sourceQuery.isPending || (!hasAdmittedResponse && sourceQuery.isFetching),
     error: hasAdmittedResponse ? null : sourceQuery.error,
     recheckError:
       hasAdmittedResponse && !sourceQuery.isFetching ? sourceQuery.error : null,
