@@ -4,8 +4,15 @@ import { useCallback, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import type { PortfolioReviewContext } from "@/apps/portfolio/portfolio-screen-navigation";
-import { useSourceRefreshAction } from "@/design-system";
+import {
+  ActionButton,
+  SemanticBadge,
+  useSourceRefreshAction,
+  WorkbenchDataAge,
+} from "@/design-system";
 import ManageOverview from "@/features/workbench/components/manage-overview";
+import overviewStyles from "@/features/workbench/components/manage-overview.module.css";
+import { buildManageOverviewModel } from "@/features/workbench/manage-overview-model";
 import {
   isManageOverviewComplete,
   isManageOverviewPermissionError,
@@ -47,11 +54,19 @@ export default function ManageOverviewWorkspace({
     manageOverviewQueryOptions(queryContext, initialData),
   );
   const data = overviewQuery.data ?? initialData;
+  const model = useMemo(
+    () => buildManageOverviewModel(data, reviewContext),
+    [data, reviewContext],
+  );
   const runRecheck = useCallback(
     () => recheckManageOverview(queryClient, queryContext),
     [queryClient, queryContext],
   );
-  const recheck = useSourceRefreshAction({
+  const {
+    actionRef: recheckActionRef,
+    refresh: recheckOverview,
+    refreshState: recheckState,
+  } = useSourceRefreshAction({
     identity: JSON.stringify(queryContext),
     isRefreshing: overviewQuery.fetchStatus === "fetching",
     hasRefreshFailure: overviewQuery.isError,
@@ -72,16 +87,35 @@ export default function ManageOverviewWorkspace({
       data={data}
       mode="overview"
       reviewContext={reviewContext}
+      actions={
+        <div className={overviewStyles.receiptActions}>
+          <SemanticBadge tone={model.overviewPostureTone} emphasis="strong">
+            {model.overviewPostureLabel}
+          </SemanticBadge>
+          {isManageOverviewComplete(data) && overviewQuery.dataUpdatedAt ? (
+            <WorkbenchDataAge updatedAt={overviewQuery.dataUpdatedAt} />
+          ) : null}
+          <ActionButton
+            ref={recheckActionRef}
+            priority="quiet"
+            disabled={recheckState === "pending"}
+            onClick={() => void recheckOverview().catch(() => undefined)}
+          >
+            {recheckState === "pending" ? "Rechecking…" : "Recheck overview"}
+          </ActionButton>
+        </div>
+      }
     >
+      {recheckState === "failed" ? (
+        <p className={overviewStyles.recheckFailure} role="status">
+          Overview recheck failed. The displayed portfolio-management evidence remains from the
+          previous successful check.
+        </p>
+      ) : null}
       <ManageOverview
         data={data}
         reviewContext={reviewContext}
-        checkedAt={
-          isManageOverviewComplete(data) ? overviewQuery.dataUpdatedAt : null
-        }
-        actionRef={recheck.actionRef}
-        recheckState={recheck.refreshState}
-        onRecheck={recheck.refresh}
+        model={model}
       />
     </ManageWorkspaceShell>
   );

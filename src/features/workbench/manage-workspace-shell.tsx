@@ -32,11 +32,13 @@ export default function ManageWorkspaceShell({
   data,
   mode,
   reviewContext,
+  actions,
   children,
 }: {
   data: ManageWorkspaceData;
   mode: ManageMode;
   reviewContext: PortfolioReviewContext;
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   const portfolio = data.portfolio.portfolio;
@@ -109,7 +111,7 @@ export default function ManageWorkspaceShell({
                 bodyClassName="manage-page-frame-body"
                 title={modeDefinition.title}
                 subtitle={modeDefinition.description}
-                actions={
+                actions={actions ?? (
                   <SemanticBadge
                     tone={hasMandateEvidenceGap ? "warn" : "success"}
                   >
@@ -117,7 +119,7 @@ export default function ManageWorkspaceShell({
                       ? "Needs attention"
                       : "Evidence available"}
                   </SemanticBadge>
-                }
+                )}
               >
                 <WorkbenchSectionStack className="manage-page-sections">
                   {children}
