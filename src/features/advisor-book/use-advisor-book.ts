@@ -30,13 +30,30 @@ export function useAdvisorBook(
     rechecking: hasAdmittedResponse && sourceQuery.isFetching,
     checkedAt: hasAdmittedResponse ? sourceQuery.dataUpdatedAt : null,
     reload: async () => {
+      const activeQuery = queryClient
+        .getQueryCache()
+        .find({ queryKey: queryDefinition.queryKey, exact: true });
       const previousReceipt =
         queryClient.getQueryState(queryDefinition.queryKey)?.dataUpdatedAt ?? 0;
-      const result = await sourceQuery.refetch({ cancelRefetch: true });
-      if (result.isSuccess && result.data !== undefined) {
-        queryClient.setQueryData(queryDefinition.queryKey, result.data, {
-          updatedAt: Math.max(Date.now(), previousReceipt + 1),
+      try {
+        const result = await sourceQuery.refetch({
+          cancelRefetch: true,
+          throwOnError: true,
         });
+        const currentQuery = queryClient
+          .getQueryCache()
+          .find({ queryKey: queryDefinition.queryKey, exact: true });
+        if (
+          currentQuery === activeQuery &&
+          result.isSuccess &&
+          result.data !== undefined
+        ) {
+          queryClient.setQueryData(queryDefinition.queryKey, result.data, {
+            updatedAt: Math.max(Date.now(), previousReceipt + 1),
+          });
+        }
+      } catch {
+        // Query state owns the user-visible failure; cancellation must not restore cleared data.
       }
     },
   };
