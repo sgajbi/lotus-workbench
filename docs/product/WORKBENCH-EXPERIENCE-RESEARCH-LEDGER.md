@@ -8103,3 +8103,50 @@ permission revocation, and responsive rendering. The visible Adviser Book workfl
 screen guide and repository context change and the wiki must be published after merge. Existing
 frontend governance and the shared `WorkbenchDataAge` primitive already own the reusable pattern;
 no new skill or abstraction is justified.
+
+## 2026-09-11 — Manage Overview composite receipt and exact recheck (#1050)
+
+### Decision question
+
+How should a portfolio manager deliberately recheck the exception-led Manage Overview without
+creating ambient reads, promoting a partial multi-source result, or adding another status card?
+
+### Evidence consulted
+
+1. [BlackRock Aladdin Wealth personalized portfolio management](https://www.blackrock.com/aladdin/platforms/solutions/aladdin-wealth/personalized-portfolio-management-technology)
+   emphasizes scalable monitoring and exception-led workflows across a book of business.
+2. [TanStack Query QueryClient reference](https://tanstack.com/query/latest/docs/reference/QueryClient)
+   defines exact invalidation, explicit source fetches, cancellation, and cache ownership.
+3. [WAI ARIA22](https://www.w3.org/WAI/WCAG21/Techniques/aria/ARIA22) supports polite asynchronous
+   status updates without moving keyboard focus.
+4. The delivered Portfolio, Performance, and Adviser Book patterns reserve **Checked** for browser
+   receipt time and require explicit recheck rather than polling.
+
+### Adopted decisions
+
+1. Treat Portfolio 360, command centre, active exceptions, mandate, dependent mandate health, and
+   waves as one exact Overview composite. Advance the receipt only when every read is admitted.
+2. Key the composite by portfolio, session, business date, period, and reporting currency; forward
+   cancellation and fence late completions to that exact context.
+3. Hydrate from the server response without an automatic browser read. Disable focus, reconnect,
+   and remount reads; make **Recheck overview** the one deliberate source transaction.
+4. Retain prior admitted evidence and receipt after an ordinary failure, but withhold it after an
+   authenticated permission refusal.
+5. Keep the client boundary limited to Overview. Place posture, receipt, and recheck in the existing
+   page header and remove the repeated inner instruction instead of adding another toolbar or card.
+
+### Rejected decisions
+
+Polling; implicit focus or reconnect refresh; a new cache abstraction; separate per-source receipts;
+advancing **Checked** after partial success; presenting receipt time as source freshness; converting
+all Manage modes to client components; or duplicating the page status in a new panel.
+
+### Validation and publication decision
+
+Focused loader, Query, component, and browser tests prove the exact six-read transaction,
+cancellation, complete admission, retained-evidence failure, permission revocation, no ambient
+rereads, and delayed-context fencing. Optimized browser proof keeps the primary decision above the
+fold and the page below the existing 1,200px density ceiling. The visible workflow and recovery
+contract change, so the Manage Overview guide and repository context change and the wiki must be
+published after merge. Existing Query, refresh-action, data-age, frontend-governance, and
+documentation patterns are sufficient; no new abstraction or shared skill is justified.
