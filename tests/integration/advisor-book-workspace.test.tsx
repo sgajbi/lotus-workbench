@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import AdvisorBookWorkspace from "@/features/advisor-book/components/advisor-book-workspace";
@@ -188,6 +188,34 @@ describe("AdvisorBookWorkspace", () => {
     expect(screen.queryByRole("table", { name: "Portfolios in my book" })).not.toBeInTheDocument();
     expect(screen.queryByText("Checked just now")).not.toBeInTheDocument();
     expect(getAdvisorBookMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows recovery progress and prevents repeated retries while withheld book access is refetching", async () => {
+    let resolveRecovery: ((value: typeof readyResponse) => void) | undefined;
+    getAdvisorBookMock
+      .mockResolvedValueOnce(readyResponse)
+      .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 403))
+      .mockImplementationOnce(
+        () =>
+          new Promise<typeof readyResponse>((resolve) => {
+            resolveRecovery = resolve;
+          }),
+      );
+    renderAdvisorBookWorkspace();
+    await screen.findByText("Book available");
+
+    fireEvent.click(screen.getByRole("button", { name: "Recheck book" }));
+    await screen.findByText("Book access is not available");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await screen.findByText("Loading your book")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+    expect(getAdvisorBookMock).toHaveBeenCalledTimes(3);
+
+    await act(async () => {
+      resolveRecovery?.(readyResponse);
+    });
+    expect(await screen.findByText("Book available")).toBeInTheDocument();
   });
 
   it("keeps repeated source limitations and raw references in one collapsed disclosure", async () => {
