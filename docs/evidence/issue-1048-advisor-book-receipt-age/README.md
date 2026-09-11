@@ -16,9 +16,9 @@ source-runtime certification.
 
 | Artifact | Viewport | Purpose |
 | --- | --- | --- |
-| `advisor-book/advisor-book-1440.png` | 1440 × 1000 | Desktop decision-register composition |
-| `advisor-book/advisor-book-1024.png` | 1024 × 900 | Compact workstation composition |
-| `advisor-book/advisor-book-519.png` | 519 × 844 | Narrow responsive composition |
+| `advisor-book/diagnostic-advisor-book-1440.png` | 1440 × 1000 | Desktop decision-register composition |
+| `advisor-book/diagnostic-advisor-book-1024.png` | 1024 × 900 | Compact workstation composition |
+| `advisor-book/diagnostic-advisor-book-519.png` | 519 × 844 | Narrow responsive composition |
 
 ## Reproduction
 
@@ -27,6 +27,12 @@ From the repository root, use an unoccupied checkout-specific port:
 ```powershell
 $env:PLAYWRIGHT_PORT = '3108'
 $env:ISSUE_1048_EVIDENCE_DIR = 'docs/evidence/issue-1048-advisor-book-receipt-age'
+npx playwright test tests/e2e/advisor-book-workspace.spec.ts --project=chromium
+```
+
+```bash
+export PLAYWRIGHT_PORT=3108
+export ISSUE_1048_EVIDENCE_DIR=docs/evidence/issue-1048-advisor-book-receipt-age
 npx playwright test tests/e2e/advisor-book-workspace.spec.ts --project=chromium
 ```
 

@@ -200,7 +200,7 @@ test("supports a keyboard-complete own-book review and portfolio handoff", async
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   await page.mouse.move(0, 0);
   await page.screenshot({
-    path: path.join(evidenceDirectory, "advisor-book-1440.png"),
+    path: path.join(evidenceDirectory, "diagnostic-advisor-book-1440.png"),
     fullPage: true,
     animations: "disabled",
   });
@@ -300,7 +300,10 @@ for (const viewport of [
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.mouse.move(0, 0);
     await page.screenshot({
-      path: path.join(evidenceDirectory, `advisor-book-${viewport.name}.png`),
+      path: path.join(
+        evidenceDirectory,
+        `diagnostic-advisor-book-${viewport.name}.png`,
+      ),
       fullPage: true,
       animations: "disabled",
     });
