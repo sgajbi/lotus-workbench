@@ -218,6 +218,26 @@ describe("AdvisorBookWorkspace", () => {
     expect(await screen.findByText("Book available")).toBeInTheDocument();
   });
 
+  it("keeps denied assignments withheld when the next recovery request fails", async () => {
+    getAdvisorBookMock
+      .mockResolvedValueOnce(readyResponse)
+      .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 403))
+      .mockRejectedValueOnce(new WorkbenchApiError("advisor book", 502));
+    renderAdvisorBookWorkspace();
+    await screen.findByText("Book available");
+
+    fireEvent.click(screen.getByRole("button", { name: "Recheck book" }));
+    await screen.findByText("Book access is not available");
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    await waitFor(() => expect(getAdvisorBookMock).toHaveBeenCalledTimes(3));
+    expect(screen.queryByRole("table", { name: "Portfolios in my book" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Checked just now")).not.toBeInTheDocument();
+    expect(screen.getByText("Your book could not be loaded")).toBeInTheDocument();
+    expect(screen.getByText(/HTTP status 502/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
   it("keeps repeated source limitations and raw references in one collapsed disclosure", async () => {
     getAdvisorBookMock.mockResolvedValue({
       ...readyResponse,
