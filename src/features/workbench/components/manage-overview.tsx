@@ -7,7 +7,10 @@ import {
   WorkbenchSummaryMetricStrip,
 } from "@/design-system";
 import type { ManageWorkspaceData } from "@/features/workbench/manage-workspace-data";
-import { buildManageOverviewModel } from "@/features/workbench/manage-overview-model";
+import {
+  buildManageOverviewModel,
+  type ManageOverviewModel,
+} from "@/features/workbench/manage-overview-model";
 import { MANAGE_WORKFLOW_LABELS } from "@/features/workbench/manage-terminology";
 
 import ManageOverviewDecisionWorklist from "./manage-overview-decision-worklist";
@@ -16,22 +19,18 @@ import styles from "./manage-overview.module.css";
 export default function ManageOverview({
   data,
   reviewContext,
+  model: suppliedModel,
 }: {
   data: ManageWorkspaceData;
   reviewContext: PortfolioReviewContext;
+  model?: ManageOverviewModel;
 }) {
-  const model = buildManageOverviewModel(data, reviewContext);
+  const model = suppliedModel ?? buildManageOverviewModel(data, reviewContext);
 
   return (
     <SectionBlock
       title={MANAGE_WORKFLOW_LABELS.portfolioManagementDecisions}
-      subtitle="Review mandate readiness, resolve open attention items, and continue the selected rebalance workflow."
       className="manage-overview-panel"
-      actions={
-        <SemanticBadge tone={model.overviewPostureTone} emphasis="strong">
-          {model.overviewPostureLabel}
-        </SemanticBadge>
-      }
     >
       <PortfolioOperatingSummary summary={model.portfolioSummary} />
 

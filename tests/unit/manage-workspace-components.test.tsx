@@ -605,7 +605,6 @@ describe("manage workspace split components", () => {
     );
 
     expect(screen.getByText("Not reported")).toBeInTheDocument();
-    expect(screen.getByText("Evidence incomplete")).toBeInTheDocument();
     expect(screen.getByText(/Mandate risk profile/)).toBeInTheDocument();
     expect(screen.queryByText("Ready for review")).not.toBeInTheDocument();
   });

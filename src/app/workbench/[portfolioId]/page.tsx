@@ -77,6 +77,7 @@ export default async function WorkbenchPage({
       data={await loadManageWorkspaceData(portfolio, mode)}
       mode={mode}
       reviewContext={reviewContext}
+      sessionId={sessionId}
     />
   );
 }
