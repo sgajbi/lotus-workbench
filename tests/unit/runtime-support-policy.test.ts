@@ -831,6 +831,11 @@ describe("runtime support policy", () => {
       /RUN rm -rf[\s\S]*?\/opt\/yarn-v1\.22\.22/,
       "RUN true"
     );
+    const unpinnedPcre2SecurityUpdate = loadEvidence();
+    unpinnedPcre2SecurityUpdate.dockerfile = unpinnedPcre2SecurityUpdate.dockerfile.replace(
+      "libpcre2-8-0=10.42-1+deb12u1",
+      "libpcre2-8-0"
+    );
 
     expect(validateRuntimeSupportPolicy(healthcheckOverride)).toEqual(
       expect.arrayContaining([expect.stringContaining("dependency-free Node healthcheck")])
@@ -839,7 +844,10 @@ describe("runtime support policy", () => {
       expect.arrayContaining([expect.stringContaining("dependency-free Node healthcheck")])
     );
     expect(validateRuntimeSupportPolicy(retainedPackageManagers)).toEqual(
-      expect.arrayContaining([expect.stringContaining("remove the npm, npx, Corepack, and Yarn")])
+      expect.arrayContaining([expect.stringContaining("pinned PCRE2 security update")])
+    );
+    expect(validateRuntimeSupportPolicy(unpinnedPcre2SecurityUpdate)).toEqual(
+      expect.arrayContaining([expect.stringContaining("pinned PCRE2 security update")])
     );
   });
 

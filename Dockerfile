@@ -32,6 +32,9 @@ ENV NODE_ENV=production
 ENV WORKBENCH_DEPLOYMENT_ID=${WORKBENCH_DEPLOYMENT_ID}
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
+RUN apt-get update \
+    && apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u1 \
+    && rm -rf /var/lib/apt/lists/*
 COPY --chown=node:node --from=builder /app/.next-build/standalone ./
 COPY --chown=node:node --from=builder /app/.next-build/static ./.next-build/static
 COPY --chown=node:node scripts/runtime/workbench-healthcheck.mjs ./healthcheck.mjs

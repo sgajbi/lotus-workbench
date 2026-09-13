@@ -32,7 +32,7 @@ describe("Docker CI parity governance", () => {
     expect(compose).not.toContain("--no-file-parallelism");
   });
 
-  it("keeps audit tools in the CI-only stage rather than the production runtime", () => {
+  it("keeps audit tools in the CI-only stage while allowing only the pinned runtime security update", () => {
     const dockerfile = readRepositoryFile("Dockerfile");
     const compose = readRepositoryFile("docker-compose.ci-local.yml");
     const ciTools = dockerfile.slice(
@@ -45,7 +45,10 @@ describe("Docker CI parity governance", () => {
     expect(ciTools).toContain(
       "apt-get install --no-install-recommends --yes git python-is-python3 python3",
     );
-    expect(runner).not.toContain("apt-get");
+    expect(runner).toContain(
+      "apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u1",
+    );
+    expect(runner).not.toContain("apt-get install --no-install-recommends --yes git");
     expect(runner).not.toContain("python3");
   });
 
