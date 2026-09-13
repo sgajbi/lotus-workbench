@@ -4,7 +4,10 @@ import type { PortfolioReviewContext } from "@/apps/portfolio/portfolio-screen-n
 import { workbenchStrictQueryDefaults } from "@/features/platform-runtime/query-policy";
 import { isWorkbenchPermissionBlockedError } from "@/features/workbench/api-client";
 import { loadManageWorkspaceData } from "@/features/workbench/manage-workspace-data-loader";
-import type { ManageWorkspaceData } from "@/features/workbench/manage-workspace-data";
+import {
+  readDpmMandateId,
+  type ManageWorkspaceData,
+} from "@/features/workbench/manage-workspace-data";
 import { getPortfolio360 } from "@/features/workbench/workbench-core-api";
 
 export type ManageOverviewQueryContext = Readonly<{
@@ -80,16 +83,64 @@ export async function recheckManageOverview(
 export function isManageOverviewComplete(data: ManageWorkspaceData): boolean {
   return Boolean(
     !data.sourceAccessWithheld &&
-      data.commandCenter &&
+      isManageOverviewSource(data.commandCenter) &&
       !data.commandCenterError &&
-      data.commandCenterExceptions &&
+      isManageOverviewSource(data.commandCenterExceptions) &&
       !data.commandCenterExceptionsError &&
-      data.mandate &&
-      data.mandateHealth &&
+      isManageOverviewSource(data.mandate) &&
+      isManageOverviewSource(data.mandateHealth) &&
+      hasMatchingMandateIdentity(data.mandate, data.mandateHealth) &&
       !data.mandateHealthError &&
-      data.waves &&
+      isManageOverviewSource(data.waves) &&
       !data.wavesError,
   );
+}
+
+function isManageOverviewSource(value: unknown): value is Record<string, unknown> {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const supportability = value.supportability;
+  return (
+    hasNonBlankString(value.correlation_id) &&
+    hasNonBlankString(value.contract_version) &&
+    hasNonBlankString(value.source_service) &&
+    typeof value.upstream_status === "number" &&
+    Number.isInteger(value.upstream_status) &&
+    value.upstream_status >= 200 &&
+    value.upstream_status < 300 &&
+    isRecord(value.data) &&
+    isRecord(supportability) &&
+    supportability.source_service === value.source_service &&
+    hasNonBlankString(supportability.authority) &&
+    hasNonBlankString(supportability.state)
+  );
+}
+
+function hasMatchingMandateIdentity(
+  mandate: Record<string, unknown>,
+  mandateHealth: Record<string, unknown>,
+): boolean {
+  const mandateData = mandate.data;
+  const mandateHealthData = mandateHealth.data;
+  if (!isRecord(mandateData) || !isRecord(mandateHealthData)) {
+    return false;
+  }
+  const mandateId = readDpmMandateId(mandateData);
+  const mandateHealthId = readDpmMandateId(mandateHealthData);
+  return (
+    mandateId !== null &&
+    mandateHealthId !== null &&
+    mandateId === mandateHealthId
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasNonBlankString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
 }
 
 export function isManageOverviewPermissionError(error: unknown): boolean {

@@ -125,6 +125,28 @@ describe("Manage Overview governed receipt", () => {
     expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
   });
 
+  it("retains a complete same-key receipt when a fresh server composite is incomplete", async () => {
+    const queryClient = createQueryClient();
+    const admittedData = buildManageWorkspaceData();
+    const incompleteData = buildManageWorkspaceData({
+      waves: null,
+      wavesError: "Rebalance evidence is temporarily unavailable.",
+    });
+    const first = renderWorkspace(admittedData, queryClient);
+
+    await waitFor(() =>
+      expect(queryClient.getQueryData(manageOverviewKey(admittedData))).toEqual(admittedData),
+    );
+    first.unmount();
+    renderWorkspace(incompleteData, queryClient);
+
+    expect(screen.getByText("1,250,000.00 USD")).toBeInTheDocument();
+    expect(screen.getByText(/^Checked /)).toBeInTheDocument();
+    expect(queryClient.getQueryData(manageOverviewKey(incompleteData))).toEqual(admittedData);
+    expect(getPortfolio360).not.toHaveBeenCalled();
+    expect(loadManageWorkspaceData).not.toHaveBeenCalled();
+  });
+
   it("retains admitted evidence after an ordinary failed recheck", async () => {
     const data = buildManageWorkspaceData();
     vi.mocked(getPortfolio360).mockResolvedValue(data.portfolio);
@@ -139,6 +161,24 @@ describe("Manage Overview governed receipt", () => {
     fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
 
     expect(await screen.findByText(/Overview recheck failed/)).toBeInTheDocument();
+    expect(screen.getByText("1,250,000.00 USD")).toBeInTheDocument();
+    expect(screen.getByText(/^Checked /)).toBeInTheDocument();
+  });
+
+  it("rejects malformed successful source data without replacing a complete receipt", async () => {
+    const data = buildManageWorkspaceData();
+    const malformedData = buildManageWorkspaceData({
+      commandCenterExceptions: {} as ManageWorkspaceData["commandCenterExceptions"],
+    });
+    vi.mocked(getPortfolio360).mockResolvedValue(data.portfolio);
+    vi.mocked(loadManageWorkspaceData).mockResolvedValue(malformedData);
+
+    renderWorkspace(data, createQueryClient());
+    fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+
+    expect(await screen.findByText(/Overview recheck failed/)).toHaveTextContent(
+      "The displayed portfolio-management evidence remains from the previous successful check.",
+    );
     expect(screen.getByText("1,250,000.00 USD")).toBeInTheDocument();
     expect(screen.getByText(/^Checked /)).toBeInTheDocument();
   });

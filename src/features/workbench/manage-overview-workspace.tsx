@@ -55,6 +55,18 @@ export default function ManageOverviewWorkspace({
   );
   useLayoutEffect(() => {
     const options = manageOverviewQueryOptions(queryContext);
+    const cachedData = queryClient.getQueryData<ManageWorkspaceData>(options.queryKey);
+    const incomingAdmissionIsAuthoritative =
+      initialData.sourceAccessWithheld === true || isManageOverviewComplete(initialData);
+    const cachedAdmissionIsComplete =
+      cachedData !== undefined && isManageOverviewComplete(cachedData);
+
+    // A transient server-side source failure is not a newer admission than a complete
+    // receipt already held for this exact context. A fresh complete composite, or a
+    // fresh access refusal, remains authoritative and must supersede that receipt.
+    if (!incomingAdmissionIsAuthoritative && cachedAdmissionIsComplete) {
+      return;
+    }
 
     // A server-composed Overview is a fresher, authoritative receipt for this exact
     // context. Cancel first so a recheck started before navigation cannot restore
@@ -64,7 +76,7 @@ export default function ManageOverviewWorkspace({
   }, [initialData, queryClient, queryContext]);
 
   // Layout admission runs before a browser paint, so a same-key cached composite
-  // cannot be shown while the incoming server receipt replaces it.
+  // cannot be shown while an authoritative incoming server receipt replaces it.
   const data = overviewQuery.data ?? initialData;
   const model = useMemo(
     () => buildManageOverviewModel(data, reviewContext),
