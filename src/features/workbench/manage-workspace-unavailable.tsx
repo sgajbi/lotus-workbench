@@ -1,6 +1,7 @@
 import ReviewContextPageRecovery from "@/shell/review-context-page-recovery";
+import type { ReactNode } from "react";
 
-export function ManageWorkspaceUnavailable({ detail }: { detail: string }) {
+export function ManageWorkspaceUnavailable({ detail, action }: { detail: string; action?: ReactNode }) {
   return (
     <ReviewContextPageRecovery
       pageKey="manage"
@@ -9,6 +10,7 @@ export function ManageWorkspaceUnavailable({ detail }: { detail: string }) {
       body={detail}
       href="/book"
       actionLabel="Select a portfolio from My book"
+      action={action}
     />
   );
 }

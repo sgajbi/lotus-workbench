@@ -43,7 +43,7 @@ export function buildManageWorkspaceData(
       data: {
         summary: {
           active_exception_count: 2,
-          data_completeness_state: "PARTIAL",
+          data_completeness_state: "READY",
         },
         latest_monitoring_run: {
           monitoring_run_id: "run_001",

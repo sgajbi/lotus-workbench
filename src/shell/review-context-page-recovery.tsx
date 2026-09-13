@@ -5,6 +5,7 @@ import {
   WorkbenchPageFrame,
   WorkbenchSectionStack,
 } from "@/design-system";
+import type { ReactNode } from "react";
 
 import ReviewContextRecovery from "./review-context-recovery";
 import { buildUnavailableReviewContextStrip } from "./review-context-strip-view-model";
@@ -16,6 +17,7 @@ export default function ReviewContextPageRecovery({
   body,
   href,
   actionLabel,
+  action,
   reviewContext = buildUnavailableReviewContextStrip(),
   className = "portfolio-page",
   containerClassName = "portfolio-page-container",
@@ -29,6 +31,7 @@ export default function ReviewContextPageRecovery({
   body: string;
   href: string;
   actionLabel: string;
+  action?: ReactNode;
   reviewContext?: ReviewContextStripModel;
   className?: string;
   containerClassName?: string;
@@ -54,6 +57,7 @@ export default function ReviewContextPageRecovery({
               body={body}
               href={href}
               actionLabel={actionLabel}
+              action={action}
             />
           </WorkbenchSectionStack>
         </WorkbenchPageFrame>
