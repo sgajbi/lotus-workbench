@@ -130,11 +130,15 @@ function hasManageCommandCenterPayload(value: unknown): boolean {
     return true;
   }
   const summary = data.summary;
-  return (
-    isRecord(summary) &&
-    (isConfirmedDataCompletenessState(summary.data_completeness_state) ||
-      typeof summary.active_exception_count === "number")
-  );
+  if (!isRecord(summary)) {
+    return false;
+  }
+  // A source-declared completeness posture is authoritative. The historic count
+  // fallback applies only to contracts that do not publish that posture at all.
+  if (hasNonBlankString(summary.data_completeness_state)) {
+    return isConfirmedDataCompletenessState(summary.data_completeness_state);
+  }
+  return typeof summary.active_exception_count === "number";
 }
 
 function hasCompleteManageExceptionEvidence(data: ManageWorkspaceData): boolean {

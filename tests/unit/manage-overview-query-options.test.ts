@@ -167,6 +167,25 @@ describe("Manage Overview query ownership", () => {
         }),
       ),
     ).toBe(false);
+    for (const dataCompletenessState of ["PARTIAL", "DEGRADED"]) {
+      expect(
+        isManageOverviewComplete(
+          buildManageWorkspaceData({
+            commandCenter: {
+              ...complete.commandCenter!,
+              data: {
+                ...complete.commandCenter!.data,
+                summary: {
+                  ...complete.commandCenter!.data.summary,
+                  active_exception_count: 2,
+                  data_completeness_state: dataCompletenessState,
+                },
+              },
+            },
+          }),
+        ),
+      ).toBe(false);
+    }
   });
 });
 
