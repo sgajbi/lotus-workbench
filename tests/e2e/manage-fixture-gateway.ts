@@ -284,7 +284,9 @@ export async function startManageFixtureGateway({
           response,
           cursor === "mandate-attention-window-2"
             ? mandateExceptionWindowTwo()
-            : mandateExceptionWindowOne(),
+            : mandateExceptionWindowOne({
+                isComplete: process.env.MANAGE_E2E_FIXTURE === "overview",
+              }),
         );
         return;
       }
@@ -381,60 +383,61 @@ export async function startManageFixtureGateway({
   };
 }
 
-function mandateExceptionWindowOne() {
+function mandateExceptionWindowOne({ isComplete = false } = {}) {
+  const items = [
+    {
+      exception_id: "mandate-exception-benchmark",
+      mandate_id: mandateId,
+      monitoring_run_id: "manage-monitoring-2026-05-03",
+      source_run_id: "performance-run-2026-05-03",
+      correlation_id: "corr-manage-exceptions-window-1-item",
+      authority: "lotus-manage:monitoring-exception",
+      severity: "HIGH",
+      title: "Benchmark mapping requires review",
+      source_system: "lotus-performance",
+      owner: "Portfolio Management",
+      age_hours: 3,
+      state: "ACTIVE",
+      next_action: "Confirm the benchmark assignment before the next review",
+    },
+    {
+      exception_id: "mandate-exception-price",
+      mandate_id: mandateId,
+      monitoring_run_id: "manage-monitoring-2026-05-03",
+      source_run_id: "valuation-run-2026-05-03",
+      correlation_id: "corr-manage-exceptions-window-1-price",
+      authority: "lotus-manage:monitoring-exception",
+      severity: "MEDIUM",
+      title: "Fixed income price requires confirmation",
+      source_system: "lotus-core",
+      owner: "Investment Operations",
+      age_hours: 6,
+      state: "ACTIVE",
+      next_action: "Confirm the latest validated price",
+    },
+    {
+      exception_id: "mandate-exception-concentration",
+      mandate_id: mandateId,
+      monitoring_run_id: "manage-monitoring-2026-05-03",
+      source_run_id: "risk-run-2026-05-03",
+      correlation_id: "corr-manage-exceptions-window-2-item",
+      authority: "lotus-manage:monitoring-exception",
+      severity: "HIGH",
+      title: "Concentration threshold requires review",
+      source_system: "lotus-risk",
+      owner: "Portfolio Management",
+      age_hours: 1,
+      state: "ACTIVE",
+      next_action: "Review concentration exposure and agree the response",
+    },
+  ];
   return commandEnvelope(
     {
-      items: [
-        {
-          exception_id: "mandate-exception-benchmark",
-          mandate_id: mandateId,
-          monitoring_run_id: "manage-monitoring-2026-05-03",
-          source_run_id: "performance-run-2026-05-03",
-          correlation_id: "corr-manage-exceptions-window-1-item",
-          authority: "lotus-manage:monitoring-exception",
-          severity: "HIGH",
-          title: "Benchmark mapping requires review",
-          source_system: "lotus-performance",
-          owner: "Portfolio Management",
-          age_hours: 3,
-          state: "ACTIVE",
-          next_action: "Confirm the benchmark assignment before the next review",
-        },
-        {
-          exception_id: "mandate-exception-price",
-          mandate_id: mandateId,
-          monitoring_run_id: "manage-monitoring-2026-05-03",
-          source_run_id: "valuation-run-2026-05-03",
-          correlation_id: "corr-manage-exceptions-window-1-price",
-          authority: "lotus-manage:monitoring-exception",
-          severity: "MEDIUM",
-          title: "Fixed income price requires confirmation",
-          source_system: "lotus-core",
-          owner: "Investment Operations",
-          age_hours: 6,
-          state: "ACTIVE",
-          next_action: "Confirm the latest validated price",
-        },
-        {
-          exception_id: "mandate-exception-concentration",
-          mandate_id: mandateId,
-          monitoring_run_id: "manage-monitoring-2026-05-03",
-          source_run_id: "risk-run-2026-05-03",
-          correlation_id: "corr-manage-exceptions-window-2-item",
-          authority: "lotus-manage:monitoring-exception",
-          severity: "HIGH",
-          title: "Concentration threshold requires review",
-          source_system: "lotus-risk",
-          owner: "Portfolio Management",
-          age_hours: 1,
-          state: "ACTIVE",
-          next_action: "Review concentration exposure and agree the response",
-        },
-      ],
-      // Overview owns one bounded, complete attention receipt. A continuation
-      // cursor is deliberately not fixture-valid here because it must not advance
-      // the browser's Checked receipt.
-      next_cursor: null,
+      items: isComplete ? items : items.slice(0, 2),
+      // Overview owns one bounded, complete attention receipt. Mandate Health
+      // deliberately receives a continuation cursor so its partial-source state
+      // stays independently observable without making Overview's receipt partial.
+      next_cursor: isComplete ? null : "mandate-attention-window-2",
     },
     "corr-manage-exceptions-window-1",
   );
