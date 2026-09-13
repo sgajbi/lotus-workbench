@@ -566,7 +566,7 @@ describe("manage workspace split components", () => {
     expect(within(posture).getByText("Mandate health")).toBeInTheDocument();
     expect(within(posture).getByText("Open attention items")).toBeInTheDocument();
     expect(within(posture).getByText("Data availability")).toBeInTheDocument();
-    expect(within(posture).getAllByText("Needs attention")).toHaveLength(2);
+    expect(within(posture).getAllByText("Needs attention")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "What needs review now" })).toBeInTheDocument();
     expect(screen.getAllByText("Benchmark mapping requires review")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Review benchmark mapping" })).toBeInTheDocument();
