@@ -88,8 +88,8 @@ export function isManageOverviewComplete(data: ManageWorkspaceData): boolean {
       isManageOverviewSource(data.commandCenterExceptions) &&
       !data.commandCenterExceptionsError &&
       isManageOverviewSource(data.mandate) &&
+      hasManageMandateIdentity(data.mandate) &&
       isManageOverviewSource(data.mandateHealth) &&
-      hasMatchingMandateIdentity(data.mandate, data.mandateHealth) &&
       !data.mandateHealthError &&
       isManageOverviewSource(data.waves) &&
       !data.wavesError,
@@ -117,22 +117,12 @@ function isManageOverviewSource(value: unknown): value is Record<string, unknown
   );
 }
 
-function hasMatchingMandateIdentity(
-  mandate: Record<string, unknown>,
-  mandateHealth: Record<string, unknown>,
-): boolean {
+function hasManageMandateIdentity(mandate: Record<string, unknown>): boolean {
   const mandateData = mandate.data;
-  const mandateHealthData = mandateHealth.data;
-  if (!isRecord(mandateData) || !isRecord(mandateHealthData)) {
+  if (!isRecord(mandateData)) {
     return false;
   }
-  const mandateId = readDpmMandateId(mandateData);
-  const mandateHealthId = readDpmMandateId(mandateHealthData);
-  return (
-    mandateId !== null &&
-    mandateHealthId !== null &&
-    mandateId === mandateHealthId
-  );
+  return readDpmMandateId(mandateData) !== null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

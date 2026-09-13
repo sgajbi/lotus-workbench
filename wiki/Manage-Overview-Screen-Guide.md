@@ -182,8 +182,8 @@ The initial route supplies one server-composed Overview. TanStack Query owns tha
 composite in the browser. A fresh complete server composite replaces retained state for the same
 Query identity before paint; a fresh permission refusal withholds older evidence immediately. A
 fresh incomplete composite does not displace a complete retained receipt. Every source admitted as
-complete has a non-empty response identity and a matching supportability identity; mandate and
-mandate-health identifiers must also agree. **Recheck overview** is the only screen-local source
+complete has a non-empty response identity and a matching supportability identity; a usable mandate
+identity binds the dependent mandate-health request. **Recheck overview** is the only screen-local source
 transaction: it contacts all six required BFF paths once and advances **Checked** only when every
 response is admitted for the active portfolio and review context. An ordinary failure retains a
 previously admitted complete composite and receipt with an explicit failure state; an initial
