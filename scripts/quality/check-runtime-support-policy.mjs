@@ -61,6 +61,8 @@ const RUNNER_PACKAGE_MANAGER_REMOVAL = [
   "/usr/local/bin/yarnpkg",
   "/opt/yarn-v1.22.22",
 ].join(" ");
+const RUNNER_OS_SECURITY_UPDATE =
+  "apt-get update && apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u1 && rm -rf /var/lib/apt/lists/*";
 
 export function validateRuntimeSupportPolicy({
   packageJson,
@@ -342,12 +344,16 @@ export function validateRuntimeSupportPolicy({
     const runnerRunInstructions = runnerStages[0].instructions.filter(
       ({ keyword }) => keyword === "RUN"
     );
+    const normalizedRunnerRunInstructions = runnerRunInstructions.map(({ argument }) =>
+      normalizeInstruction(argument)
+    );
     if (
-      runnerRunInstructions.length !== 1 ||
-      normalizeInstruction(runnerRunInstructions[0].argument) !== RUNNER_PACKAGE_MANAGER_REMOVAL
+      normalizedRunnerRunInstructions.length !== 2 ||
+      !normalizedRunnerRunInstructions.includes(RUNNER_OS_SECURITY_UPDATE) ||
+      !normalizedRunnerRunInstructions.includes(RUNNER_PACKAGE_MANAGER_REMOVAL)
     ) {
       failures.push(
-        "The final runner must remove the npm, npx, Corepack, and Yarn toolchain through its sole RUN instruction."
+        "The final runner must retain only the exact pinned PCRE2 security update and npm, npx, Corepack, and Yarn toolchain removal RUN instructions."
       );
     }
   }
