@@ -103,7 +103,7 @@ export default function ManageOverviewWorkspace({
     resetRecheck();
     void queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
     queryClient.setQueryData(options.queryKey, initialData);
-  }, [initialData, queryClient, queryContext, resetRecheck]);
+  }, [initialData, overviewQuery.error, queryClient, queryContext, resetRecheck]);
 
   // Layout admission runs before a browser paint, so a same-key cached composite
   // cannot be shown while an authoritative incoming server receipt replaces it.
