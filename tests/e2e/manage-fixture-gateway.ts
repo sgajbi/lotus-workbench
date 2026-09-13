@@ -91,7 +91,10 @@ export async function startManageFixtureGateway({
     ) {
       sendJson(
         response,
-        commandEnvelope({ dimensions: [] }, "corr-manage-health"),
+        commandEnvelope(
+          { health_state: "READY", health_score: 82 },
+          "corr-manage-health",
+        ),
       );
       return;
     }
@@ -627,6 +630,8 @@ function waveEnvelope() {
           },
         },
       ],
+      total_count: 1,
+      next_cursor: null,
     },
   };
 }
