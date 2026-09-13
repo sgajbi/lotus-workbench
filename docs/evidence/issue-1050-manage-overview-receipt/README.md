@@ -12,9 +12,9 @@ source-runtime, deployment, or business-freshness certification.
 - The primary decision remains above the fold, desktop page height remains below the governed
   1,200px ceiling, and desktop, tablet, and compact layouts have no page-level horizontal overflow.
 - Automated component tests separately prove no focus, reconnect, or remount reads; complete-only
-  receipt advancement; fresh same-key server receipt precedence over retained evidence; permission
-  revocation; restored facts; stale-recheck and delayed-context fencing; and truthful first-failure
-  and recovery copy.
+  receipt advancement; fresh complete same-key precedence while incomplete receipts retain admitted
+  evidence; permission revocation; restored facts; malformed-source rejection; stale-recheck and
+  delayed-context fencing; and truthful first-failure and recovery copy.
 
 ## Artifacts
 
