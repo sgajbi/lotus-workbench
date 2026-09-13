@@ -136,19 +136,32 @@ describe("Manage Overview governed receipt", () => {
       waves: null,
       wavesError: "Rebalance evidence is temporarily unavailable.",
     });
+    vi.mocked(getPortfolio360).mockResolvedValue(admittedData.portfolio);
+    vi.mocked(loadManageWorkspaceData).mockResolvedValue(incompleteData);
     const first = renderWorkspace(admittedData, queryClient);
 
     await waitFor(() =>
       expect(queryClient.getQueryData(manageOverviewKey(admittedData))).toEqual(admittedData),
     );
+    const receiptUpdatedAt = queryClient.getQueryState(
+      manageOverviewKey(admittedData),
+    )?.dataUpdatedAt;
+    expect(receiptUpdatedAt).toBeDefined();
+
+    fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+    expect(await screen.findByText(/Overview recheck failed/)).toBeInTheDocument();
     first.unmount();
     renderWorkspace(incompleteData, queryClient);
 
     expect(screen.getByText("1,250,000.00 USD")).toBeInTheDocument();
     expect(screen.getByText(/^Checked /)).toBeInTheDocument();
     expect(queryClient.getQueryData(manageOverviewKey(incompleteData))).toEqual(admittedData);
-    expect(getPortfolio360).not.toHaveBeenCalled();
-    expect(loadManageWorkspaceData).not.toHaveBeenCalled();
+    expect(queryClient.getQueryState(manageOverviewKey(incompleteData))?.dataUpdatedAt).toBe(
+      receiptUpdatedAt,
+    );
+    expect(screen.queryByText(/Overview recheck failed/)).not.toBeInTheDocument();
+    expect(getPortfolio360).toHaveBeenCalledTimes(1);
+    expect(loadManageWorkspaceData).toHaveBeenCalledTimes(1);
   });
 
   it("retains admitted evidence after an ordinary failed recheck", async () => {
