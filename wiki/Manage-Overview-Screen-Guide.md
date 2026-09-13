@@ -181,15 +181,17 @@ remains in [API Surface](API-Surface), and ownership flow remains in
 The initial route supplies one server-composed Overview. TanStack Query owns that exact hydrated
 composite in the browser. A fresh complete server composite replaces retained state for the same
 Query identity before paint; a fresh permission refusal withholds older evidence immediately. A
-fresh incomplete composite does not displace a complete retained receipt. Every source admitted as
+fresh incomplete composite does not displace a complete retained receipt or establish that a prior
+permission refusal has been restored. Every source admitted as
 complete has a non-empty response identity and a matching supportability identity; a usable mandate
 identity binds the dependent mandate-health request. **Recheck overview** is the only screen-local source
 transaction: it contacts all six required BFF paths once and advances **Checked** only when every
 response is admitted for the active portfolio and review context. An ordinary failure retains a
 previously admitted complete composite and receipt with an explicit failure state; an initial
 incomplete failure does not claim a previous successful check. A permission refusal withholds the
-evidence. Delayed results cannot cross portfolio or review-context boundaries, or restore evidence
-superseded by a newer server receipt.
+evidence until a fresh complete admission establishes restoration; absence of another refusal in an
+incomplete response is not restoration evidence. Delayed results cannot cross portfolio or
+review-context boundaries, or restore evidence superseded by a newer server receipt.
 
 ## Workbench Boundaries
 
@@ -235,9 +237,9 @@ unsupported capability, and this guide is not a claim of competitor superiority.
   selected-detail evidence, business-formatted date context, single-stated destinations,
   incomplete-evidence state, and absence of a fabricated alternatives-available claim.
 - `tests/unit/manage-overview-query-state.test.tsx` proves same-key complete-receipt precedence,
-  incomplete-receipt retention, permission withholding, restored facts, malformed-source rejection,
-  stale-recheck fencing without a false failure state after a superseding server receipt,
-  no-ambient-read remounts, and truthful first-failure and recovery copy.
+  incomplete-receipt retention, permission withholding that only a fresh complete admission can
+  restore, late-recheck fencing, malformed-source rejection, no-ambient-read remounts, and truthful
+  first-failure and recovery copy.
 - `tests/unit/manage-overview-query-options.test.ts` proves **Checked** requires each source's
   confirmed envelope and expected payload shape, including an exhaustive active-exceptions window;
   a partial/degraded source posture or continuation cursor remains incomplete.
