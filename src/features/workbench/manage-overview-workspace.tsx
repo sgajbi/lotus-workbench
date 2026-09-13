@@ -53,6 +53,21 @@ export default function ManageOverviewWorkspace({
   const overviewQuery = useQuery(
     manageOverviewQueryOptions(queryContext, initialData),
   );
+  const runRecheck = useCallback(
+    () => recheckManageOverview(queryClient, queryContext),
+    [queryClient, queryContext],
+  );
+  const {
+    actionRef: recheckActionRef,
+    refresh: recheckOverview,
+    refreshState: recheckState,
+    reset: resetRecheck,
+  } = useSourceRefreshAction({
+    identity: JSON.stringify(queryContext),
+    isRefreshing: overviewQuery.fetchStatus === "fetching",
+    hasRefreshFailure: overviewQuery.isError,
+    onRefresh: runRecheck,
+  });
   useLayoutEffect(() => {
     const options = manageOverviewQueryOptions(queryContext);
     const cachedData = queryClient.getQueryData<ManageWorkspaceData>(options.queryKey);
@@ -71,9 +86,12 @@ export default function ManageOverviewWorkspace({
     // A server-composed Overview is a fresher, authoritative receipt for this exact
     // context. Cancel first so a recheck started before navigation cannot restore
     // older evidence after a server denial or newer server composite is admitted.
+    // Reset its local outcome first: this cancellation supersedes the recheck rather
+    // than representing a failed source read.
+    resetRecheck();
     void queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
     queryClient.setQueryData(options.queryKey, initialData);
-  }, [initialData, queryClient, queryContext]);
+  }, [initialData, queryClient, queryContext, resetRecheck]);
 
   // Layout admission runs before a browser paint, so a same-key cached composite
   // cannot be shown while an authoritative incoming server receipt replaces it.
@@ -82,21 +100,6 @@ export default function ManageOverviewWorkspace({
     () => buildManageOverviewModel(data, reviewContext),
     [data, reviewContext],
   );
-  const runRecheck = useCallback(
-    () => recheckManageOverview(queryClient, queryContext),
-    [queryClient, queryContext],
-  );
-  const {
-    actionRef: recheckActionRef,
-    refresh: recheckOverview,
-    refreshState: recheckState,
-  } = useSourceRefreshAction({
-    identity: JSON.stringify(queryContext),
-    isRefreshing: overviewQuery.fetchStatus === "fetching",
-    hasRefreshFailure: overviewQuery.isError,
-    onRefresh: runRecheck,
-  });
-
   if (
     data.sourceAccessWithheld ||
     isManageOverviewPermissionError(overviewQuery.error)

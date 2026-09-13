@@ -236,7 +236,11 @@ unsupported capability, and this guide is not a claim of competitor superiority.
   incomplete-evidence state, and absence of a fabricated alternatives-available claim.
 - `tests/unit/manage-overview-query-state.test.tsx` proves same-key complete-receipt precedence,
   incomplete-receipt retention, permission withholding, restored facts, malformed-source rejection,
-  stale-recheck fencing, no-ambient-read remounts, and truthful first-failure and recovery copy.
+  stale-recheck fencing without a false failure state after a superseding server receipt,
+  no-ambient-read remounts, and truthful first-failure and recovery copy.
+- `tests/unit/manage-overview-query-options.test.ts` proves **Checked** requires each source's
+  confirmed envelope and expected payload shape, including an exhaustive active-exceptions window;
+  a partial/degraded source posture or continuation cursor remains incomplete.
 - `tests/unit/workbench-worklist.test.tsx` proves the shared worklist's row/detail relationship,
   Arrow-key selection, Enter detail transfer, disabled-row posture, and controlled selection.
 - `tests/unit/manage-overview-responsive-css.test.ts` proves that posture, value, evidence, and task

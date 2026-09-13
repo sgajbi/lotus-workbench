@@ -11,6 +11,7 @@ import {
 import { loadManageWorkspaceData } from "../../src/features/workbench/manage-workspace-data-loader";
 import { getPortfolio360 } from "../../src/features/workbench/workbench-core-api";
 import { WorkbenchApiError } from "../../src/features/workbench/api-client";
+import type { ManageWorkspaceData } from "../../src/features/workbench/manage-workspace-data";
 import { buildManageWorkspaceData } from "./manage-workspace-fixtures";
 
 vi.mock("../../src/features/workbench/manage-workspace-data-loader", () => ({
@@ -132,6 +133,34 @@ describe("Manage Overview query ownership", () => {
     expect(
       isManageOverviewComplete(
         buildManageWorkspaceData({ sourceAccessWithheld: true }),
+      ),
+    ).toBe(false);
+    const complete = buildManageWorkspaceData();
+    expect(
+      isManageOverviewComplete(
+        buildManageWorkspaceData({
+          commandCenter: {
+            ...complete.commandCenter!,
+            data: {},
+          } as ManageWorkspaceData["commandCenter"],
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isManageOverviewComplete(
+        buildManageWorkspaceData({
+          commandCenterExceptions: {
+            ...complete.commandCenterExceptions!,
+            supportability: {
+              ...complete.commandCenterExceptions!.supportability,
+              state: "PARTIAL",
+            },
+            data: {
+              ...complete.commandCenterExceptions!.data,
+              next_cursor: "next-page",
+            },
+          },
+        }),
       ),
     ).toBe(false);
   });
