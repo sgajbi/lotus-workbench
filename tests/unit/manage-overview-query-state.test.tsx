@@ -64,6 +64,67 @@ describe("Manage Overview governed receipt", () => {
     expect(screen.getByText(/^Checked /)).toBeInTheDocument();
   });
 
+  it("admits a fresh same-key server refusal instead of retained permitted evidence", async () => {
+    const queryClient = createQueryClient();
+    const admittedData = buildManageWorkspaceData();
+    const refusal = buildManageWorkspaceData({ sourceAccessWithheld: true });
+    const first = renderWorkspace(admittedData, queryClient);
+
+    await waitFor(() =>
+      expect(queryClient.getQueryData(manageOverviewKey(admittedData))).toEqual(admittedData),
+    );
+    first.unmount();
+    renderWorkspace(refusal, queryClient);
+
+    expect(
+      screen.getByText(
+        "Your authenticated role does not currently provide access to this portfolio-management evidence.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(queryClient.getQueryData(manageOverviewKey(refusal))).toEqual(refusal),
+    );
+    expect(getPortfolio360).not.toHaveBeenCalled();
+    expect(loadManageWorkspaceData).not.toHaveBeenCalled();
+  });
+
+  it("admits fresh same-key facts and fences an older concurrent recheck", async () => {
+    const queryClient = createQueryClient();
+    const admittedData = buildManageWorkspaceData();
+    const newerData = buildManageWorkspaceData({
+      portfolio: forPortfolio(admittedData, "PF_1001", 2_500_000).portfolio,
+    });
+    const delayedPortfolio = deferred<ManageWorkspaceData["portfolio"]>();
+    vi.mocked(getPortfolio360).mockImplementationOnce(() => delayedPortfolio.promise);
+    vi.mocked(loadManageWorkspaceData).mockResolvedValue(admittedData);
+
+    const view = renderWorkspace(admittedData, queryClient);
+    await waitFor(() =>
+      expect(queryClient.getQueryData(manageOverviewKey(admittedData))).toEqual(admittedData),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+    await waitFor(() => expect(getPortfolio360).toHaveBeenCalledTimes(1));
+
+    view.rerender(
+      <Wrapper queryClient={queryClient}>
+        <ManageWorkspace
+          data={newerData}
+          mode="overview"
+          reviewContext={{ portfolioId: newerData.portfolio.portfolio.portfolio_id }}
+        />
+      </Wrapper>,
+    );
+
+    expect(screen.getByText("2,500,000.00 USD")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(queryClient.getQueryData(manageOverviewKey(newerData))).toEqual(newerData),
+    );
+    await act(async () => delayedPortfolio.resolve(admittedData.portfolio));
+    expect(screen.getByText("2,500,000.00 USD")).toBeInTheDocument();
+    expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
+  });
+
   it("retains admitted evidence after an ordinary failed recheck", async () => {
     const data = buildManageWorkspaceData();
     vi.mocked(getPortfolio360).mockResolvedValue(data.portfolio);
@@ -135,6 +196,51 @@ describe("Manage Overview governed receipt", () => {
     expect(screen.queryByText(/^Checked /)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Recheck overview" })).toBeEnabled();
   });
+
+  it("does not claim a prior successful check until a complete composite was admitted", async () => {
+    const incompleteData = buildManageWorkspaceData({
+      mandateHealth: null,
+      mandateHealthError: null,
+    });
+    vi.mocked(getPortfolio360).mockResolvedValue(incompleteData.portfolio);
+    vi.mocked(loadManageWorkspaceData).mockResolvedValueOnce(incompleteData);
+
+    renderWorkspace(incompleteData, createQueryClient());
+    fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+
+    expect(await screen.findByText(/Overview recheck failed/)).toHaveTextContent(
+      "No complete portfolio-management evidence has been admitted yet.",
+    );
+    expect(screen.queryByText(/previous successful check/)).not.toBeInTheDocument();
+  });
+
+  it("recognises a later successful recovery before retaining it after another failure", async () => {
+    const incompleteData = buildManageWorkspaceData({
+      mandateHealth: null,
+      mandateHealthError: null,
+    });
+    const recoveredData = buildManageWorkspaceData();
+    vi.mocked(getPortfolio360).mockResolvedValue(recoveredData.portfolio);
+    vi.mocked(loadManageWorkspaceData)
+      .mockResolvedValueOnce(incompleteData)
+      .mockResolvedValueOnce(recoveredData)
+      .mockResolvedValueOnce(incompleteData);
+
+    renderWorkspace(incompleteData, createQueryClient());
+    const recheck = screen.getByRole("button", { name: "Recheck overview" });
+    fireEvent.click(recheck);
+    expect(await screen.findByText(/Overview recheck failed/)).toHaveTextContent(
+      "No complete portfolio-management evidence has been admitted yet.",
+    );
+
+    fireEvent.click(recheck);
+    await waitFor(() => expect(screen.getByText(/^Checked /)).toBeInTheDocument());
+
+    fireEvent.click(recheck);
+    expect(await screen.findByText(/Overview recheck failed/)).toHaveTextContent(
+      "The displayed portfolio-management evidence remains from the previous successful check.",
+    );
+  });
 });
 
 function renderWorkspace(data: ManageWorkspaceData, queryClient: QueryClient) {
@@ -178,6 +284,21 @@ function forPortfolio(
       overview: { ...data.portfolio.overview, market_value_base: marketValue },
     },
   };
+}
+
+function manageOverviewKey(data: ManageWorkspaceData) {
+  return [
+    "manage",
+    "overview",
+    "composite",
+    {
+      portfolioId: data.portfolio.portfolio.portfolio_id,
+      sessionId: null,
+      asOfDate: null,
+      period: null,
+      reportingCurrency: null,
+    },
+  ];
 }
 
 function deferred<T>() {

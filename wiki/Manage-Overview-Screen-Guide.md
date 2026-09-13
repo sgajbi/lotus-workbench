@@ -179,11 +179,15 @@ remains in [API Surface](API-Surface), and ownership flow remains in
 | Permission blocked | The owning source request fails closed; restricted evidence is not rendered as current | Use an entitled role or approved support path |
 
 The initial route supplies one server-composed Overview. TanStack Query owns that exact hydrated
-composite in the browser. **Recheck overview** is the only screen-local source transaction: it
-contacts all six required BFF paths once and advances **Checked** only when every response is
-admitted for the active portfolio and review context. An ordinary failure retains the previous
-admitted evidence and receipt with an explicit failure state; a permission refusal withholds the
-evidence. Delayed results cannot cross portfolio or review-context boundaries.
+composite in the browser. A fresh server composite replaces retained state for the same Query
+identity before paint: an incoming permission refusal withholds older evidence immediately, while
+restored access and newer facts replace the prior composite. **Recheck overview** is the only
+screen-local source transaction: it contacts all six required BFF paths once and advances
+**Checked** only when every response is admitted for the active portfolio and review context. An
+ordinary failure retains a previously admitted complete composite and receipt with an explicit
+failure state; an initial incomplete failure does not claim a previous successful check. A
+permission refusal withholds the evidence. Delayed results cannot cross portfolio or review-context
+boundaries, or restore evidence superseded by a newer server receipt.
 
 ## Workbench Boundaries
 
@@ -228,6 +232,9 @@ unsupported capability, and this guide is not a claim of competitor superiority.
 - `tests/unit/manage-workspace-components.test.tsx` proves the combined decision worklist,
   selected-detail evidence, business-formatted date context, single-stated destinations,
   incomplete-evidence state, and absence of a fabricated alternatives-available claim.
+- `tests/unit/manage-overview-query-state.test.tsx` proves same-key server receipt precedence over
+  retained Query evidence, permission withholding, restored facts, stale-recheck fencing,
+  no-ambient-read remounts, and truthful first-failure and recovery copy.
 - `tests/unit/workbench-worklist.test.tsx` proves the shared worklist's row/detail relationship,
   Arrow-key selection, Enter detail transfer, disabled-row posture, and controlled selection.
 - `tests/unit/manage-overview-responsive-css.test.ts` proves that posture, value, evidence, and task
