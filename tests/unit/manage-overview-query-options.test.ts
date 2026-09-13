@@ -127,6 +127,55 @@ describe("Manage Overview query ownership", () => {
     expect(loadManageWorkspaceData).not.toHaveBeenCalled();
   });
 
+  it("retains Query-owned refusal and its old receipt through repeated ordinary and incomplete failures", async () => {
+    const queryClient = createQueryClient();
+    const key = manageOverviewQueryKeys.composite(context);
+    const admitted = buildManageWorkspaceData();
+    queryClient.setQueryData(key, admitted, { updatedAt: 1_000 });
+    vi.mocked(getPortfolio360).mockRejectedValueOnce(new WorkbenchApiError("portfolio 360", 403));
+    await expect(recheckManageOverview(queryClient, context)).rejects.toMatchObject({ accessWithheld: true });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      vi.mocked(getPortfolio360).mockRejectedValueOnce(new WorkbenchApiError("portfolio 360", 503));
+      await expect(recheckManageOverview(queryClient, context)).rejects.toMatchObject({ accessWithheld: false });
+      expect(queryClient.getQueryData(key)).toEqual({ ...admitted, sourceAccessWithheld: true });
+      expect(queryClient.getQueryState(key)!.dataUpdatedAt).toBe(1_000);
+    }
+    vi.mocked(loadManageWorkspaceData).mockResolvedValueOnce({ ...admitted, waves: null });
+    await expect(recheckManageOverview(queryClient, context)).rejects.toMatchObject({ accessWithheld: false });
+    expect(queryClient.getQueryData(key)).toEqual({ ...admitted, sourceAccessWithheld: true });
+    expect(queryClient.getQueryState(key)!.dataUpdatedAt).toBe(1_000);
+    await recheckManageOverview(queryClient, context);
+    expect(queryClient.getQueryData(key)).toEqual(admitted);
+    expect(queryClient.getQueryState(key)!.dataUpdatedAt).toBeGreaterThan(1_000);
+  });
+
+  it.each(["complete", "denied"] as const)("fences a late %s result after cancellation and replacement of the same Query", async (outcome) => {
+    const queryClient = createQueryClient();
+    const key = manageOverviewQueryKeys.composite(context);
+    const data = buildManageWorkspaceData();
+    queryClient.setQueryData(key, data);
+    let complete!: (data: ManageWorkspaceData["portfolio"]) => void;
+    let deny!: (error: Error) => void;
+    vi.mocked(getPortfolio360).mockImplementationOnce(() => new Promise((resolve, reject) => {
+      complete = resolve;
+      deny = reject;
+    }));
+    const oldRequest = recheckManageOverview(queryClient, context).catch(() => undefined);
+    await vi.waitFor(() => expect(getPortfolio360).toHaveBeenCalledTimes(1));
+    await queryClient.cancelQueries({ queryKey: key, exact: true });
+    queryClient.removeQueries({ queryKey: key, exact: true });
+    const replacement = { ...data, sourceAccessWithheld: outcome === "complete" };
+    queryClient.setQueryData(key, replacement, { updatedAt: 2_000 });
+    if (outcome === "complete") complete(data.portfolio);
+    else deny(new WorkbenchApiError("portfolio 360", 403));
+    await oldRequest;
+    // Flush the ignored transport completion as well as Query's cancellation promise.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(queryClient.getQueryState(key)!.fetchStatus).toBe("idle");
+    expect(queryClient.getQueryData(key)).toEqual(replacement);
+    expect(queryClient.getQueryState(key)!.dataUpdatedAt).toBe(2_000);
+  });
+
   it("does not classify a partial or permission-withheld composite as checked", () => {
     expect(isManageOverviewComplete(buildManageWorkspaceData())).toBe(true);
     expect(

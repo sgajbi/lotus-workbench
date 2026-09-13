@@ -206,7 +206,8 @@
           "fixture_value": "overview",
           "spec": "tests/e2e/manage-overview-workspace.spec.ts",
           "expected_tests": [
-            "Manage Overview keeps the portfolio decision first without repeated destinations"
+            "Manage Overview keeps the portfolio decision first without repeated destinations",
+            "Manage Overview keeps refused evidence hidden through failed explicit recovery"
           ]
         },
         "mode-loading": {

@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -9,6 +9,12 @@ import { getPortfolio360 } from "../../src/features/workbench/workbench-core-api
 import { WorkbenchApiError } from "../../src/features/workbench/api-client";
 import type { ManageWorkspaceData } from "../../src/features/workbench/manage-workspace-data";
 import { buildManageWorkspaceData } from "./manage-workspace-fixtures";
+import Providers from "../../src/app/providers";
+import {
+  captureAuthorityRequestContext,
+  reconcileResponseAuthorityContext,
+  resetClientAuthorityContextForTests,
+} from "../../src/features/workbench/client-authority-context";
 
 vi.mock("../../src/features/workbench/manage-workspace-data-loader", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../src/features/workbench/manage-workspace-data-loader")>()),
@@ -304,6 +310,158 @@ describe("Manage Overview governed receipt", () => {
     expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
   });
 
+  it.each(["complete cache", "incomplete cache", "server refusal"] as const)(
+    "keeps %s refusal beyond inactive expiry, incomplete remount and failed recovery until complete admission",
+    async (refusalOrigin) => {
+      const queryClient = createQueryClient();
+      const complete = buildManageWorkspaceData();
+      const incomplete = buildManageWorkspaceData({ waves: null, wavesError: "Unavailable" });
+      const initial = refusalOrigin === "complete cache"
+        ? complete
+        : refusalOrigin === "incomplete cache"
+          ? incomplete
+          : { ...incomplete, sourceAccessWithheld: true };
+      vi.mocked(getPortfolio360).mockReset();
+      vi.mocked(loadManageWorkspaceData).mockReset();
+      const first = renderWorkspace(initial, queryClient);
+      const key = manageOverviewKey(initial);
+      const checkedAt = queryClient.getQueryState(key)!.dataUpdatedAt;
+      if (refusalOrigin !== "server refusal") {
+        vi.mocked(getPortfolio360).mockRejectedValueOnce(new WorkbenchApiError("portfolio 360", 403));
+        fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+        await waitFor(expectWithheldOverview);
+      }
+      // Exercise the former five-minute inactive GC window, not only an
+      // immediate remount. Inactivity is not evidence of restored access.
+      const readsBeforeRemount = vi.mocked(getPortfolio360).mock.calls.length;
+      const compositionsBeforeRemount = vi.mocked(loadManageWorkspaceData).mock.calls.length;
+      vi.useFakeTimers();
+      try {
+        first.unmount();
+        await vi.advanceTimersByTimeAsync(300_001);
+      } finally {
+        vi.useRealTimers();
+      }
+      renderWorkspace({ ...incomplete }, queryClient);
+      expectWithheldOverview();
+      expect(queryClient.getQueryState(key)!.dataUpdatedAt).toBe(checkedAt);
+      expect(getPortfolio360).toHaveBeenCalledTimes(readsBeforeRemount);
+      expect(loadManageWorkspaceData).toHaveBeenCalledTimes(compositionsBeforeRemount);
+      fireEvent.focus(window);
+      window.dispatchEvent(new Event("online"));
+      expect(getPortfolio360).toHaveBeenCalledTimes(readsBeforeRemount);
+
+      for (const failure of ["ordinary", "ordinary", "incomplete"] as const) {
+        if (failure === "ordinary") {
+          vi.mocked(getPortfolio360).mockRejectedValueOnce(new WorkbenchApiError("portfolio 360", 503));
+        } else {
+          vi.mocked(getPortfolio360).mockResolvedValueOnce(complete.portfolio);
+          vi.mocked(loadManageWorkspaceData).mockResolvedValueOnce(incomplete);
+        }
+        const recovery = screen.getByRole("button", { name: "Recheck overview" });
+        recovery.focus();
+        fireEvent.click(recovery);
+        await waitFor(() => expect(screen.getByRole("button", { name: "Recheck overview" })).toBeEnabled());
+        expectWithheldOverview();
+        expect(screen.getByText(/Access has not been restored/)).toBeInTheDocument();
+        expect(screen.queryByText(/previous successful check/)).not.toBeInTheDocument();
+        expect(queryClient.getQueryState(key)!.dataUpdatedAt).toBe(checkedAt);
+        await waitFor(() => expect(screen.getByRole("button", { name: "Recheck overview" })).toHaveFocus());
+      }
+
+      const restored = forPortfolio(complete, "PF_1001", 2_500_000);
+      vi.mocked(getPortfolio360).mockResolvedValueOnce(restored.portfolio);
+      vi.mocked(loadManageWorkspaceData).mockResolvedValueOnce(restored);
+      fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+      expect(await screen.findByText("2,500,000.00 USD")).toBeInTheDocument();
+      expect(screen.getByText(/^Checked /)).toBeInTheDocument();
+      expect(screen.queryByText(/Access has not been restored/)).not.toBeInTheDocument();
+      expect(queryClient.getQueryState(key)!.dataUpdatedAt).toBeGreaterThan(checkedAt);
+    },
+  );
+
+  it.each(["complete", "denied"] as const)("does not carry refusal or a late %s completion across the actual principal boundary", async (outcome) => {
+    resetClientAuthorityContextForTests();
+    acceptPrincipal("a");
+    const admitted = buildManageWorkspaceData();
+    const restored = forPortfolio(admitted, "PF_1001", 2_500_000);
+    const oldPortfolio = deferred<ManageWorkspaceData["portfolio"]>();
+    vi.mocked(getPortfolio360).mockReset()
+      .mockRejectedValueOnce(new WorkbenchApiError("portfolio 360", 403))
+      .mockImplementationOnce(() => oldPortfolio.promise);
+    vi.mocked(loadManageWorkspaceData).mockResolvedValue(admitted);
+    let queryClient!: QueryClient;
+    const principalView = (data: ManageWorkspaceData) => (
+      <Providers>
+        <QueryClientCapture onClient={(client) => { queryClient = client; }} />
+        <ManageWorkspace data={data} mode="overview" reviewContext={{ portfolioId: "PF_1001" }} />
+      </Providers>
+    );
+    const view = render(principalView(admitted));
+    try {
+      fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+      await waitFor(expectWithheldOverview);
+      fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+      await waitFor(() => expect(getPortfolio360).toHaveBeenCalledTimes(2));
+      const previousQuery = queryClient.getQueryCache().find({ queryKey: manageOverviewKey(admitted) });
+      act(() => {
+        acceptPrincipal("b");
+        view.rerender(principalView(restored));
+      });
+      expect(screen.getByText("2,500,000.00 USD")).toBeInTheDocument();
+      expect(screen.getByText(/^Checked /)).toBeInTheDocument();
+      expect(queryClient.getQueryCache().find({ queryKey: manageOverviewKey(restored) })).not.toBe(previousQuery);
+      await act(async () => {
+        if (outcome === "complete") oldPortfolio.resolve(admitted.portfolio);
+        else oldPortfolio.reject(new WorkbenchApiError("portfolio 360", 403));
+      });
+      expect(screen.getByText("2,500,000.00 USD")).toBeInTheDocument();
+      expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
+      expect(screen.queryByText(/Access has not been restored/)).not.toBeInTheDocument();
+      expect(queryClient.getQueryData(manageOverviewKey(restored))).toEqual(restored);
+      expect(getPortfolio360).toHaveBeenCalledTimes(2);
+    } finally {
+      view.unmount();
+      resetClientAuthorityContextForTests();
+    }
+  });
+
+  it("isolates refusal from a different review period and currency for the same portfolio", async () => {
+    const queryClient = createQueryClient();
+    const denied = buildManageWorkspaceData({ sourceAccessWithheld: true });
+    const restored = forPortfolio(buildManageWorkspaceData(), "PF_1001", 2_500_000);
+    const view = renderWorkspace(denied, queryClient);
+    expectWithheldOverview();
+    const readsBefore = vi.mocked(getPortfolio360).mock.calls.length;
+    view.rerender(
+      <Wrapper queryClient={queryClient}>
+        <ManageWorkspace data={restored} mode="overview" reviewContext={{
+          portfolioId: "PF_1001", period: "YTD", reportingCurrency: "USD", asOfDate: "2026-05-13",
+        }} />
+      </Wrapper>,
+    );
+    expect(screen.getByText("2,500,000.00 USD")).toBeInTheDocument();
+    expect(await screen.findByText(/^Checked /)).toBeInTheDocument();
+    expect(queryClient.getQueryData(manageOverviewKey(denied))).toEqual(denied);
+    expect(getPortfolio360).toHaveBeenCalledTimes(readsBefore);
+  });
+
+  it("does not restore a refused context from complete server facts for another portfolio", () => {
+    const queryClient = createQueryClient();
+    const denied = buildManageWorkspaceData({ sourceAccessWithheld: true });
+    const foreign = forPortfolio(buildManageWorkspaceData(), "PF_OTHER", 2_500_000);
+    const view = renderWorkspace(denied, queryClient);
+    const checkedAt = queryClient.getQueryState(manageOverviewKey(denied))!.dataUpdatedAt;
+    view.rerender(
+      <Wrapper queryClient={queryClient}>
+        <ManageWorkspace data={foreign} mode="overview" reviewContext={{ portfolioId: "PF_1001" }} />
+      </Wrapper>,
+    );
+    expectWithheldOverview();
+    expect(screen.queryByText("2,500,000.00 USD")).not.toBeInTheDocument();
+    expect(queryClient.getQueryState(manageOverviewKey(denied))!.dataUpdatedAt).toBe(checkedAt);
+  });
+
   it("withholds a receipt when the initial visible composite is incomplete", () => {
     renderWorkspace(
       buildManageWorkspaceData({ mandateHealth: null, mandateHealthError: null }),
@@ -360,6 +518,25 @@ describe("Manage Overview governed receipt", () => {
     );
   });
 });
+
+function expectWithheldOverview() {
+  expect(screen.getByText(/Your authenticated role does not currently provide access/)).toBeInTheDocument();
+  expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
+  expect(screen.queryByText(/^Checked /)).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Portfolio operating summary")).not.toBeInTheDocument();
+}
+
+function QueryClientCapture({ onClient }: { onClient: (client: QueryClient) => void }) {
+  onClient(useQueryClient());
+  return null;
+}
+
+function acceptPrincipal(character: string) {
+  reconcileResponseAuthorityContext(
+    new Response("{}", { headers: { "X-Workbench-Authority-Context": character.repeat(64) } }),
+    captureAuthorityRequestContext(),
+  );
+}
 
 function renderWorkspace(data: ManageWorkspaceData, queryClient: QueryClient) {
   return render(
@@ -421,8 +598,10 @@ function manageOverviewKey(data: ManageWorkspaceData) {
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
-  const promise = new Promise<T>((settle) => {
+  let reject!: (error: Error) => void;
+  const promise = new Promise<T>((settle, refuse) => {
     resolve = settle;
+    reject = refuse;
   });
-  return { promise, resolve };
+  return { promise, resolve, reject };
 }

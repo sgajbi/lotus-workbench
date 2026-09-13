@@ -18,6 +18,25 @@ source-runtime, deployment, or business-freshness certification.
   and delayed-context fencing without a false refresh failure after server admission; and truthful
   first-failure and recovery copy.
 
+The permission-lifecycle regression uses one QueryClient for complete-cache denial, incomplete-cache
+denial, and server-withheld data followed by an incomplete non-withheld remount. Repeated ordinary
+and incomplete recovery failures must keep actual facts and **Checked** hidden, preserve the old
+timestamp, and keep recovery focus usable. Only complete restoration shows the receipt again.
+All three origins also remain withheld after unmounting beyond the former five-minute inactive
+Query expiry. The fake-clock negative control exposed facts in all three cases before the scoped
+Query lifetime correction; principal clearing still removes the retained owner.
+Query tests separately fence late complete/denied results after cancellation and replacement; the
+component suite exercises the real provider's principal-boundary cancellation and cache clearing.
+The registered browser recovery scenario exercises controlled 403, repeated 503, incomplete 200,
+and complete restoration through the shipped BFF path. These are fixture boundary tests, not IAM
+grant provisioning or canonical runtime acceptance. The existing screenshots above remain the
+original layout evidence, not captures of these later failure sequences.
+
+The actual SSR/hydration regression advances the clock across a minute boundary between server
+rendering and browser hydration. It reproduces the exact-time text mismatch from main run
+`34755836227` before the correction. Query now starts without a browser receipt and records one at
+client admission; no `suppressHydrationWarning`, page-local clock authority, or retry exception is used.
+
 ## Artifacts
 
 | Artifact | Viewport | Purpose |

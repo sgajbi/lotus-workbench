@@ -10,6 +10,7 @@ export type ManageFixtureGateway = {
   getRequestPaths: () => string[];
   port: number;
   resetRequestPaths: () => void;
+  setOverviewEvidenceMode: (mode: "complete" | "denied" | "unavailable" | "incomplete") => void;
   setMandateHealthExceptionMode: (
     mode: "windows" | "empty" | "unavailable" | "delayed-next",
   ) => void;
@@ -43,6 +44,7 @@ export async function startManageFixtureGateway({
   let lastLoadedProofPackId: string | null = null;
   let lastProofPackMemoId: string | null = null;
   let requestPaths: string[] = [];
+  let overviewEvidenceMode: "complete" | "denied" | "unavailable" | "incomplete" = "complete";
   const server = createServer((request, response) => {
     const requestUrl = new URL(request.url ?? "/", `http://127.0.0.1:${port}`);
     const path = requestUrl.pathname;
@@ -89,6 +91,10 @@ export async function startManageFixtureGateway({
       path === `/api/v1/dpm/command-center/mandates/${mandateId}/health` ||
       path === `/api/v1/dpm/command-center/mandates/${secondaryMandateId}/health`
     ) {
+      if (overviewEvidenceMode === "denied" || overviewEvidenceMode === "unavailable") {
+        sendJson(response, { code: "fixture_overview_evidence_unavailable" }, overviewEvidenceMode === "denied" ? 403 : 503);
+        return;
+      }
       sendJson(
         response,
         commandEnvelope(
@@ -106,7 +112,10 @@ export async function startManageFixtureGateway({
       }
     }
     if (path === "/api/v1/dpm/command-center/waves") {
-      sendJson(response, waveEnvelope());
+      const waves = waveEnvelope();
+      sendJson(response, overviewEvidenceMode === "incomplete"
+        ? { ...waves, supportability: { ...waves.supportability, state: "PARTIAL" } }
+        : waves);
       return;
     }
     if (path === `/api/v1/dpm/command-center/waves/${waveId}/items`) {
@@ -376,6 +385,9 @@ export async function startManageFixtureGateway({
     getRequestPaths: () => [...requestPaths],
     resetRequestPaths: () => {
       requestPaths = [];
+    },
+    setOverviewEvidenceMode: (mode) => {
+      overviewEvidenceMode = mode;
     },
     setMandateHealthExceptionMode: (mode) => {
       mandateHealthExceptionMode = mode;
