@@ -415,6 +415,21 @@ function mandateExceptionWindowOne() {
           state: "ACTIVE",
           next_action: "Confirm the latest validated price",
         },
+        {
+          exception_id: "mandate-exception-concentration",
+          mandate_id: mandateId,
+          monitoring_run_id: "manage-monitoring-2026-05-03",
+          source_run_id: "risk-run-2026-05-03",
+          correlation_id: "corr-manage-exceptions-window-2-item",
+          authority: "lotus-manage:monitoring-exception",
+          severity: "HIGH",
+          title: "Concentration threshold requires review",
+          source_system: "lotus-risk",
+          owner: "Portfolio Management",
+          age_hours: 1,
+          state: "ACTIVE",
+          next_action: "Review concentration exposure and agree the response",
+        },
       ],
       // Overview owns one bounded, complete attention receipt. A continuation
       // cursor is deliberately not fixture-valid here because it must not advance
