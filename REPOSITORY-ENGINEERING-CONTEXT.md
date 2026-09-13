@@ -34,8 +34,14 @@ facts; it must not invent reassuring defaults, thresholds, authority, or success
 - The production application is Next.js 15 with React 19 and TypeScript. MUI, TanStack Query,
   AG Grid, ECharts, React Hook Form, and Zod are admitted through the governed direct-production
   dependency inventory. Playwright is governed separately under `validationTooling` in the runtime
-  support policy. Vitest is pinned by `package.json` and `package-lock.json` and exercised by CI; it
-  is not represented in either of those inventories.
+  support policy. Vitest, its V8 coverage provider, and the required Vite peer are pinned together
+  by `package.json` and `package-lock.json` and exercised by CI; they are not represented in either
+  of those inventories.
+  Vitest 4 retains the existing environment, worker policy, source inclusion and coverage floors.
+  Tests that spy on browser methods restore their spies locally after every test: repeated
+  `vi.spyOn` calls reuse an existing spy, so success-only cleanup can leak call history.
+  The protected `make security` gate rejects moderate-or-higher advisories across the full resolved
+  graph, including development tooling, so a toolchain advisory cannot silently return.
 - Adviser Book, Portfolio, Performance summary/detail, and Performance Risk source reads use
   root-owned TanStack Query state with complete business-context keys, explicit source admission,
   and bounded freshness policy.

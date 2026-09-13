@@ -20,7 +20,6 @@ export default defineConfig({
       provider: "v8",
       reporter: ["text", "html", "json-summary"],
       reportsDirectory: "coverage",
-      all: true,
       include: [
         "src/apps/**/*.ts",
         "src/apps/**/*.tsx",

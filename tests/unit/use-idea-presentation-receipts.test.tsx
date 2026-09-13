@@ -6,7 +6,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useIdeaPresentationReceipts } from "../../src/features/proposals/use-idea-presentation-receipts";
 import type { AdvisorIdeaReviewQueueData } from "../../src/features/proposals/types";
@@ -158,6 +158,12 @@ function setVisualTop(target: Element, top: number) {
 }
 
 describe("useIdeaPresentationReceipts", () => {
+  afterEach(() => {
+    // Vitest 4 reuses an existing spy; restore browser methods even after a failed assertion.
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   beforeEach(() => {
     recordReceipt.mockReset();
     recordReceipt.mockResolvedValue({ persistenceDecision: "accepted" });
@@ -412,7 +418,6 @@ describe("useIdeaPresentationReceipts", () => {
     });
 
     expect(recordReceipt).not.toHaveBeenCalled();
-    digest.mockRestore();
   });
 
   it("does not emit a pending draft after the source queue snapshot changes", async () => {
@@ -454,7 +459,6 @@ describe("useIdeaPresentationReceipts", () => {
     });
 
     expect(recordReceipt).not.toHaveBeenCalled();
-    digest.mockRestore();
   });
 
   it("retries the frozen payload and idempotency key after an explicit failure", async () => {
