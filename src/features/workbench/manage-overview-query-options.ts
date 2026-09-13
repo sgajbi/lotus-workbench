@@ -81,7 +81,10 @@ export async function recheckManageOverview(
   return await queryClient.fetchQuery(options);
 }
 
-export function isManageOverviewComplete(data: ManageWorkspaceData): boolean {
+export function isManageOverviewComplete(
+  data: ManageWorkspaceData,
+  context?: ManageOverviewQueryContext,
+): boolean {
   return Boolean(
     !data.sourceAccessWithheld &&
       isManageOverviewSource(data.commandCenter) &&
@@ -94,8 +97,9 @@ export function isManageOverviewComplete(data: ManageWorkspaceData): boolean {
       isManageOverviewSource(data.mandateHealth) &&
       hasManageMandateHealthPayload(data.mandateHealth) &&
       !data.mandateHealthError &&
+      hasConsistentManageMandateIdentity(data) &&
       isManageOverviewSource(data.waves) &&
-      hasManageWavePayload(data.waves) &&
+      hasManageWavePayload(data.waves, context?.asOfDate) &&
       !data.wavesError,
   );
 }
@@ -141,7 +145,7 @@ function hasManageCommandCenterPayload(value: unknown): boolean {
   ) {
     return false;
   }
-  if (readDpmMandateId(data) !== null) {
+  if (readDpmMandateId(data) !== null && declaredCompletenessStates.length > 0) {
     return true;
   }
   if (!isRecord(summary)) {
@@ -174,7 +178,16 @@ function hasManageMandateHealthPayload(value: unknown): boolean {
   );
 }
 
-function hasManageWavePayload(value: unknown): boolean {
+function hasConsistentManageMandateIdentity(data: ManageWorkspaceData): boolean {
+  const mandateIds = [
+    readDpmMandateId(readSourceData(data.mandate)),
+    readDpmMandateId(readSourceData(data.mandateHealth)),
+    readDpmMandateId(readSourceData(data.commandCenter)),
+  ].filter((mandateId): mandateId is string => mandateId !== null);
+  return mandateIds.length > 0 && new Set(mandateIds).size === 1;
+}
+
+function hasManageWavePayload(value: unknown, asOfDate?: string): boolean {
   const data = readSourceData(value);
   return Boolean(
     data &&
@@ -183,7 +196,11 @@ function hasManageWavePayload(value: unknown): boolean {
       Number.isInteger(data.total_count) &&
       data.total_count >= 0 &&
       data.total_count === data.items.length &&
-      (data.next_cursor === null || data.next_cursor === undefined),
+      (data.next_cursor === null || data.next_cursor === undefined) &&
+      (!hasNonBlankString(asOfDate) ||
+        data.items.every(
+          (item) => isRecord(item) && item.as_of_date === asOfDate,
+        )),
   );
 }
 
@@ -253,7 +270,7 @@ async function fetchManageOverview(
     signal,
     target: "client",
   });
-  if (!isManageOverviewComplete(data)) {
+  if (!isManageOverviewComplete(data, context)) {
     throw new ManageOverviewSourceError(
       data,
       data.sourceAccessWithheld === true,

@@ -227,6 +227,45 @@ describe("Manage Overview query ownership", () => {
         }),
       ),
     ).toBe(false);
+    expect(
+      isManageOverviewComplete(
+        buildManageWorkspaceData({
+          commandCenter: {
+            ...complete.commandCenter!,
+            data: { mandate_id: "mandate_001" },
+          } as ManageWorkspaceData["commandCenter"],
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isManageOverviewComplete(
+        buildManageWorkspaceData({
+          mandateHealth: {
+            ...complete.mandateHealth!,
+            data: { mandate_id: "mandate_other", health_state: "READY" },
+          } as ManageWorkspaceData["mandateHealth"],
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isManageOverviewComplete(
+        buildManageWorkspaceData({
+          waves: {
+            ...complete.waves!,
+            data: {
+              ...complete.waves!.data,
+              items: [
+                {
+                  ...(complete.waves!.data.items as Array<Record<string, unknown>>)[0],
+                  as_of_date: "2026-05-12",
+                },
+              ],
+            },
+          } as ManageWorkspaceData["waves"],
+        }),
+        context,
+      ),
+    ).toBe(false);
   });
 });
 

@@ -239,6 +239,7 @@ export function buildManageWorkspaceData(
           {
             wave_id: "wave_001",
             portfolio_ids: ["PF_1001"],
+            as_of_date: "2026-05-13",
             state: "READY",
             trigger_type: "EXPLICIT_PORTFOLIO_LIST",
             item_count: 4,
