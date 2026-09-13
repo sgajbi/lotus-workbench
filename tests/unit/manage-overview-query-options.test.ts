@@ -176,7 +176,6 @@ describe("Manage Overview query ownership", () => {
               data: {
                 ...complete.commandCenter!.data,
                 summary: {
-                  ...complete.commandCenter!.data.summary,
                   active_exception_count: 2,
                   data_completeness_state: dataCompletenessState,
                 },
