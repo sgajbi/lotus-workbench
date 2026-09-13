@@ -66,12 +66,16 @@ CODEOWNERS when a second accepted reviewer exists.
 
 - `make check`
   dependency security, lint, typecheck, coverage-backed test gate, build
+- Vitest and its V8 coverage provider use the compatible patched 4.1.11 release, with Vite 7.3.6.
+  This is the first patched stable line for the [redirect-mock advisory](https://github.com/advisories/GHSA-82fw-gwwq-j7x9).
+  Source inclusion and coverage floors remain intact. Browser-method spies are restored in the
+  owning test suite; host parallelism is unchanged, and Docker parity retains its two-worker limit.
 - `make security`
-  fails on any high or critical advisory in the complete runtime and engineering toolchain, and on
-  any moderate-or-higher advisory in the browser-delivered production dependency graph. The gate
-  runs in the Feature, PR Merge, and Main Releasability lanes. A future exception must be
-  time-bounded and documented against a GitHub issue; do not weaken the severity thresholds or use
-  `npm audit fix --force` as an unreviewed dependency migration.
+  fails on any moderate-or-higher advisory in the complete runtime and engineering toolchain,
+  including the browser-delivered production dependency graph. The gate runs in the Feature, PR
+  Merge, and Main Releasability lanes. A future exception must be time-bounded and documented
+  against a GitHub issue; do not weaken the severity thresholds or use `npm audit fix --force` as
+  an unreviewed dependency migration.
 - `make lint`
   validates the Workbench branch-protection policy document, then runs runtime-support and
   direct-dependency-admission governance, CSS and architecture controls,
@@ -239,8 +243,7 @@ CODEOWNERS when a second accepted reviewer exists.
   post-validation observability, logging, metrics, API, and dashboard evidence capture
 - `npm audit --json`
   detailed dependency advisory evidence for the Workbench runtime and test toolchain; the enforced
-  `make security` policy additionally keeps the production graph free of moderate-or-higher
-  findings
+  `make security` policy keeps the complete resolved graph free of moderate-or-higher findings
 
 ## What the gates protect
 

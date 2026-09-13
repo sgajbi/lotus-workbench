@@ -160,14 +160,40 @@ describe("dependency security governance", () => {
     expect(eslintConfig).toContain('URLSearchParams: "readonly"');
   });
 
-  it("enforces high-risk toolchain and moderate-risk production audit thresholds", () => {
+  it("enforces a moderate-or-higher audit threshold across the full dependency graph", () => {
     const packageJson = JSON.parse(readRepositoryFile("package.json")) as {
       scripts?: Record<string, string>;
     };
 
     expect(packageJson.scripts?.["security:audit"]).toBe(
-      "npm audit --audit-level=high && npm audit --omit=dev --audit-level=moderate",
+      "npm audit --audit-level=moderate && npm audit --omit=dev --audit-level=moderate",
     );
+  });
+
+  it("keeps the patched Vitest toolchain aligned with its complete locked graph", () => {
+    const packageJson = JSON.parse(readRepositoryFile("package.json")) as {
+      devDependencies?: Record<string, string>;
+    };
+    const packageLock = JSON.parse(readRepositoryFile("package-lock.json")) as {
+      packages: Record<string, { version?: string; integrity?: string }>;
+    };
+
+    expect(packageJson.devDependencies).toMatchObject({
+      "@vitest/coverage-v8": "4.1.11",
+      vite: "7.3.6",
+      vitest: "4.1.11",
+    });
+    for (const name of ["vitest", "@vitest/coverage-v8", "vite"]) {
+      expect(packageLock.packages[`node_modules/${name}`].version).toBe(
+        packageJson.devDependencies?.[name],
+      );
+    }
+    const mockers = Object.entries(packageLock.packages).filter(([path]) =>
+      path.endsWith("node_modules/@vitest/mocker"),
+    );
+    expect(mockers).toHaveLength(1);
+    expect(mockers[0][1].version).toBe(packageJson.devDependencies?.vitest);
+    expect(mockers[0][1].integrity).toMatch(/^sha512-/);
   });
 
   it("pins the patched brace expansion line only beneath its compatible minimatch consumer", () => {

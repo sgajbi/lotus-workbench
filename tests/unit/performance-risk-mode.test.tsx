@@ -1560,7 +1560,7 @@ describe("PerformanceRiskMode", () => {
     ).toBeInTheDocument();
   });
 
-  it("rejects summary-shaped detail responses and refetches instead of caching them", async () => {
+  it("rejects summary-shaped drawdown detail and retries only when explicitly reopened", async () => {
     const scenario = buildSupportedPerformanceScenario();
     vi.mocked(getWorkbenchRiskSummaryClient).mockResolvedValue(
       buildFixtureRiskSummary(scenario.workspace, "YTD", "NET"),
@@ -1583,18 +1583,9 @@ describe("PerformanceRiskMode", () => {
           includeUnderwaterSeries: true,
         }),
       );
-    vi.mocked(getWorkbenchRiskRollingClient)
-      .mockResolvedValueOnce(
-        buildFixtureRiskRolling(scenario.workspace, "YTD", "NET"),
-      )
-      .mockResolvedValueOnce({
-        ...buildFixtureRiskRolling(scenario.workspace, "YTD", "NET"),
-      })
-      .mockResolvedValueOnce(
-        buildFixtureRiskRolling(scenario.workspace, "YTD", "NET", {
-          includeTimeSeries: true,
-        }),
-      );
+    vi.mocked(getWorkbenchRiskRollingClient).mockResolvedValue(
+      buildFixtureRiskRolling(scenario.workspace, "YTD", "NET"),
+    );
 
     renderRiskMode(scenario);
 
@@ -1612,6 +1603,8 @@ describe("PerformanceRiskMode", () => {
         screen.getByText("Underwater path unavailable"),
       ).toBeInTheDocument();
     });
+    expect(screen.queryByLabelText("Risk underwater series table")).not.toBeInTheDocument();
+    expect(getWorkbenchRiskDrawdownClient).toHaveBeenCalledTimes(2);
     fireEvent.click(
       screen.getByRole("button", { name: "Close Underwater path detail" }),
     );
@@ -1624,9 +1617,42 @@ describe("PerformanceRiskMode", () => {
       ).toBeInTheDocument();
     });
     expect(getWorkbenchRiskDrawdownClient).toHaveBeenCalledTimes(3);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Close Underwater path detail" }),
+    expect(vi.mocked(getWorkbenchRiskDrawdownClient).mock.calls.map(([, request]) =>
+      request.includeUnderwaterSeries,
+    )).toEqual([false, true, true]);
+  });
+
+  it("rejects summary-shaped rolling detail and retries only when explicitly reopened", async () => {
+    const scenario = buildSupportedPerformanceScenario();
+    vi.mocked(getWorkbenchRiskSummaryClient).mockResolvedValue(
+      buildFixtureRiskSummary(scenario.workspace, "YTD", "NET"),
     );
+    vi.mocked(getWorkbenchRiskConcentrationClient).mockResolvedValue(
+      buildFixtureRiskConcentration(scenario.workspace, "YTD"),
+    );
+    vi.mocked(getWorkbenchRiskAttributionClient).mockResolvedValue(
+      buildFixtureRiskAttribution(scenario.workspace, "YTD", "NET"),
+    );
+    vi.mocked(getWorkbenchRiskDrawdownClient).mockResolvedValue(
+      buildFixtureRiskDrawdown(scenario.workspace, "YTD", "NET"),
+    );
+    vi.mocked(getWorkbenchRiskRollingClient)
+      .mockResolvedValueOnce(
+        buildFixtureRiskRolling(scenario.workspace, "YTD", "NET"),
+      )
+      .mockResolvedValueOnce({
+        ...buildFixtureRiskRolling(scenario.workspace, "YTD", "NET"),
+      })
+      .mockResolvedValueOnce(
+        buildFixtureRiskRolling(scenario.workspace, "YTD", "NET", {
+          includeTimeSeries: true,
+        }),
+      );
+
+    renderRiskMode(scenario);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Rolling risk headline metrics")).toBeInTheDocument();
+    });
 
     fireEvent.click(
       screen.getByRole("button", { name: "View rolling series" }),
@@ -1636,6 +1662,8 @@ describe("PerformanceRiskMode", () => {
         screen.getByText("Rolling series unavailable"),
       ).toBeInTheDocument();
     });
+    expect(screen.queryByLabelText("Rolling risk series table")).not.toBeInTheDocument();
+    expect(getWorkbenchRiskRollingClient).toHaveBeenCalledTimes(2);
     fireEvent.click(
       screen.getByRole("button", { name: "Close Rolling series detail" }),
     );
@@ -1648,5 +1676,8 @@ describe("PerformanceRiskMode", () => {
       ).toBeInTheDocument();
     });
     expect(getWorkbenchRiskRollingClient).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(getWorkbenchRiskRollingClient).mock.calls.map(([, request]) =>
+      request.includeTimeSeries,
+    )).toEqual([false, true, true]);
   });
 });
