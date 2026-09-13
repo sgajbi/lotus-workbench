@@ -75,6 +75,7 @@ export const MANAGE_MODE_DATA_REQUIREMENTS = {
 
 type PortfolioResponse = Awaited<ReturnType<typeof getPortfolio360>>;
 type LoaderContext = {
+  asOfDate?: string;
   portfolioId: string;
   signal?: AbortSignal;
   target: WorkbenchRequestTarget;
@@ -105,6 +106,7 @@ export async function loadManageWorkspaceData(
   portfolio: PortfolioResponse,
   mode: ManageMode,
   options: Readonly<{
+    asOfDate?: string;
     signal?: AbortSignal;
     target?: WorkbenchRequestTarget;
   }> = {},
@@ -114,6 +116,7 @@ export async function loadManageWorkspaceData(
     ...MANAGE_MODE_DATA_REQUIREMENTS[mode],
   ]);
   const context = {
+    asOfDate: options.asOfDate,
     portfolioId: portfolio.portfolio.portfolio_id,
     signal: options.signal,
     target: options.target ?? "server",
@@ -128,11 +131,12 @@ export async function loadManageWorkspaceData(
 }
 
 async function loadCommandCenter({
+  asOfDate,
   signal,
   target,
 }: LoaderContext): Promise<Partial<ManageWorkspaceData>> {
   const result = await readSource(
-    () => getDpmCommandCenter({ limit: 25 }, target, signal),
+    () => getDpmCommandCenter({ limit: 25, ...(asOfDate ? { asOfDate } : {}) }, target, signal),
     "Mandate readiness is temporarily unavailable.",
   );
   return {
@@ -194,11 +198,12 @@ async function loadMandateHealth({
 }
 
 async function loadRebalanceWaves({
+  asOfDate,
   signal,
   target,
 }: LoaderContext): Promise<Partial<ManageWorkspaceData>> {
   const result = await readSource(
-    () => listDpmWaves({ triggerType: "EXPLICIT_PORTFOLIO_LIST", limit: 10 }, target, signal),
+    () => listDpmWaves({ triggerType: "EXPLICIT_PORTFOLIO_LIST", limit: 10, ...(asOfDate ? { asOfDate } : {}) }, target, signal),
     "DPM wave endpoint unavailable.",
   );
   return {

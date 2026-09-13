@@ -74,7 +74,9 @@ export default async function WorkbenchPage({
 
   return (
     <ManageWorkspace
-      data={await loadManageWorkspaceData(portfolio, mode)}
+      data={await loadManageWorkspaceData(portfolio, mode, {
+        asOfDate: reviewContext.asOfDate,
+      })}
       mode={mode}
       reviewContext={reviewContext}
       sessionId={sessionId}

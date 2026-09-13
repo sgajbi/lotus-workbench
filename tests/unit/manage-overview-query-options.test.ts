@@ -76,7 +76,11 @@ describe("Manage Overview query ownership", () => {
     expect(loadManageWorkspaceData).toHaveBeenCalledWith(
       expect.objectContaining({ portfolio: expect.objectContaining({ portfolio_id: "PF_1001" }) }),
       "overview",
-      { signal: expect.any(AbortSignal), target: "client" },
+      {
+        asOfDate: "2026-05-13",
+        signal: expect.any(AbortSignal),
+        target: "client",
+      },
     );
   });
 

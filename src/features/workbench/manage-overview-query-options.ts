@@ -132,7 +132,7 @@ function hasManageCommandCenterPayload(value: unknown): boolean {
   const summary = data.summary;
   return (
     isRecord(summary) &&
-    (hasNonBlankString(summary.data_completeness_state) ||
+    (isConfirmedDataCompletenessState(summary.data_completeness_state) ||
       typeof summary.active_exception_count === "number")
   );
 }
@@ -177,6 +177,13 @@ function isConfirmedSupportabilityState(value: unknown): boolean {
   );
 }
 
+function isConfirmedDataCompletenessState(value: unknown): boolean {
+  return (
+    hasNonBlankString(value) &&
+    ["COMPLETE", "READY", "SUPPORTED"].includes(value.trim().toUpperCase())
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -213,6 +220,7 @@ async function fetchManageOverview(
   }
 
   const data = await loadManageWorkspaceData(portfolio, "overview", {
+    asOfDate: context.asOfDate,
     signal,
     target: "client",
   });

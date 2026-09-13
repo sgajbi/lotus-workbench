@@ -105,7 +105,19 @@ export default function ManageOverviewWorkspace({
     isManageOverviewPermissionError(overviewQuery.error)
   ) {
     return (
-      <ManageWorkspaceUnavailable detail="Your authenticated role does not currently provide access to this portfolio-management evidence." />
+      <ManageWorkspaceUnavailable
+        detail="Your authenticated role does not currently provide access to this portfolio-management evidence."
+        action={
+          <ActionButton
+            ref={recheckActionRef}
+            priority="quiet"
+            disabled={recheckState === "pending"}
+            onClick={() => void recheckOverview().catch(() => undefined)}
+          >
+            {recheckState === "pending" ? "Rechecking…" : "Recheck overview"}
+          </ActionButton>
+        }
+      />
     );
   }
 
