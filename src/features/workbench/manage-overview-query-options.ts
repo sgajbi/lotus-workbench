@@ -58,10 +58,33 @@ export function manageOverviewQueryOptions(
 ) {
   return queryOptions({
     ...workbenchStrictQueryDefaults,
+    // Inactivity cannot erase a refusal. Retain this explicit-recheck owner for
+    // the QueryClient lifetime; the existing principal boundary still clears it.
+    gcTime: Infinity,
     queryKey: manageOverviewQueryKeys.composite(context),
-    queryFn: ({ signal }) => fetchManageOverview(context, signal),
+    queryFn: async ({ signal, client, queryKey }) => {
+      try {
+        return await fetchManageOverview(context, signal);
+      } catch (error) {
+        // Refusal outlives the latest request error. Keep it in the existing
+        // composite so ordinary failed recovery cannot reveal retained facts.
+        // Cancelled/removed queries must never write into a replacement owner.
+        if (!signal.aborted && isManageOverviewPermissionError(error)) {
+          const checkedAt = client.getQueryState(queryKey)?.dataUpdatedAt;
+          client.setQueryData<ManageWorkspaceData>(
+            queryKey,
+            (data) => data ? { ...data, sourceAccessWithheld: true } : undefined,
+            { updatedAt: checkedAt },
+          );
+        }
+        throw error;
+      }
+    },
     enabled: false,
     initialData,
+    // The server composite is not a browser receipt yet. Layout admission stamps
+    // the Query before paint; SSR and the first hydration render share no clock.
+    initialDataUpdatedAt: 0,
     refetchOnMount: false,
     refetchOnReconnect: false,
     retryOnMount: false,
@@ -87,6 +110,7 @@ export function isManageOverviewComplete(
 ): boolean {
   return Boolean(
     !data.sourceAccessWithheld &&
+      (!context || data.portfolio.portfolio.portfolio_id === context.portfolioId) &&
       isManageOverviewSource(data.commandCenter) &&
       hasManageCommandCenterPayload(data.commandCenter) &&
       !data.commandCenterError &&

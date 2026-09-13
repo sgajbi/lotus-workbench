@@ -246,3 +246,51 @@ test("Manage Overview keeps the portfolio decision first without repeated destin
   await runtime.assertStylesAreHeadManaged();
   runtime.assertClean();
 });
+
+test("Manage Overview keeps refused evidence hidden through failed explicit recovery", async ({ page }) => {
+  test.skip(!fixtureGateway, "Owned Manage fixture is not active.");
+  const runtime = observeBrowserRuntimeFailures(page);
+  const recovery = page.getByRole("button", { name: "Recheck overview" });
+  await page.goto(`/workbench/${portfolioId}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByLabel("Portfolio operating summary")).toContainText("12,500,000.00 SGD");
+  await expect(page.getByText(/^Checked /)).toBeVisible();
+  fixtureGateway!.resetRequestPaths();
+  try {
+    for (const mode of ["denied", "unavailable", "unavailable", "incomplete"] as const) {
+      fixtureGateway!.setOverviewEvidenceMode(mode);
+      await recovery.click();
+      await expect(page.getByText(/Access has not been restored/)).toBeVisible();
+      await expect(recovery).toBeEnabled();
+      await expect(recovery).toBeFocused();
+      await expect(page.getByLabel("Portfolio operating summary")).toHaveCount(0);
+      await expect(page.getByText("12,500,000.00 SGD", { exact: true })).toHaveCount(0);
+      await expect(page.getByText(/^Checked /)).toHaveCount(0);
+      await expect(page.getByText(/previous successful check/)).toHaveCount(0);
+    }
+    fixtureGateway!.setOverviewEvidenceMode("complete");
+    await recovery.click();
+    await expect(page.getByLabel("Portfolio operating summary")).toContainText("12,500,000.00 SGD");
+    await expect(page.getByText(/^Checked /)).toBeVisible();
+    await expect(page.getByText(/Access has not been restored/)).toHaveCount(0);
+    await expect(recovery).toBeFocused();
+    const paths = fixtureGateway!.getRequestPaths();
+    for (const expectedPath of [
+      `/api/v1/workbench/${portfolioId}/portfolio-360`,
+      "/api/v1/dpm/command-center",
+      "/api/v1/dpm/command-center/exceptions",
+      `/api/v1/dpm/command-center/mandates/by-portfolio/${portfolioId}`,
+      `/api/v1/dpm/command-center/mandates/MANDATE_${portfolioId}/health`,
+      "/api/v1/dpm/command-center/waves",
+    ]) {
+      expect(paths.filter((path) => path === expectedPath), expectedPath).toHaveLength(5);
+    }
+    await runtime.assertStylesAreHeadManaged();
+    expect(runtime.snapshot()).toEqual([
+      expect.objectContaining({ source: "console", message: expect.stringContaining("403 (Forbidden)"), url: expect.stringContaining("/health") }),
+      expect.objectContaining({ source: "console", message: expect.stringContaining("503 (Service Unavailable)"), url: expect.stringContaining("/health") }),
+      expect.objectContaining({ source: "console", message: expect.stringContaining("503 (Service Unavailable)"), url: expect.stringContaining("/health") }),
+    ]);
+  } finally {
+    fixtureGateway!.setOverviewEvidenceMode("complete");
+  }
+});

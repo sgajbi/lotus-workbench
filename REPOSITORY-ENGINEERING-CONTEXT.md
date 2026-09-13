@@ -149,8 +149,20 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   period, and reporting currency. **Recheck overview** is the only client source transaction and
   rereads the exact six-source composite once. Only a complete, current-context composite advances
   **Checked**; ordinary failure retains the prior admission, while a permission refusal withholds it.
-  An incomplete non-withheld remount is not evidence that refused access was restored: it must keep
-  the receipt withheld until a fresh complete admission establishes restoration. Focus, reconnect,
+  Refusal is latched in that same Query composite's `sourceAccessWithheld`, independently of its
+  latest request error. Ordinary/incomplete recovery failures must not clear it. An incomplete
+  non-withheld remount cannot restore access, whether the retained composite was complete,
+  incomplete, or already server-withheld. Keep facts and the receipt hidden, and preserve the prior
+  `dataUpdatedAt`, until a fresh complete exact-context admission replaces the refused composite.
+  Cancelled requests cannot latch refusal into a replacement Query after principal clearing or
+  server admission. This is distinct from ordinary-failure retention when no refusal occurred.
+  This explicit-recheck Query uses `gcTime: Infinity`: inactivity must not erase refusal and let an
+  incomplete remount expose facts. Its lifetime remains bounded by the principal-owned QueryClient;
+  the existing principal-boundary clear removes it, with no parallel authority store.
+  Bootstrap `initialDataUpdatedAt` is zero until layout admission records a browser receipt in
+  Query. Do not independently stamp SSR and hydration with `Date.now()` or suppress their mismatch:
+  an exact-time tooltip can cross a minute boundary even when both visible labels say "just now".
+  Focus, reconnect,
   or remount never performs an ambient read. Do not restore page-local response, inflight, receipt,
   or retry state.
 - Workbench receipt age uses the oldest admitted `dataUpdatedAt` across every required Query in the

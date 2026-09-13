@@ -78,16 +78,19 @@ export default function ManageOverviewWorkspace({
     const cachedAdmissionIsComplete =
       cachedData !== undefined && isManageOverviewComplete(cachedData, queryContext);
 
+    // Refusal is independent of completeness and of the most recent failed
+    // request. Neither a partial remount nor an ordinary error restores authority.
+    if (
+      !incomingAdmissionIsAuthoritative &&
+      (cachedData?.sourceAccessWithheld || isManageOverviewPermissionError(cachedState?.error))
+    ) {
+      return;
+    }
+
     // A transient server-side source failure is not a newer admission than a complete
     // receipt already held for this exact context. A fresh complete composite, or a
     // fresh access refusal, remains authoritative and must supersede that receipt.
     if (!incomingAdmissionIsAuthoritative && cachedAdmissionIsComplete) {
-      // An incomplete, non-withheld server composite cannot establish that a prior
-      // authenticated refusal has been reversed. Keep the permission error and its
-      // withheld presentation until a fresh complete admission proves restoration.
-      if (isManageOverviewPermissionError(cachedState?.error)) {
-        return;
-      }
       // TanStack Query retains a failed recheck alongside its data. Retain the
       // complete evidence while clearing a stale ordinary failure rather than
       // requiring another explicit recheck.
@@ -104,7 +107,11 @@ export default function ManageOverviewWorkspace({
     // than representing a failed source read.
     resetRecheck();
     void queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
-    queryClient.setQueryData(options.queryKey, initialData);
+    queryClient.setQueryData(options.queryKey, initialData, {
+      updatedAt: isManageOverviewComplete(initialData, queryContext)
+        ? undefined
+        : cachedState?.dataUpdatedAt,
+    });
   }, [initialData, queryClient, queryContext, resetRecheck]);
 
   // Layout admission runs before a browser paint, so a same-key cached composite
@@ -122,14 +129,21 @@ export default function ManageOverviewWorkspace({
       <ManageWorkspaceUnavailable
         detail="Your authenticated role does not currently provide access to this portfolio-management evidence."
         action={
-          <ActionButton
-            ref={recheckActionRef}
-            priority="quiet"
-            disabled={recheckState === "pending"}
-            onClick={() => void recheckOverview().catch(() => undefined)}
-          >
-            {recheckState === "pending" ? "Rechecking…" : "Recheck overview"}
-          </ActionButton>
+          <>
+            {recheckState === "failed" ? (
+              <p className={overviewStyles.recheckFailure} role="status">
+                Overview recheck failed. Access has not been restored; portfolio-management evidence remains withheld.
+              </p>
+            ) : null}
+            <ActionButton
+              ref={recheckActionRef}
+              priority="quiet"
+              disabled={recheckState === "pending"}
+              onClick={() => void recheckOverview().catch(() => undefined)}
+            >
+              {recheckState === "pending" ? "Rechecking…" : "Recheck overview"}
+            </ActionButton>
+          </>
         }
       />
     );

@@ -168,7 +168,8 @@ remains in [API Surface](API-Surface), and ownership flow remains in
 | Action required | Source evidence is usable and one or more active attention items are reported | Review the worklist and open Mandate Health |
 | Evidence incomplete | One or more named overview facts or source surfaces are missing or failed | Use the named partial-state list and open the relevant focused mode when available |
 | Rechecking | Existing admitted evidence remains visible while the exact six-read composite is requested once | Wait for completion; repeated submission is disabled |
-| Recheck failed | Prior admitted evidence and receipt remain visible with an explicit failure message | Use **Recheck overview** again; no failed or partial replacement is promoted |
+| Ordinary recheck failed, no prior refusal | Prior admitted evidence and receipt remain visible with an explicit failure message | Use **Recheck overview** again; no failed or partial replacement is promoted |
+| Recovery failed after permission refusal | Facts and **Checked** remain hidden; the page states that access has not been restored | **Recheck overview** stays available; only complete authoritative evidence restores visibility |
 | Attention evidence unavailable | No zero-attention conclusion; the worklist explains the missing evidence | Re-establish the source response or follow the support path |
 | Partial source view | Returned items remain visible as **N shown**, with the bounded source view and unconfirmed total stated explicitly | Open Mandate Health to review the available evidence; continue through source views when pagination is available |
 | Empty attention worklist | Source-confirmed statement that the current window has no active items | Continue the review without inferring enterprise-wide absence |
@@ -179,7 +180,9 @@ remains in [API Surface](API-Surface), and ownership flow remains in
 | Permission blocked | The owning source request fails closed; restricted evidence is not rendered as current | Use an entitled role or approved support path |
 
 The initial route supplies one server-composed Overview. TanStack Query owns that exact hydrated
-composite in the browser. A fresh complete server composite replaces retained state for the same
+composite in the browser. The initial server render makes no browser **Checked** claim; layout
+admission records the receipt in Query before paint, without a hydration-time clock mismatch.
+A fresh complete server composite replaces retained state for the same
 Query identity before paint; a fresh permission refusal withholds older evidence immediately. A
 fresh incomplete composite does not displace a complete retained receipt or establish that a prior
 permission refusal has been restored. Every source admitted as
@@ -190,7 +193,14 @@ response is admitted for the active portfolio and review context. An ordinary fa
 previously admitted complete composite and receipt with an explicit failure state; an initial
 incomplete failure does not claim a previous successful check. A permission refusal withholds the
 evidence until a fresh complete admission establishes restoration; absence of another refusal in an
-incomplete response is not restoration evidence. Delayed results cannot cross portfolio or
+incomplete response is not restoration evidence. This refusal remains in the same Query-owned
+composite independently of the latest request error, including repeated ordinary recovery failures
+and incomplete server remounts after an incomplete cache or server-side refusal. The previous
+receipt timestamp is preserved without displaying a **Checked** claim while access is withheld.
+Inactive navigation does not expire that refusal: this Query remains for the principal-owned
+QueryClient lifetime and is removed by the existing principal-boundary clear. A five-minute absence
+is not positive evidence of restored access.
+Delayed results cannot cross principal, portfolio or
 review-context boundaries, or restore evidence superseded by a newer server receipt.
 
 ## Workbench Boundaries
@@ -238,11 +248,14 @@ unsupported capability, and this guide is not a claim of competitor superiority.
   incomplete-evidence state, and absence of a fabricated alternatives-available claim.
 - `tests/unit/manage-overview-query-state.test.tsx` proves same-key complete-receipt precedence,
   incomplete-receipt retention, permission withholding that only a fresh complete admission can
-  restore, late-recheck fencing, malformed-source rejection, no-ambient-read remounts, and truthful
+  restore across all three refusal origins and repeated failed recovery, actual principal-boundary
+  Query clearing, late-recheck fencing, malformed-source rejection, no-ambient-read remounts, and truthful
   first-failure and recovery copy.
 - `tests/unit/manage-overview-query-options.test.ts` proves **Checked** requires each source's
   confirmed envelope and expected payload shape, including an exhaustive active-exceptions window;
   a partial/degraded source posture or continuation cursor remains incomplete.
+- `tests/unit/manage-overview-hydration.test.tsx` proves actual server rendering and hydration across
+  a clock/minute boundary agree without suppressing React errors or inventing a server receipt.
 - `tests/unit/workbench-worklist.test.tsx` proves the shared worklist's row/detail relationship,
   Arrow-key selection, Enter detail transfer, disabled-row posture, and controlled selection.
 - `tests/unit/manage-overview-responsive-css.test.ts` proves that posture, value, evidence, and task
