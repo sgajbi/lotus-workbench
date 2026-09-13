@@ -70,6 +70,7 @@ export default function ManageOverviewWorkspace({
   });
   useLayoutEffect(() => {
     const options = manageOverviewQueryOptions(queryContext);
+    const cachedState = queryClient.getQueryState(options.queryKey);
     const cachedData = queryClient.getQueryData<ManageWorkspaceData>(options.queryKey);
     const incomingAdmissionIsAuthoritative =
       initialData.sourceAccessWithheld === true || isManageOverviewComplete(initialData);
@@ -83,14 +84,14 @@ export default function ManageOverviewWorkspace({
       // An incomplete, non-withheld server composite cannot establish that a prior
       // authenticated refusal has been reversed. Keep the permission error and its
       // withheld presentation until a fresh complete admission proves restoration.
-      if (isManageOverviewPermissionError(overviewQuery.error)) {
+      if (isManageOverviewPermissionError(cachedState?.error)) {
         return;
       }
       // TanStack Query retains a failed recheck alongside its data. Retain the
       // complete evidence while clearing a stale ordinary failure rather than
       // requiring another explicit recheck.
       queryClient.setQueryData(options.queryKey, cachedData, {
-        updatedAt: queryClient.getQueryState(options.queryKey)?.dataUpdatedAt,
+        updatedAt: cachedState?.dataUpdatedAt,
       });
       return;
     }
@@ -103,7 +104,7 @@ export default function ManageOverviewWorkspace({
     resetRecheck();
     void queryClient.cancelQueries({ queryKey: options.queryKey, exact: true });
     queryClient.setQueryData(options.queryKey, initialData);
-  }, [initialData, overviewQuery.error, queryClient, queryContext, resetRecheck]);
+  }, [initialData, queryClient, queryContext, resetRecheck]);
 
   // Layout admission runs before a browser paint, so a same-key cached composite
   // cannot be shown while an authoritative incoming server receipt replaces it.
