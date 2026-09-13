@@ -247,6 +247,8 @@ export function buildManageWorkspaceData(
             supportability_reason: "WAVE_READY",
           },
         ],
+        total_count: 1,
+        next_cursor: null,
       },
     },
     wavesError: null,

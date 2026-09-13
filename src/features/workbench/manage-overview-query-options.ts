@@ -126,17 +126,26 @@ function hasManageCommandCenterPayload(value: unknown): boolean {
   if (!data) {
     return false;
   }
+  const summary = data.summary;
+  const declaredCompletenessStates = [
+    data.data_completeness_state,
+    isRecord(summary) ? summary.data_completeness_state : null,
+    readSourceSupportability(value)?.data_completeness_state,
+  ].filter(hasNonBlankString);
+  // An explicitly published source posture is authoritative, even when the
+  // envelope also carries mandate identity. Count fallback is only for legacy
+  // contracts that publish no completeness posture at all.
+  if (
+    declaredCompletenessStates.length > 0 &&
+    !declaredCompletenessStates.every(isConfirmedDataCompletenessState)
+  ) {
+    return false;
+  }
   if (readDpmMandateId(data) !== null) {
     return true;
   }
-  const summary = data.summary;
   if (!isRecord(summary)) {
     return false;
-  }
-  // A source-declared completeness posture is authoritative. The historic count
-  // fallback applies only to contracts that do not publish that posture at all.
-  if (hasNonBlankString(summary.data_completeness_state)) {
-    return isConfirmedDataCompletenessState(summary.data_completeness_state);
   }
   return typeof summary.active_exception_count === "number";
 }
@@ -159,19 +168,31 @@ function hasManageMandateHealthPayload(value: unknown): boolean {
   const data = readSourceData(value);
   return Boolean(
     data &&
-      (Array.isArray(data.dimensions) ||
+      (hasNonEmptyRecordArray(data.dimensions) ||
         hasNonBlankString(data.health_state) ||
-        typeof data.health_score === "number"),
+        (typeof data.health_score === "number" && Number.isFinite(data.health_score))),
   );
 }
 
 function hasManageWavePayload(value: unknown): boolean {
   const data = readSourceData(value);
-  return data !== null && Array.isArray(data.items);
+  return Boolean(
+    data &&
+      Array.isArray(data.items) &&
+      typeof data.total_count === "number" &&
+      Number.isInteger(data.total_count) &&
+      data.total_count >= 0 &&
+      data.total_count === data.items.length &&
+      (data.next_cursor === null || data.next_cursor === undefined),
+  );
 }
 
 function readSourceData(value: unknown): Record<string, unknown> | null {
   return isRecord(value) && isRecord(value.data) ? value.data : null;
+}
+
+function readSourceSupportability(value: unknown): Record<string, unknown> | null {
+  return isRecord(value) && isRecord(value.supportability) ? value.supportability : null;
 }
 
 function isConfirmedSupportabilityState(value: unknown): boolean {
@@ -190,6 +211,10 @@ function isConfirmedDataCompletenessState(value: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasNonEmptyRecordArray(value: unknown): boolean {
+  return Array.isArray(value) && value.some(isRecord);
 }
 
 function hasNonBlankString(value: unknown): value is string {

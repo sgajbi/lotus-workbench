@@ -185,6 +185,48 @@ describe("Manage Overview query ownership", () => {
         ),
       ).toBe(false);
     }
+    for (const dataCompletenessState of ["PARTIAL", "DEGRADED"]) {
+      expect(
+        isManageOverviewComplete(
+          buildManageWorkspaceData({
+            commandCenter: {
+              ...complete.commandCenter!,
+              supportability: {
+                ...complete.commandCenter!.supportability,
+                data_completeness_state: dataCompletenessState,
+              },
+              data: {
+                ...complete.commandCenter!.data,
+                mandate_id: "mandate_001",
+              },
+            } as ManageWorkspaceData["commandCenter"],
+          }),
+        ),
+      ).toBe(false);
+    }
+    expect(
+      isManageOverviewComplete(
+        buildManageWorkspaceData({
+          mandateHealth: {
+            ...complete.mandateHealth!,
+            data: { dimensions: [] },
+          } as ManageWorkspaceData["mandateHealth"],
+        }),
+      ),
+    ).toBe(false);
+    expect(
+      isManageOverviewComplete(
+        buildManageWorkspaceData({
+          waves: {
+            ...complete.waves!,
+            data: {
+              ...complete.waves!.data,
+              total_count: 2,
+            },
+          } as ManageWorkspaceData["waves"],
+        }),
+      ),
+    ).toBe(false);
   });
 });
 
