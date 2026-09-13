@@ -73,9 +73,10 @@ export default function ManageOverviewWorkspace({
     const cachedState = queryClient.getQueryState(options.queryKey);
     const cachedData = queryClient.getQueryData<ManageWorkspaceData>(options.queryKey);
     const incomingAdmissionIsAuthoritative =
-      initialData.sourceAccessWithheld === true || isManageOverviewComplete(initialData);
+      initialData.sourceAccessWithheld === true ||
+      isManageOverviewComplete(initialData, queryContext);
     const cachedAdmissionIsComplete =
-      cachedData !== undefined && isManageOverviewComplete(cachedData);
+      cachedData !== undefined && isManageOverviewComplete(cachedData, queryContext);
 
     // A transient server-side source failure is not a newer admission than a complete
     // receipt already held for this exact context. A fresh complete composite, or a
@@ -144,7 +145,7 @@ export default function ManageOverviewWorkspace({
           <SemanticBadge tone={model.overviewPostureTone} emphasis="strong">
             {model.overviewPostureLabel}
           </SemanticBadge>
-          {isManageOverviewComplete(data) && overviewQuery.dataUpdatedAt ? (
+          {isManageOverviewComplete(data, queryContext) && overviewQuery.dataUpdatedAt ? (
             <WorkbenchDataAge updatedAt={overviewQuery.dataUpdatedAt} />
           ) : null}
           <ActionButton
@@ -160,7 +161,7 @@ export default function ManageOverviewWorkspace({
     >
       {recheckState === "failed" ? (
         <p className={overviewStyles.recheckFailure} role="status">
-          {isManageOverviewComplete(data) && overviewQuery.dataUpdatedAt
+          {isManageOverviewComplete(data, queryContext) && overviewQuery.dataUpdatedAt
             ? "Overview recheck failed. The displayed portfolio-management evidence remains from the previous successful check."
             : "Overview recheck failed. No complete portfolio-management evidence has been admitted yet."}
         </p>
