@@ -8,6 +8,7 @@ import {
   readDpmMandateId,
   type ManageWorkspaceData,
 } from "@/features/workbench/manage-workspace-data";
+import { getManageExceptionEvidencePosture } from "@/features/workbench/manage-workspace-view-model";
 import { getPortfolio360 } from "@/features/workbench/workbench-core-api";
 
 export type ManageOverviewQueryContext = Readonly<{
@@ -84,14 +85,17 @@ export function isManageOverviewComplete(data: ManageWorkspaceData): boolean {
   return Boolean(
     !data.sourceAccessWithheld &&
       isManageOverviewSource(data.commandCenter) &&
+      hasManageCommandCenterPayload(data.commandCenter) &&
       !data.commandCenterError &&
       isManageOverviewSource(data.commandCenterExceptions) &&
-      !data.commandCenterExceptionsError &&
+      hasCompleteManageExceptionEvidence(data) &&
       isManageOverviewSource(data.mandate) &&
       hasManageMandateIdentity(data.mandate) &&
       isManageOverviewSource(data.mandateHealth) &&
+      hasManageMandateHealthPayload(data.mandateHealth) &&
       !data.mandateHealthError &&
       isManageOverviewSource(data.waves) &&
+      hasManageWavePayload(data.waves) &&
       !data.wavesError,
   );
 }
@@ -113,16 +117,64 @@ function isManageOverviewSource(value: unknown): value is Record<string, unknown
     isRecord(supportability) &&
     supportability.source_service === value.source_service &&
     hasNonBlankString(supportability.authority) &&
-    hasNonBlankString(supportability.state)
+    isConfirmedSupportabilityState(supportability.state)
+  );
+}
+
+function hasManageCommandCenterPayload(value: unknown): boolean {
+  const data = readSourceData(value);
+  if (!data) {
+    return false;
+  }
+  if (readDpmMandateId(data) !== null) {
+    return true;
+  }
+  const summary = data.summary;
+  return (
+    isRecord(summary) &&
+    (hasNonBlankString(summary.data_completeness_state) ||
+      typeof summary.active_exception_count === "number")
+  );
+}
+
+function hasCompleteManageExceptionEvidence(data: ManageWorkspaceData): boolean {
+  return (
+    getManageExceptionEvidencePosture(
+      data.commandCenterExceptions,
+      data.commandCenterExceptionsError,
+    ) === "complete"
   );
 }
 
 function hasManageMandateIdentity(mandate: Record<string, unknown>): boolean {
-  const mandateData = mandate.data;
-  if (!isRecord(mandateData)) {
-    return false;
-  }
-  return readDpmMandateId(mandateData) !== null;
+  const mandateData = readSourceData(mandate);
+  return mandateData !== null && readDpmMandateId(mandateData) !== null;
+}
+
+function hasManageMandateHealthPayload(value: unknown): boolean {
+  const data = readSourceData(value);
+  return Boolean(
+    data &&
+      (Array.isArray(data.dimensions) ||
+        hasNonBlankString(data.health_state) ||
+        typeof data.health_score === "number"),
+  );
+}
+
+function hasManageWavePayload(value: unknown): boolean {
+  const data = readSourceData(value);
+  return data !== null && Array.isArray(data.items);
+}
+
+function readSourceData(value: unknown): Record<string, unknown> | null {
+  return isRecord(value) && isRecord(value.data) ? value.data : null;
+}
+
+function isConfirmedSupportabilityState(value: unknown): boolean {
+  return (
+    hasNonBlankString(value) &&
+    ["COMPLETE", "READY", "SUPPORTED"].includes(value.trim().toUpperCase())
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

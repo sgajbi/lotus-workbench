@@ -120,6 +120,10 @@ describe("Manage Overview governed receipt", () => {
     await waitFor(() =>
       expect(queryClient.getQueryData(manageOverviewKey(newerData))).toEqual(newerData),
     );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Recheck overview" })).toBeEnabled(),
+    );
+    expect(screen.queryByText(/Overview recheck failed/)).not.toBeInTheDocument();
     await act(async () => delayedPortfolio.resolve(admittedData.portfolio));
     expect(screen.getByText("2,500,000.00 USD")).toBeInTheDocument();
     expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
