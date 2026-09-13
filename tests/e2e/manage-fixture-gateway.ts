@@ -416,7 +416,10 @@ function mandateExceptionWindowOne() {
           next_action: "Confirm the latest validated price",
         },
       ],
-      next_cursor: "mandate-attention-window-2",
+      // Overview owns one bounded, complete attention receipt. A continuation
+      // cursor is deliberately not fixture-valid here because it must not advance
+      // the browser's Checked receipt.
+      next_cursor: null,
     },
     "corr-manage-exceptions-window-1",
   );
