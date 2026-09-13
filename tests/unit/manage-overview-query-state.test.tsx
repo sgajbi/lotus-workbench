@@ -217,6 +217,67 @@ describe("Manage Overview governed receipt", () => {
     expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
   });
 
+  it("keeps a refused receipt withheld until a fresh complete admission restores it", async () => {
+    const queryClient = createQueryClient();
+    const admittedData = buildManageWorkspaceData();
+    const incompleteData = buildManageWorkspaceData({
+      waves: null,
+      wavesError: "Rebalance evidence is temporarily unavailable.",
+    });
+    const restoredData = buildManageWorkspaceData({
+      portfolio: forPortfolio(admittedData, "PF_1001", 2_500_000).portfolio,
+    });
+    const lateOldPortfolio = deferred<ManageWorkspaceData["portfolio"]>();
+    vi.mocked(getPortfolio360)
+      .mockRejectedValueOnce(new WorkbenchApiError("portfolio 360", 403))
+      .mockImplementationOnce(() => lateOldPortfolio.promise);
+    vi.mocked(loadManageWorkspaceData).mockResolvedValue(admittedData);
+
+    const first = renderWorkspace(admittedData, queryClient);
+    await waitFor(() =>
+      expect(queryClient.getQueryData(manageOverviewKey(admittedData))).toEqual(admittedData),
+    );
+    const originalReceiptUpdatedAt = queryClient.getQueryState(
+      manageOverviewKey(admittedData),
+    )?.dataUpdatedAt;
+    fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+    expect(
+      await screen.findByText(
+        "Your authenticated role does not currently provide access to this portfolio-management evidence.",
+      ),
+    ).toBeInTheDocument();
+    first.unmount();
+
+    const recovered = renderWorkspace(incompleteData, queryClient);
+    expect(
+      screen.getByText(
+        "Your authenticated role does not currently provide access to this portfolio-management evidence.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
+    expect(queryClient.getQueryState(manageOverviewKey(incompleteData))?.dataUpdatedAt).toBe(
+      originalReceiptUpdatedAt,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Recheck overview" }));
+    await waitFor(() => expect(getPortfolio360).toHaveBeenCalledTimes(2));
+    recovered.rerender(
+      <Wrapper queryClient={queryClient}>
+        <ManageWorkspace
+          data={restoredData}
+          mode="overview"
+          reviewContext={{ portfolioId: "PF_1001" }}
+        />
+      </Wrapper>,
+    );
+
+    expect(screen.getByText("2,500,000.00 USD")).toBeInTheDocument();
+    expect(screen.getByText(/^Checked /)).toBeInTheDocument();
+    await act(async () => lateOldPortfolio.resolve(admittedData.portfolio));
+    expect(screen.getByText("2,500,000.00 USD")).toBeInTheDocument();
+    expect(screen.queryByText("1,250,000.00 USD")).not.toBeInTheDocument();
+  });
+
   it("fences a delayed old-portfolio completion from the active review context", async () => {
     const queryClient = createQueryClient();
     const firstData = buildManageWorkspaceData();

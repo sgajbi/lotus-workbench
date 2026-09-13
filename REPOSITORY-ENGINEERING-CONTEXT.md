@@ -142,9 +142,11 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 - Manage Overview hydrates one server-composed Query keyed by portfolio, session, business date,
   period, and reporting currency. **Recheck overview** is the only client source transaction and
   rereads the exact six-source composite once. Only a complete, current-context composite advances
-  **Checked**; ordinary failure retains the prior admission, permission refusal withholds it, and
-  focus, reconnect, or remount never performs an ambient read. Do not restore page-local response,
-  inflight, receipt, or retry state.
+  **Checked**; ordinary failure retains the prior admission, while a permission refusal withholds it.
+  An incomplete non-withheld remount is not evidence that refused access was restored: it must keep
+  the receipt withheld until a fresh complete admission establishes restoration. Focus, reconnect,
+  or remount never performs an ambient read. Do not restore page-local response, inflight, receipt,
+  or retry state.
 - Workbench receipt age uses the oldest admitted `dataUpdatedAt` across every required Query in the
   displayed composite and is labelled **Checked**. It is browser receipt metadata, not source
   business date, upstream collection time, or certified freshness. Explicit composite rechecks may
