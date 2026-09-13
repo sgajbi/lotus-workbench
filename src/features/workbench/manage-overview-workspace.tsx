@@ -80,6 +80,10 @@ export default function ManageOverviewWorkspace({
     // receipt already held for this exact context. A fresh complete composite, or a
     // fresh access refusal, remains authoritative and must supersede that receipt.
     if (!incomingAdmissionIsAuthoritative && cachedAdmissionIsComplete) {
+      // TanStack Query retains a failed recheck alongside its data. The fresh server
+      // receipt did not withhold access, so retain the complete evidence while
+      // clearing that stale denial rather than requiring another explicit recheck.
+      queryClient.setQueryData(options.queryKey, cachedData);
       return;
     }
 
