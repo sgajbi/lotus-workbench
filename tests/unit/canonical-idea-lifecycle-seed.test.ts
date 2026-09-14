@@ -170,10 +170,8 @@ async function runLifecycleSeed(
   }
 }
 
-function expectCompleteDetailScope(request: ObservedRequest): void {
-  expect(request.headers["x-caller-capabilities"]).toBe(
-    "idea.candidate.detail.read",
-  );
+function expectCompleteAdmittedAuthority(request: ObservedRequest): void {
+  expect(request.headers["x-caller-roles"]).toBe("advisor");
   expect(request.headers["x-caller-tenant-ids"]).toBe(ACCESS_SCOPE.tenantId);
   expect(request.headers["x-caller-book-ids"]).toBe(ACCESS_SCOPE.bookId);
   expect(request.headers["x-caller-portfolio-ids"]).toBe(
@@ -199,7 +197,10 @@ describe("canonical Idea lifecycle seed", () => {
     expect(detailRequests).toHaveLength(6);
     expect(transitionRequests).toHaveLength(4);
     for (const request of detailRequests) {
-      expectCompleteDetailScope(request);
+      expectCompleteAdmittedAuthority(request);
+      expect(request.headers["x-caller-capabilities"]).toBe(
+        "idea.candidate.detail.read",
+      );
     }
     expect(
       transitionRequests.map(({ body }) => body.targetLifecycleStatus),
@@ -207,6 +208,7 @@ describe("canonical Idea lifecycle seed", () => {
     for (const [index, request] of transitionRequests.entries()) {
       const status = EXPECTED_STATUSES[index];
       const identity = `canonical-idea-lifecycle:${CANDIDATE_ID}:${status}:${OBSERVED_AT_UTC}`;
+      expectCompleteAdmittedAuthority(request);
       expect(request.url).toBe(
         `/api/v1/idea-candidates/${CANDIDATE_ID}/lifecycle-transitions`,
       );

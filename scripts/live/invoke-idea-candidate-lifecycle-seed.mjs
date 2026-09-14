@@ -75,15 +75,18 @@ async function seedCandidateLifecycle() {
 
   const ideaBaseUrl = values["idea-base-url"].replace(/\/$/, "");
   const candidateUrl = `${ideaBaseUrl}/api/v1/idea-candidates/${encodeURIComponent(candidateId)}`;
-  const detailHeaders = {
+  const admittedAuthorityHeaders = {
     "X-Caller-Subject": "canonical-front-office-lifecycle-seed",
     "X-Caller-Roles": "advisor",
-    "X-Caller-Capabilities": "idea.candidate.detail.read",
     "X-Caller-Tenant-Ids": values["tenant-id"],
     "X-Caller-Book-Ids": values["book-id"],
     "X-Caller-Portfolio-Ids": values["portfolio-id"],
     "X-Caller-Client-Ids": values["client-id"],
     "X-Correlation-Id": values["correlation-id"],
+  };
+  const detailHeaders = {
+    ...admittedAuthorityHeaders,
+    "X-Caller-Capabilities": "idea.candidate.detail.read",
   };
 
   async function getSourceLifecycleStatus() {
@@ -127,10 +130,9 @@ async function seedCandidateLifecycle() {
     const response = await readJson(`${candidateUrl}/lifecycle-transitions`, {
       method: "POST",
       headers: {
+        ...admittedAuthorityHeaders,
         "Content-Type": "application/json",
-        "X-Caller-Subject": "canonical-front-office-lifecycle-seed",
         "X-Caller-Capabilities": "idea.candidate.lifecycle.transition",
-        "X-Correlation-Id": values["correlation-id"],
         "Idempotency-Key": transitionIdentity,
       },
       body: JSON.stringify({

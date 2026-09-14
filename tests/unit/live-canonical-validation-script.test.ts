@@ -840,6 +840,18 @@ describe("canonical live validation script", () => {
     expect(startScript).toContain("--portfolio-id $payload.accessScope.portfolioId");
     expect(startScript).toContain("--client-id $payload.accessScope.clientId");
     expect(startScript).toContain(
+      '"X-Caller-Tenant-Ids" = $payload.accessScope.tenantId',
+    );
+    expect(startScript).toContain(
+      '"X-Caller-Book-Ids" = $payload.accessScope.bookId',
+    );
+    expect(startScript).toContain(
+      '"X-Caller-Portfolio-Ids" = $payload.accessScope.portfolioId',
+    );
+    expect(startScript).toContain(
+      '"X-Caller-Client-Ids" = $payload.accessScope.clientId',
+    );
+    expect(startScript).toContain(
       'throw "Canonical Lotus Idea lifecycle preparation failed with exit code $LASTEXITCODE."',
     );
     expect(startScript).toContain("function Get-CanonicalTextSha256");
