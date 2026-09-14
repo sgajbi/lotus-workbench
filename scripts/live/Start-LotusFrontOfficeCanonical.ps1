@@ -744,7 +744,10 @@ function Invoke-CanonicalIdeaSeed {
     "X-Caller-Subject" = "canonical-front-office-validator"
     "X-Caller-Roles" = "advisor"
     "X-Caller-Capabilities" = "idea.review.queue.read"
-    "X-Caller-Portfolio-Ids" = $PortfolioId
+    "X-Caller-Tenant-Ids" = $payload.accessScope.tenantId
+    "X-Caller-Book-Ids" = $payload.accessScope.bookId
+    "X-Caller-Portfolio-Ids" = $payload.accessScope.portfolioId
+    "X-Caller-Client-Ids" = $payload.accessScope.clientId
   }
   $queueEvaluatedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
   $encodedEvaluatedAtUtc = [uri]::EscapeDataString($queueEvaluatedAtUtc)
