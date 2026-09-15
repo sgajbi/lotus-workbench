@@ -32,7 +32,7 @@ describe("Docker CI parity governance", () => {
     expect(compose).not.toContain("--no-file-parallelism");
   });
 
-  it("keeps audit tools in the CI-only stage while allowing only the pinned runtime security update", () => {
+  it("keeps executable audit tools in the CI-only stage while allowing only the pinned runtime security update", () => {
     const dockerfile = readRepositoryFile("Dockerfile");
     const compose = readRepositoryFile("docker-compose.ci-local.yml");
     const ciTools = dockerfile.slice(
@@ -42,14 +42,25 @@ describe("Docker CI parity governance", () => {
     const runner = dockerfile.slice(dockerfile.indexOf("FROM ci-base AS runner"));
 
     expect(compose).toContain("target: ci-tools");
+    expect(dockerfile).toContain(
+      "ARG POWERSHELL_BASE_IMAGE=mcr.microsoft.com/powershell:7.5-debian-12@sha256:7ab5bd5ca6f95a3351fa0c6a1205237d57048c94542355aab55519a0861a9b25",
+    );
+    expect(dockerfile).toContain("FROM ${POWERSHELL_BASE_IMAGE} AS powershell");
     expect(ciTools).toContain(
-      "apt-get install --no-install-recommends --yes git python-is-python3 python3",
+      "COPY --from=powershell /opt/microsoft/powershell/7 /opt/microsoft/powershell/7",
+    );
+    expect(ciTools).toContain(
+      "apt-get install --no-install-recommends --yes git libicu72 libssl3 python-is-python3 python3",
+    );
+    expect(ciTools).toContain(
+      "ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/pwsh",
     );
     expect(runner).toContain(
       "apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u1",
     );
     expect(runner).not.toContain("apt-get install --no-install-recommends --yes git");
     expect(runner).not.toContain("python3");
+    expect(runner).not.toContain("pwsh");
   });
 
   it("masks developer-local environment values with a tracked empty fixture", () => {

@@ -1,12 +1,17 @@
 ARG NODE_BASE_IMAGE=node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
+ARG POWERSHELL_BASE_IMAGE=mcr.microsoft.com/powershell:7.5-debian-12@sha256:7ab5bd5ca6f95a3351fa0c6a1205237d57048c94542355aab55519a0861a9b25
 ARG WORKBENCH_DEPLOYMENT_ID
 
 FROM ${NODE_BASE_IMAGE} AS ci-base
 WORKDIR /app
 
+FROM ${POWERSHELL_BASE_IMAGE} AS powershell
+
 FROM ci-base AS ci-tools
+COPY --from=powershell /opt/microsoft/powershell/7 /opt/microsoft/powershell/7
 RUN apt-get update \
-    && apt-get install --no-install-recommends --yes git python-is-python3 python3 \
+    && apt-get install --no-install-recommends --yes git libicu72 libssl3 python-is-python3 python3 \
+    && ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/pwsh \
     && rm -rf /var/lib/apt/lists/*
 
 FROM ci-base AS deps

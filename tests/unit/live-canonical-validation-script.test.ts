@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 const REPORT_CENTRE_CLASSIFICATION_PATTERN =
@@ -39,6 +40,25 @@ const BROWSER_WORKFLOW_MODULE = readNormalizedSource(
 );
 
 describe("canonical live validation script", () => {
+  it("executes canonical Idea evidence authority acceptance and refusal cases", () => {
+    const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+    const contractPath = join(
+      process.cwd(),
+      "scripts",
+      "quality",
+      "Test-CanonicalIdeaEvidence.ps1",
+    );
+    const result = spawnSync(
+      powershell,
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", contractPath],
+      { cwd: process.cwd(), encoding: "utf8" },
+    );
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain('"contract":"canonical-idea-evidence-authority"');
+    expect(result.stdout).toContain('"passed":true');
+  });
+
   it("binds literal heading proof to exact accessible names", () => {
     const literalHeadingOptions = [
       ...BROWSER_WORKFLOW_MODULE.matchAll(
@@ -730,6 +750,15 @@ describe("canonical live validation script", () => {
       ),
       "utf8",
     );
+    const ideaEvidenceModule = readFileSync(
+      join(
+        process.cwd(),
+        "scripts",
+        "live",
+        "CanonicalIdeaEvidence.psm1",
+      ),
+      "utf8",
+    );
     const browserValidator = readFileSync(
       join(
         process.cwd(),
@@ -811,10 +840,10 @@ describe("canonical live validation script", () => {
       "[datetimeoffset]$queue.evaluatedAtUtc -ne [datetimeoffset]$queueEvaluatedAtUtc",
     );
     expect(startScript).toContain("asOfDate = $asOfDate");
-    expect(validationScript).toContain(
+    expect(ideaEvidenceModule).toContain(
       "candidate seed evidence does not match business date $AsOfDate",
     );
-    const utcTimestampPattern = validationScript.match(
+    const utcTimestampPattern = ideaEvidenceModule.match(
       /\$canonicalUtcTimestampPattern = '([^']+)'/,
     )?.[1];
     expect(utcTimestampPattern).toBeDefined();
@@ -828,10 +857,14 @@ describe("canonical live validation script", () => {
     ]) {
       expect(utcTimestampContract.test(invalidTimestamp)).toBe(false);
     }
-    expect(validationScript).toContain(
+    expect(ideaEvidenceModule).toContain(
       "$Value -notmatch $canonicalUtcTimestampPattern",
     );
-    expect(validationScript).toContain("[datetimeoffset]::TryParseExact(");
+    expect(ideaEvidenceModule).toContain("[datetimeoffset]::ParseExact(");
+    expect(ideaEvidenceModule).toContain('ConvertFrom-Json -DateKind String');
+    expect(ideaEvidenceModule).toContain(
+      '$timestampProperty = $evidence.PSObject.Properties[$field]',
+    );
     expect(validationScript).toContain(
       "-EvaluatedAtUtc $ideaCandidateSeedEvidence.queueEvaluatedAtUtc",
     );
@@ -864,15 +897,60 @@ describe("canonical live validation script", () => {
     expect(startScript).toContain(
       '"Idempotency-Key" = "canonical-idea-high-cash:$($PortfolioId):$ideaCanonicalRunId"',
     );
-    expect(validationScript).toContain("function Assert-IdeaQueueSeed");
-    expect(validationScript).toContain("function Read-IdeaCandidateSeedEvidence");
+    expect(ideaEvidenceModule).toContain("function Assert-IdeaQueueSeed");
+    expect(ideaEvidenceModule).toContain("function Read-IdeaCandidateSeedEvidence");
+    expect(startScript).toContain(
+      'schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v3"',
+    );
+    expect(ideaEvidenceModule).toContain(
+      '$evidence.schemaVersion -ne "lotus-workbench.idea-candidate-seed-evidence.v3"',
+    );
+    expect(startScript).toContain(
+      "tenantId = [string]$payload.accessScope.tenantId",
+    );
+    expect(startScript).toContain(
+      "bookId = [string]$payload.accessScope.bookId",
+    );
+    expect(startScript).toContain(
+      "portfolioId = [string]$payload.accessScope.portfolioId",
+    );
+    expect(startScript).toContain(
+      "clientId = [string]$payload.accessScope.clientId",
+    );
+    expect(ideaEvidenceModule).toContain(
+      'foreach ($field in @("tenantId", "bookId", "portfolioId", "clientId"))',
+    );
+    expect(ideaEvidenceModule).toContain(
+      'throw "Canonical Lotus Idea candidate seed evidence has incomplete admitted access scope."',
+    );
+    expect(ideaEvidenceModule).toContain(
+      'throw "Canonical Lotus Idea candidate seed evidence has mismatched admitted portfolio scope."',
+    );
+    expect(ideaEvidenceModule).toContain(
+      '"X-Caller-Tenant-Ids" = [string]$AccessScope.tenantId',
+    );
+    expect(ideaEvidenceModule).toContain(
+      '"X-Caller-Book-Ids" = [string]$AccessScope.bookId',
+    );
+    expect(ideaEvidenceModule).toContain(
+      '"X-Caller-Portfolio-Ids" = [string]$AccessScope.portfolioId',
+    );
+    expect(ideaEvidenceModule).toContain(
+      '"X-Caller-Client-Ids" = [string]$AccessScope.clientId',
+    );
     expect(validationScript).toContain(
+      "-AccessScope $ideaCandidateSeedEvidence.accessScope",
+    );
+    expect(ideaEvidenceModule).not.toContain("tenant-private-bank-sg");
+    expect(ideaEvidenceModule).not.toContain("book-advisor-001");
+    expect(ideaEvidenceModule).not.toContain("client-001");
+    expect(ideaEvidenceModule).toContain(
       '$activeIdeaRunId = [string]$ideaVersion.build.ciRunId',
     );
-    expect(validationScript).toContain(
+    expect(ideaEvidenceModule).toContain(
       "but the active Idea runtime identifies run '$activeIdeaRunId'",
     );
-    expect(validationScript).toContain("current-run candidate");
+    expect(ideaEvidenceModule).toContain("current-run candidate");
     expect(startScript).toContain("idea-candidate-seed-evidence.json");
     expect(startScript).toContain("$seededQueueItems.Count -ne 1");
     expect(browserValidator).toContain(

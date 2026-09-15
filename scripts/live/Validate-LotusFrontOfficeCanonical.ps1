@@ -15,6 +15,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+Import-Module (Join-Path $PSScriptRoot "CanonicalIdeaEvidence.psm1") -Force
 $canonicalEvidenceRoot = if ([string]::IsNullOrWhiteSpace($CanonicalEvidenceDirectory)) {
   Join-Path $repoRoot "output\\canonical-front-office"
 } elseif ([System.IO.Path]::IsPathRooted($CanonicalEvidenceDirectory)) {
@@ -37,34 +38,6 @@ $canonicalCallerContextHeaders = @{
   "X-Tenant-Id" = "tenant-sg"
   "X-Region" = "APAC"
 }
-$canonicalUtcTimestampPattern = '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$'
-
-function ConvertFrom-CanonicalUtcTimestamp {
-  param(
-    [string]$Value,
-    [string]$FieldName
-  )
-
-  if ($Value -notmatch $canonicalUtcTimestampPattern) {
-    throw "Canonical Lotus Idea candidate seed evidence has invalid $FieldName."
-  }
-  $parsedTimestamp = [datetimeoffset]::MinValue
-  $parseStyle = (
-    [Globalization.DateTimeStyles]::AssumeUniversal -bor
-    [Globalization.DateTimeStyles]::AdjustToUniversal
-  )
-  if (-not [datetimeoffset]::TryParseExact(
-      $Value,
-      "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
-      [Globalization.CultureInfo]::InvariantCulture,
-      $parseStyle,
-      [ref]$parsedTimestamp
-    )) {
-    throw "Canonical Lotus Idea candidate seed evidence has invalid $FieldName."
-  }
-  return $parsedTimestamp
-}
-
 function Test-CanonicalHost {
   param(
     [string]$HostName,
@@ -122,91 +95,6 @@ function Test-Endpoint {
   throw "$lastError after $Attempts attempts."
 }
 
-function Read-IdeaCandidateSeedEvidence {
-  if (-not (Test-Path -LiteralPath $ideaCandidateSeedEvidencePath)) {
-    throw "Canonical Lotus Idea candidate seed evidence is missing: $ideaCandidateSeedEvidencePath"
-  }
-  $evidence = Get-Content -LiteralPath $ideaCandidateSeedEvidencePath -Raw | ConvertFrom-Json
-  if ($evidence.schemaVersion -ne "lotus-workbench.idea-candidate-seed-evidence.v2") {
-    throw "Canonical Lotus Idea candidate seed evidence has an unsupported schema version."
-  }
-  if ([string]$evidence.portfolioId -ne $PortfolioId) {
-    throw "Canonical Lotus Idea candidate seed evidence does not match portfolio $PortfolioId."
-  }
-  if ([string]$evidence.asOfDate -ne $AsOfDate) {
-    throw "Canonical Lotus Idea candidate seed evidence does not match business date $AsOfDate."
-  }
-  if ([string]$evidence.candidateId -notmatch '^idea_high_cash_[0-9a-f]{16}$') {
-    throw "Canonical Lotus Idea candidate seed evidence has an invalid candidate identity."
-  }
-  if ([string]$evidence.lifecycleStatus -ne "ready_for_review") {
-    throw "Canonical Lotus Idea candidate seed evidence is not ready for advisor review."
-  }
-  if ([string]::IsNullOrWhiteSpace([string]$evidence.runId)) {
-    throw "Canonical Lotus Idea candidate seed evidence has no run identity."
-  }
-  $parsedEvidenceTimestamps = @{}
-  foreach ($field in @(
-      "sourceObservedAtUtc",
-      "evaluatedAtUtc",
-      "lifecycleObservedAtUtc",
-      "queueEvaluatedAtUtc"
-    )) {
-    $parsedEvidenceTimestamps[$field] = ConvertFrom-CanonicalUtcTimestamp `
-      -Value ([string]$evidence.$field) `
-      -FieldName $field
-  }
-  if (
-    $parsedEvidenceTimestamps.sourceObservedAtUtc -gt $parsedEvidenceTimestamps.evaluatedAtUtc -or
-    $parsedEvidenceTimestamps.evaluatedAtUtc -gt $parsedEvidenceTimestamps.lifecycleObservedAtUtc -or
-    $parsedEvidenceTimestamps.lifecycleObservedAtUtc -gt $parsedEvidenceTimestamps.queueEvaluatedAtUtc
-  ) {
-    throw "Canonical Lotus Idea candidate seed evidence has incoherent run chronology."
-  }
-  $ideaVersion = Invoke-RestMethod -Uri "http://idea.dev.lotus/version" -TimeoutSec 45
-  $activeIdeaRunId = [string]$ideaVersion.build.ciRunId
-  if ([string]::IsNullOrWhiteSpace($activeIdeaRunId)) {
-    throw "Active Lotus Idea runtime exposes no build run identity."
-  }
-  if ([string]$evidence.runId -ne $activeIdeaRunId) {
-    throw (
-      "Canonical Lotus Idea candidate seed evidence belongs to run '$($evidence.runId)', " +
-      "but the active Idea runtime identifies run '$activeIdeaRunId'."
-    )
-  }
-  return $evidence
-}
-
-function Assert-IdeaQueueSeed {
-  param(
-    [string]$ExpectedCandidateId,
-    [string]$EvaluatedAtUtc
-  )
-
-  $headers = @{
-    "X-Caller-Subject" = "canonical-front-office-validator"
-    "X-Caller-Roles" = "advisor"
-    "X-Caller-Capabilities" = "idea.review.queue.read,idea.candidate.detail.read"
-    "X-Caller-Portfolio-Ids" = $PortfolioId
-  }
-  $encodedEvaluatedAtUtc = [uri]::EscapeDataString($EvaluatedAtUtc)
-  $url = "$GatewayBaseUrl/api/v1/ideas/review-queues/advisor?evaluatedAtUtc=$encodedEvaluatedAtUtc"
-  $queue = Invoke-RestMethod -Uri $url -Headers $headers -TimeoutSec 45
-  if ([datetimeoffset]$queue.evaluatedAtUtc -ne [datetimeoffset]$EvaluatedAtUtc) {
-    throw "Gateway Idea review queue did not preserve the canonical evaluatedAtUtc boundary."
-  }
-  $matchingItems = @($queue.items | Where-Object {
-      [string]$_.candidate.candidateId -eq $ExpectedCandidateId
-    })
-  if ($matchingItems.Count -ne 1) {
-    throw (
-      "Gateway Idea review queue did not expose current-run candidate '$ExpectedCandidateId' " +
-      "exactly once for $PortfolioId. Matches: $($matchingItems.Count)."
-    )
-  }
-  Write-Host "[ok] Gateway Idea review queue contains current-run candidate $ExpectedCandidateId -> $url"
-}
-
 Test-CanonicalHost "workbench.dev.lotus"
 Test-CanonicalHost "gateway.dev.lotus"
 Test-CanonicalHost "core-query.dev.lotus"
@@ -238,10 +126,16 @@ Test-Endpoint "$GatewayBaseUrl/api/v1/workbench/$PortfolioId/overview" "Gateway 
 Test-Endpoint "$GatewayBaseUrl/api/v1/workbench/$PortfolioId/performance/summary?period=EXPLICIT&chart_frequency=monthly&detail_basis=NET&contribution_dimension=asset_class&attribution_dimension=asset_class&benchmark_code=$BenchmarkCode&report_start_date=$StartDate&report_end_date=$AsOfDate" "Gateway performance summary" -Headers $canonicalCallerContextHeaders
 Test-Endpoint "$GatewayBaseUrl/api/v1/workbench/$PortfolioId/risk/summary?period=EXPLICIT&detail_basis=NET&benchmark_code=$BenchmarkCode&report_start_date=$StartDate&report_end_date=$AsOfDate&as_of_date=$AsOfDate" "Gateway risk summary" -Headers $canonicalCallerContextHeaders
 Test-Endpoint "$GatewayBaseUrl/api/v1/workbench/$PortfolioId/performance/advisor-brief?period=EXPLICIT&chart_frequency=monthly&detail_basis=NET&contribution_dimension=asset_class&attribution_dimension=asset_class&benchmark_code=$BenchmarkCode&report_start_date=$StartDate&report_end_date=$AsOfDate" "Gateway advisor brief" -Headers $canonicalCallerContextHeaders
-$ideaCandidateSeedEvidence = Read-IdeaCandidateSeedEvidence
+$ideaCandidateSeedEvidence = Read-IdeaCandidateSeedEvidence `
+  -Path $ideaCandidateSeedEvidencePath `
+  -PortfolioId $PortfolioId `
+  -AsOfDate $AsOfDate
 Assert-IdeaQueueSeed `
+  -GatewayBaseUrl $GatewayBaseUrl `
+  -PortfolioId $PortfolioId `
   -ExpectedCandidateId $ideaCandidateSeedEvidence.candidateId `
-  -EvaluatedAtUtc $ideaCandidateSeedEvidence.queueEvaluatedAtUtc
+  -EvaluatedAtUtc $ideaCandidateSeedEvidence.queueEvaluatedAtUtc `
+  -AccessScope $ideaCandidateSeedEvidence.accessScope
 if (-not (Test-Path $ideaCapacitySeedEvidencePath)) {
   throw "Canonical Lotus Idea capacity seed evidence is missing: $ideaCapacitySeedEvidencePath"
 }

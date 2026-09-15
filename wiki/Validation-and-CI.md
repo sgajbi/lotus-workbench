@@ -353,10 +353,12 @@ CODEOWNERS when a second accepted reviewer exists.
   Queue reads always carry the explicit current-run evaluation boundary; neither slow image startup
   nor Idea's example-time default can silently empty the adviser queue. Startup records those ordered
   UTC timestamps and the exact review-ready candidate in
-  `output/canonical-front-office/idea-candidate-seed-evidence.json`. Validation reuses the recorded
-  queue boundary through Gateway, proves the candidate exactly once, and matches the artifact's run
-  ID to the active Idea `/version` build identity. A broad title match, stale artifact, older
-  unconverted candidate, or incoherent clock cannot stand in for current-run evidence.
+  `output/canonical-front-office/idea-candidate-seed-evidence.json`. Schema v3 also records the exact
+  tenant, book, portfolio, and client scope admitted during seeding. Validation refuses incomplete
+  or mismatched scope, forwards that recorded authority unchanged with the queue boundary through
+  Gateway, proves the candidate exactly once, and matches the artifact's run ID to the active Idea
+  `/version` build identity. A broad title match, stale artifact, older unconverted candidate,
+  inferred grant, or incoherent clock cannot stand in for current-run evidence.
 - RFC or mainline certification runs must invoke the canonical startup script with
   `-RequireMainlineSources`. The preflight writes a source-safe provenance manifest and fails
   before Docker, seeding, or screenshots when any canonical participant is dirty or not exactly at

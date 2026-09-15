@@ -196,10 +196,12 @@ source-confirmed state within the same run as idempotent replay evidence, and fa
 mismatched identity, or a state outside the seedable path. Workbench does not calculate or bypass
 Idea lifecycle policy.
 After the source queue returns that candidate exactly once, startup records
-`output/canonical-front-office/idea-candidate-seed-evidence.json` using schema v2. Validation rejects
-a missing, malformed, non-UTC, out-of-order, mismatched, or non-reviewable artifact; asks Gateway
-for the queue at the recorded queue-evaluation boundary; proves the same candidate exactly once;
-and rejects evidence whose run identity differs from the active Idea `/version` build identity.
+`output/canonical-front-office/idea-candidate-seed-evidence.json` using schema v3. The receipt carries
+the exact tenant, book, portfolio, and client scope admitted by the seed request. Validation rejects
+a missing, malformed, incomplete-scope, scope-mismatched, non-UTC, out-of-order, or non-reviewable
+artifact; forwards the recorded scope unchanged when it asks Gateway for the queue at the recorded
+queue-evaluation boundary; proves the same candidate exactly once; and rejects evidence whose run
+identity differs from the active Idea `/version` build identity.
 Earlier unconverted candidates, stale artifacts, and fixed example-time defaults therefore cannot
 stand in for current-run browser evidence.
 
