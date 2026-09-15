@@ -28,6 +28,8 @@ const queue: AdvisorIdeaReviewQueueData = {
         materialVersion: 2,
         evidenceVersion: 3,
         scorePolicyVersion: "ranking-v7",
+        sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+        sourceCutPosture: "coherent",
       },
     },
     {
@@ -37,6 +39,8 @@ const queue: AdvisorIdeaReviewQueueData = {
         materialVersion: 4,
         evidenceVersion: 5,
         scorePolicyVersion: "ranking-v7",
+        sourceRevisionVectorDigest: `sha256:${"c".repeat(64)}`,
+        sourceCutPosture: "coherent",
       },
     },
   ],
@@ -385,6 +389,58 @@ describe("useIdeaPresentationReceipts", () => {
       await Promise.resolve();
     });
     expect(recordReceipt).toHaveBeenCalledTimes(1);
+  });
+
+  it("records a new observation when same-boundary source lineage changes", async () => {
+    const view = render(<Harness candidateIds={["idea-025"]} />);
+    const initialObserver = await observer();
+
+    await act(async () => {
+      initialObserver.emit([
+        {
+          target: marker("idea-025"),
+          isIntersecting: true,
+          intersectionRatio: 1,
+        },
+      ]);
+    });
+    await waitFor(() => expect(recordReceipt).toHaveBeenCalledTimes(1));
+
+    const changedDigest = `sha256:${"d".repeat(64)}`;
+    view.rerender(
+      <Harness
+        candidateIds={["idea-025"]}
+        sourceQueue={{
+          ...queue,
+          items: [
+            {
+              ...queue.items![0]!,
+              candidate: {
+                ...queue.items![0]!.candidate!,
+                sourceRevisionVectorDigest: changedDigest,
+              },
+            },
+          ],
+        }}
+      />,
+    );
+    await waitFor(() => {
+      expect(TestIntersectionObserver.instances).toHaveLength(2);
+    });
+    await act(async () => {
+      TestIntersectionObserver.instances[1].emit([
+        {
+          target: marker("idea-025"),
+          isIntersecting: true,
+          intersectionRatio: 1,
+        },
+      ]);
+    });
+
+    await waitFor(() => expect(recordReceipt).toHaveBeenCalledTimes(2));
+    expect(recordReceipt.mock.calls[1][0].request.sourceRevisionVectorDigest).toBe(
+      changedDigest,
+    );
   });
 
   it("does not emit when an observed row unmounts while its receipt draft is pending", async () => {

@@ -86,6 +86,8 @@ const getAdvisorIdeaReviewQueueMock = vi.fn(async (filters?: {
         materialVersion: 1,
         evidenceVersion: 1,
         scorePolicyVersion: "idle-liquidity-v1",
+        sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+        sourceCutPosture: "coherent",
         family: "high_cash",
         reviewPosture: "advisor_review_required",
         score: "82",

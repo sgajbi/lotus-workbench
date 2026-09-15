@@ -4,6 +4,10 @@ import type {
   AdvisorIdeaQueueItem,
   AdvisorIdeaReviewQueueData,
 } from "./types";
+import {
+  isUtcEvidenceTimestamp,
+  utcTimestampsIdentifySameInstant,
+} from "./utc-evidence";
 
 export type IdeaPresentationReceiptDraft = {
   presentedAtUtc: string;
@@ -14,6 +18,13 @@ export type IdeaPresentationReceiptDraft = {
   rankingPolicyVersion: string;
   candidateMaterialVersion: number;
   candidateEvidenceVersion: number;
+  sourceRevisionVectorDigest: `sha256:${string}`;
+  sourceCutPosture:
+    | "coherent"
+    | "coherent_with_declared_tolerance"
+    | "mixed"
+    | "partial"
+    | "unknown";
 };
 
 export type IdeaPresentationSource = {
@@ -23,6 +34,8 @@ export type IdeaPresentationSource = {
   rankingPolicyVersion: string;
   candidateMaterialVersion: number;
   candidateEvidenceVersion: number;
+  sourceRevisionVectorDigest: `sha256:${string}`;
+  sourceCutPosture: IdeaPresentationReceiptDraft["sourceCutPosture"];
 };
 
 export type IdeaPresentationReceiptResponse = {
@@ -30,6 +43,8 @@ export type IdeaPresentationReceiptResponse = {
     tenantId?: string;
     receiptId?: string;
     candidateId?: string;
+    acceptedAtUtc?: string;
+    acceptanceTimeSource?: string;
     schemaVersion?: string;
     surface?: string;
     producer?: string;
@@ -53,7 +68,9 @@ export function readIdeaPresentationSource(
     !queue.policyVersion?.trim() ||
     !candidate.scorePolicyVersion?.trim() ||
     !isPositiveInteger(candidate.materialVersion) ||
-    !isPositiveInteger(candidate.evidenceVersion)
+    !isPositiveInteger(candidate.evidenceVersion) ||
+    !isSha256Digest(candidate.sourceRevisionVectorDigest) ||
+    !isSourceCutPosture(candidate.sourceCutPosture)
   ) {
     return null;
   }
@@ -64,6 +81,8 @@ export function readIdeaPresentationSource(
     rankingPolicyVersion: candidate.scorePolicyVersion,
     candidateMaterialVersion: candidate.materialVersion,
     candidateEvidenceVersion: candidate.evidenceVersion,
+    sourceRevisionVectorDigest: candidate.sourceRevisionVectorDigest,
+    sourceCutPosture: candidate.sourceCutPosture,
   };
 }
 
@@ -86,6 +105,8 @@ export async function buildIdeaPresentationReceiptDraft({
     rankingPolicyVersion: source.rankingPolicyVersion,
     candidateMaterialVersion: source.candidateMaterialVersion,
     candidateEvidenceVersion: source.candidateEvidenceVersion,
+    sourceRevisionVectorDigest: source.sourceRevisionVectorDigest,
+    sourceCutPosture: source.sourceCutPosture,
   };
 }
 
@@ -116,6 +137,8 @@ export async function buildIdeaPresentationReceiptDrafts({
         rankingPolicyVersion: source.rankingPolicyVersion,
         candidateMaterialVersion: source.candidateMaterialVersion,
         candidateEvidenceVersion: source.candidateEvidenceVersion,
+        sourceRevisionVectorDigest: source.sourceRevisionVectorDigest,
+        sourceCutPosture: source.sourceCutPosture,
       },
     };
   });
@@ -169,7 +192,9 @@ export function matchesIdeaPresentationReceiptEvidence({
         response.persistenceDecision === "replayed") &&
       response.durableStorageBacked === true &&
       receipt.candidateId === candidateId &&
-      receipt.schemaVersion === "lotus-idea.candidate-presentation-receipt.v1" &&
+      isUtcEvidenceTimestamp(receipt.acceptedAtUtc) &&
+      receipt.acceptanceTimeSource === "server_accepted" &&
+      receipt.schemaVersion === "lotus-idea.candidate-presentation-receipt.v2" &&
       receipt.surface === "advisor_review_queue" &&
       receipt.producer === "lotus-workbench" &&
       receipt.receiptId?.trim() &&
@@ -183,14 +208,19 @@ function presentationFieldsMatch(
   request: IdeaPresentationReceiptDraft,
 ): boolean {
   return (
-    receipt.presentedAtUtc === request.presentedAtUtc &&
+    utcTimestampsIdentifySameInstant(
+      receipt.presentedAtUtc,
+      request.presentedAtUtc,
+    ) &&
     receipt.rankAtPresentation === request.rankAtPresentation &&
     receipt.visibleCandidateCount === request.visibleCandidateCount &&
     receipt.queueSnapshotDigest === request.queueSnapshotDigest &&
     receipt.queuePolicyVersion === request.queuePolicyVersion &&
     receipt.rankingPolicyVersion === request.rankingPolicyVersion &&
     receipt.candidateMaterialVersion === request.candidateMaterialVersion &&
-    receipt.candidateEvidenceVersion === request.candidateEvidenceVersion
+    receipt.candidateEvidenceVersion === request.candidateEvidenceVersion &&
+    receipt.sourceRevisionVectorDigest === request.sourceRevisionVectorDigest &&
+    receipt.sourceCutPosture === request.sourceCutPosture
   );
 }
 
@@ -211,4 +241,23 @@ function requireVisibleCandidateSet(
 
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+function isSha256Digest(value: unknown): value is `sha256:${string}` {
+  return typeof value === "string" && /^sha256:[0-9a-f]{64}$/.test(value);
+}
+
+function isSourceCutPosture(
+  value: unknown,
+): value is IdeaPresentationReceiptDraft["sourceCutPosture"] {
+  return (
+    typeof value === "string" &&
+    [
+      "coherent",
+      "coherent_with_declared_tolerance",
+      "mixed",
+      "partial",
+      "unknown",
+    ].includes(value)
+  );
 }

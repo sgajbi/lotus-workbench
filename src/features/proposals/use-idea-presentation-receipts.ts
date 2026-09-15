@@ -90,6 +90,8 @@ export function useIdeaPresentationReceipts({
           item.candidate?.materialVersion,
           item.candidate?.evidenceVersion,
           item.candidate?.scorePolicyVersion,
+          item.candidate?.sourceRevisionVectorDigest,
+          item.candidate?.sourceCutPosture,
         ]),
       ]),
     [queue],

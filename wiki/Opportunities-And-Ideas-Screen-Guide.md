@@ -136,6 +136,10 @@ grant suitability or approval authority, contact a client, or create an order. T
 the complete returned source window available without treating off-screen render-buffer rows as
 viewed candidates. It does not compose prompts, edit or persist explanation content, infer missing
 claims, invent evidence revisions, upgrade provenance, or use an explanation as action authority.
+Visible-render receipts require the source revision-vector digest and source-cut posture already
+published on the Idea queue item. Missing or malformed lineage disables receipt publication;
+business identifiers and browser context never manufacture it. A recorded receipt is accepted only
+with Idea's v2 schema and server-accepted timing evidence.
 
 ## Adjacent Handoffs
 
