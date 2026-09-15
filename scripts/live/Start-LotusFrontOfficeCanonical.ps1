@@ -769,10 +769,16 @@ function Invoke-CanonicalIdeaSeed {
 
   New-Item -ItemType Directory -Force -Path $canonicalEvidenceRoot | Out-Null
   $candidateEvidence = [ordered]@{
-    schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v2"
+    schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v3"
     runId = $ideaCanonicalRunId
     candidateId = $candidateId
     portfolioId = $PortfolioId
+    accessScope = [ordered]@{
+      tenantId = [string]$payload.accessScope.tenantId
+      bookId = [string]$payload.accessScope.bookId
+      portfolioId = [string]$payload.accessScope.portfolioId
+      clientId = [string]$payload.accessScope.clientId
+    }
     asOfDate = $asOfDate
     lifecycleStatus = "ready_for_review"
     sourceObservedAtUtc = $sourceObservedAtUtc
