@@ -23,6 +23,8 @@ const request: IdeaPresentationReceiptDraft = {
   rankingPolicyVersion: "idle-liquidity-v1",
   candidateMaterialVersion: 2,
   candidateEvidenceVersion: 3,
+  sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+  sourceCutPosture: "coherent",
 };
 
 function response(
@@ -34,7 +36,9 @@ function response(
       tenantId: "tenant-private-bank-sg",
       receiptId: "receipt-idea-025",
       candidateId: "idea-025",
-      schemaVersion: "lotus-idea.candidate-presentation-receipt.v1",
+      acceptedAtUtc: "2026-08-31T10:15:00.100000Z",
+      acceptanceTimeSource: "server_accepted",
+      schemaVersion: "lotus-idea.candidate-presentation-receipt.v2",
       surface: "advisor_review_queue",
       producer: "lotus-workbench",
       ...overrides,
@@ -56,6 +60,8 @@ describe("Idea presentation receipt contract", () => {
             materialVersion: 2,
             evidenceVersion: 3,
             scorePolicyVersion: "ranking-v7",
+            sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+            sourceCutPosture: "coherent",
           },
         },
       ),
@@ -66,6 +72,8 @@ describe("Idea presentation receipt contract", () => {
       rankingPolicyVersion: "ranking-v7",
       candidateMaterialVersion: 2,
       candidateEvidenceVersion: 3,
+      sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+      sourceCutPosture: "coherent",
     });
   });
 
@@ -113,6 +121,8 @@ describe("Idea presentation receipt contract", () => {
         rankingPolicyVersion: request.rankingPolicyVersion,
         candidateMaterialVersion: 2,
         candidateEvidenceVersion: 3,
+        sourceRevisionVectorDigest: request.sourceRevisionVectorDigest,
+        sourceCutPosture: request.sourceCutPosture,
       },
       visibleCandidateIds: ["idea-025"],
     });
@@ -180,6 +190,7 @@ describe("Idea presentation receipt contract", () => {
 
   it.each([
     ["candidateId", "idea-026"],
+    ["presentedAtUtc", "2026-08-31T10:15:00.000001Z"],
     ["rankAtPresentation", 24],
     ["visibleCandidateCount", 2],
     ["queueSnapshotDigest", `sha256:${"b".repeat(64)}`],
@@ -187,6 +198,10 @@ describe("Idea presentation receipt contract", () => {
     ["rankingPolicyVersion", "ranking-v8"],
     ["candidateMaterialVersion", 4],
     ["candidateEvidenceVersion", 5],
+    ["sourceRevisionVectorDigest", `sha256:${"c".repeat(64)}`],
+    ["sourceCutPosture", "mixed"],
+    ["acceptanceTimeSource", "client_supplied"],
+    ["acceptedAtUtc", "2026-02-30T10:15:00Z"],
     ["surface", "candidate_detail"],
     ["producer", "lotus-gateway"],
   ])("rejects mismatched persisted %s evidence", (field, value) => {

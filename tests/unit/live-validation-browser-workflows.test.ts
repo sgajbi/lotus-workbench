@@ -40,6 +40,10 @@ const {
   }) => { sourceMandate: string; renderedMandate: string };
   assertCanonicalIdeaPresentationReceiptEvidence: (input: {
     expectedCandidateId: string;
+    expectedSourceLineage: {
+      sourceRevisionVectorDigest: string;
+      sourceCutPosture: string;
+    };
     idempotencyKey: string | null;
     requestBody: unknown;
     responseBody: unknown;
@@ -1061,6 +1065,8 @@ describe("live validation browser workflow helpers", () => {
       rankingPolicyVersion: "idle-liquidity-v1",
       candidateMaterialVersion: 3,
       candidateEvidenceVersion: 7,
+      sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+      sourceCutPosture: "coherent",
     };
     const responseBody = {
       data: {
@@ -1069,7 +1075,9 @@ describe("live validation browser workflow helpers", () => {
           candidateId: "idea_high_cash_ef02ad8793485081",
           tenantId: "tenant-sg-private-bank",
           receiptId: "receipt-001",
-          schemaVersion: "lotus-idea.candidate-presentation-receipt.v1",
+          acceptedAtUtc: "2026-08-31T07:00:00.100000Z",
+          acceptanceTimeSource: "server_accepted",
+          schemaVersion: "lotus-idea.candidate-presentation-receipt.v2",
           surface: "advisor_review_queue",
           producer: "lotus-workbench",
         },
@@ -1077,11 +1085,16 @@ describe("live validation browser workflow helpers", () => {
         durableStorageBacked: true,
       },
     };
+    const expectedSourceLineage = {
+      sourceRevisionVectorDigest: requestBody.sourceRevisionVectorDigest,
+      sourceCutPosture: requestBody.sourceCutPosture,
+    };
 
     it("preserves independent global rank and visible count", () => {
       expect(
         assertCanonicalIdeaPresentationReceiptEvidence({
           expectedCandidateId: "idea_high_cash_ef02ad8793485081",
+          expectedSourceLineage,
           idempotencyKey: "presentation-001",
           requestBody,
           responseBody,
@@ -1102,6 +1115,29 @@ describe("live validation browser workflow helpers", () => {
         "Boolean rank",
         { ...requestBody, rankAtPresentation: true },
         responseBody,
+      ],
+      [
+        "malformed source revision digest",
+        { ...requestBody, sourceRevisionVectorDigest: "sha256:not-a-digest" },
+        responseBody,
+      ],
+      [
+        "unknown source cut posture",
+        { ...requestBody, sourceCutPosture: "ready" },
+        responseBody,
+      ],
+      [
+        "different valid queue lineage",
+        { ...requestBody, sourceRevisionVectorDigest: `sha256:${"c".repeat(64)}` },
+        {
+          data: {
+            ...responseBody.data,
+            receipt: {
+              ...responseBody.data.receipt,
+              sourceRevisionVectorDigest: `sha256:${"c".repeat(64)}`,
+            },
+          },
+        },
       ],
       [
         "changed receipt evidence",
@@ -1129,10 +1165,37 @@ describe("live validation browser workflow helpers", () => {
           },
         },
       ],
+      [
+        "different microsecond presentation instant",
+        requestBody,
+        {
+          data: {
+            ...responseBody.data,
+            receipt: {
+              ...responseBody.data.receipt,
+              presentedAtUtc: "2026-08-31T07:00:00.000001Z",
+            },
+          },
+        },
+      ],
+      [
+        "impossible acceptance date",
+        requestBody,
+        {
+          data: {
+            ...responseBody.data,
+            receipt: {
+              ...responseBody.data.receipt,
+              acceptedAtUtc: "2026-02-30T07:00:00Z",
+            },
+          },
+        },
+      ],
     ])("rejects %s", (_case, request, response, key: string | null = "presentation-001") => {
       expect(() =>
         assertCanonicalIdeaPresentationReceiptEvidence({
           expectedCandidateId: "idea_high_cash_ef02ad8793485081",
+          expectedSourceLineage,
           idempotencyKey: key,
           requestBody: request,
           responseBody: response,

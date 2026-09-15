@@ -566,9 +566,43 @@ describe("proposal api", () => {
     );
   });
 
+  it("accepts an Idea queue boundary normalized to equivalent fractional-second precision", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              evaluatedAtUtc: "2026-06-21T10:10:00.123000Z",
+              items: [{ candidate: { candidateId: "idea_high_cash_001" } }],
+              exclusions: [],
+              durableStorageBacked: true,
+              supportedFeaturePromoted: false,
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+      ),
+    );
+
+    const result = await getAdvisorIdeaReviewQueue({
+      portfolioId: "PB_SG_GLOBAL_BAL_001",
+      evaluatedAtUtc: "2026-06-21T10:10:00.123Z",
+    });
+
+    expect(result.items?.[0]?.candidate?.candidateId).toBe(
+      "idea_high_cash_001",
+    );
+  });
+
   it.each([
     ["a missing boundary", undefined],
     ["a different boundary", "2026-06-21T10:09:59Z"],
+    ["a different microsecond boundary", "2026-06-21T10:10:00.000001Z"],
+    ["an impossible calendar boundary", "2026-02-30T10:10:00Z"],
+    ["a malformed boundary", "not-a-timestamp"],
   ])("rejects %s from an explicitly evaluated Idea queue", async (_case, returnedBoundary) => {
     vi.stubGlobal(
       "fetch",
@@ -986,6 +1020,8 @@ describe("proposal api", () => {
       rankingPolicyVersion: "idle-liquidity-v1",
       candidateMaterialVersion: 2,
       candidateEvidenceVersion: 3,
+      sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}` as const,
+      sourceCutPosture: "coherent" as const,
     };
     vi.stubGlobal(
       "fetch",
@@ -998,7 +1034,9 @@ describe("proposal api", () => {
                 tenantId: "tenant-private-bank-sg",
                 receiptId: "receipt-idea-025",
                 candidateId: "idea-025",
-                schemaVersion: "lotus-idea.candidate-presentation-receipt.v1",
+                acceptedAtUtc: "2026-08-31T10:15:00.100000Z",
+                acceptanceTimeSource: "server_accepted",
+                schemaVersion: "lotus-idea.candidate-presentation-receipt.v2",
                 surface: "advisor_review_queue",
                 producer: "lotus-workbench",
               },
@@ -1063,10 +1101,14 @@ describe("proposal api", () => {
                 rankingPolicyVersion: "idle-liquidity-v1",
                 candidateMaterialVersion: 2,
                 candidateEvidenceVersion: 3,
+                sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+                sourceCutPosture: "coherent",
                 tenantId: "tenant-private-bank-sg",
                 receiptId: "receipt-idea-025",
                 candidateId: "idea-025",
-                schemaVersion: "lotus-idea.candidate-presentation-receipt.v1",
+                acceptedAtUtc: "2026-08-31T10:15:00.100000Z",
+                acceptanceTimeSource: "server_accepted",
+                schemaVersion: "lotus-idea.candidate-presentation-receipt.v2",
                 surface: "advisor_review_queue",
                 producer: "lotus-workbench",
               },
@@ -1092,6 +1134,8 @@ describe("proposal api", () => {
           rankingPolicyVersion: "idle-liquidity-v1",
           candidateMaterialVersion: 2,
           candidateEvidenceVersion: 3,
+          sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+          sourceCutPosture: "coherent",
         },
       }),
     ).rejects.toThrow(

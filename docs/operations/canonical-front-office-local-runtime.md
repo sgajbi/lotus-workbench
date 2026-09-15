@@ -548,7 +548,11 @@ grid to contain source rows and captures its automatic presentation-receipt writ
 must preserve the candidate identity, Idea global rank, independently observed visible count,
 queue/ranking policies, candidate versions, and exact request evidence; tenant scope must appear
 only in the returned BFF/Gateway/Idea receipt, never in the browser request, and must match the
-single tenant injected by the Workbench BFF. The canonical HTTP origin must also produce the exact
+single tenant injected by the Workbench BFF. The v2 receipt also requires the Idea-owned source
+revision-vector digest and source-cut posture from the rendered queue item, plus Idea's
+server-accepted timestamp and time-source evidence. Workbench forwards these values without
+deriving lineage and accepts only equivalent UTC serialization of the presented instant. The
+canonical HTTP origin must also produce the exact
 SHA-256 visible-set digest without depending on secure-context-only `SubtleCrypto` or
 `Crypto.randomUUID`. The machine-readable summary records that durable source evidence and only
 bounded action-control posture and non-claim boundaries. It

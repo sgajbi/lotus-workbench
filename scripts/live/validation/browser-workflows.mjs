@@ -6,6 +6,14 @@ import { buildRiskMandateSourceRenderRows } from "./risk-mandate-proof.mjs";
 import { assertExactSourceRenderProof } from "./source-render-proof.mjs";
 
 const HIGH_CASH_IDEA_CANDIDATE_PATTERN = /^idea_high_cash_[0-9a-f]{16}$/;
+const SHA256_DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
+const IDEA_SOURCE_CUT_POSTURES = new Set([
+  "coherent",
+  "coherent_with_declared_tolerance",
+  "mixed",
+  "partial",
+  "unknown",
+]);
 const ADVISOR_BOOK_BROWSER_PAGE = Object.freeze({
   offset: 0,
   limit: 25,
@@ -441,6 +449,7 @@ export function canonicalIdeaOpportunitiesRoute({
 
 export function assertCanonicalIdeaPresentationReceiptEvidence({
   expectedCandidateId,
+  expectedSourceLineage,
   idempotencyKey,
   requestBody,
   responseBody,
@@ -486,11 +495,36 @@ export function assertCanonicalIdeaPresentationReceiptEvidence({
       );
     }
   }
+  if (!SHA256_DIGEST_PATTERN.test(request.sourceRevisionVectorDigest)) {
+    throw new Error(
+      "Canonical Idea presentation request carried an invalid sourceRevisionVectorDigest.",
+    );
+  }
+  if (!IDEA_SOURCE_CUT_POSTURES.has(request.sourceCutPosture)) {
+    throw new Error(
+      "Canonical Idea presentation request carried an invalid sourceCutPosture.",
+    );
+  }
+  const queueLineage = requireCanonicalRecord(
+    expectedSourceLineage,
+    "Idea queue candidate source lineage",
+  );
+  if (
+    request.sourceRevisionVectorDigest !==
+      queueLineage.sourceRevisionVectorDigest ||
+    request.sourceCutPosture !== queueLineage.sourceCutPosture
+  ) {
+    throw new Error(
+      "Canonical Idea presentation request did not preserve the rendered queue source lineage.",
+    );
+  }
   for (const field of [
     "presentedAtUtc",
     "queueSnapshotDigest",
     "queuePolicyVersion",
     "rankingPolicyVersion",
+    "sourceRevisionVectorDigest",
+    "sourceCutPosture",
   ]) {
     if (typeof request[field] !== "string" || !request[field].trim()) {
       throw new Error(
@@ -499,7 +533,6 @@ export function assertCanonicalIdeaPresentationReceiptEvidence({
     }
   }
   for (const field of [
-    "presentedAtUtc",
     "rankAtPresentation",
     "visibleCandidateCount",
     "queueSnapshotDigest",
@@ -507,6 +540,8 @@ export function assertCanonicalIdeaPresentationReceiptEvidence({
     "rankingPolicyVersion",
     "candidateMaterialVersion",
     "candidateEvidenceVersion",
+    "sourceRevisionVectorDigest",
+    "sourceCutPosture",
   ]) {
     if (receipt[field] !== request[field]) {
       throw new Error(
@@ -514,15 +549,29 @@ export function assertCanonicalIdeaPresentationReceiptEvidence({
       );
     }
   }
+  const normalizedRequestedAt = normalizeCanonicalUtcTimestamp(
+    request.presentedAtUtc,
+  );
+  if (
+    normalizedRequestedAt === null ||
+    normalizeCanonicalUtcTimestamp(receipt.presentedAtUtc) !==
+      normalizedRequestedAt
+  ) {
+    throw new Error(
+      "Canonical Idea presentation receipt did not preserve presentedAtUtc.",
+    );
+  }
   if (
     receipt.candidateId !== expectedCandidateId ||
-    receipt.schemaVersion !== "lotus-idea.candidate-presentation-receipt.v1" ||
+    receipt.schemaVersion !== "lotus-idea.candidate-presentation-receipt.v2" ||
     receipt.surface !== "advisor_review_queue" ||
     receipt.producer !== "lotus-workbench" ||
     typeof receipt.receiptId !== "string" ||
     !receipt.receiptId.trim() ||
     typeof receipt.tenantId !== "string" ||
     !receipt.tenantId.trim() ||
+    normalizeCanonicalUtcTimestamp(receipt.acceptedAtUtc) === null ||
+    receipt.acceptanceTimeSource !== "server_accepted" ||
     !["accepted", "replayed"].includes(response.persistenceDecision) ||
     response.durableStorageBacked !== true
   ) {
@@ -538,10 +587,49 @@ export function assertCanonicalIdeaPresentationReceiptEvidence({
     rankingPolicyVersion: request.rankingPolicyVersion,
     candidateMaterialVersion: request.candidateMaterialVersion,
     candidateEvidenceVersion: request.candidateEvidenceVersion,
+    sourceRevisionVectorDigest: request.sourceRevisionVectorDigest,
+    sourceCutPosture: request.sourceCutPosture,
     persistenceDecision: response.persistenceDecision,
     durableStorageBacked: true,
     tenantAuthority: "workbench-bff-derived",
   };
+}
+
+function normalizeCanonicalUtcTimestamp(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const match = value.match(
+    /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?Z$/,
+  );
+  if (!match) {
+    return null;
+  }
+  const [, year, month, day, hour, minute, second, fraction = ""] = match;
+  const numericMonth = Number(month);
+  const leapYear =
+    Number(year) % 4 === 0 &&
+    (Number(year) % 100 !== 0 || Number(year) % 400 === 0);
+  const daysInMonth =
+    numericMonth === 2
+      ? leapYear
+        ? 29
+        : 28
+      : [4, 6, 9, 11].includes(numericMonth)
+        ? 30
+        : 31;
+  if (
+    numericMonth < 1 ||
+    numericMonth > 12 ||
+    Number(day) < 1 ||
+    Number(day) > daysInMonth ||
+    Number(hour) > 23 ||
+    Number(minute) > 59 ||
+    Number(second) > 59
+  ) {
+    return null;
+  }
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}.${fraction.replace(/0+$/, "")}Z`;
 }
 
 function requireCanonicalRecord(value, description) {
@@ -1443,6 +1531,16 @@ export async function validateCanonicalIdeaJourney(page, preparedJourney) {
   const expectedIdeaCandidateId = requireHighCashIdeaCandidateId(
     preparedJourney.expectedIdeaCandidateId,
   );
+  const queueResponsePromise = page.waitForResponse(
+    (response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === "GET" &&
+        url.pathname.endsWith("/api/bff/api/v1/ideas/review-queues/advisor")
+      );
+    },
+    { timeout: preparedJourney.timeoutMs },
+  );
   const presentationReceiptResponsePromise = page.waitForResponse(
     (response) => {
       const url = new URL(response.url());
@@ -1456,6 +1554,31 @@ export async function validateCanonicalIdeaJourney(page, preparedJourney) {
     { timeout: preparedJourney.timeoutMs },
   );
   await validateAdvisoryJourneyRoute(page, preparedJourney);
+  const queueResponse = await queueResponsePromise;
+  if (!queueResponse.ok()) {
+    throw new Error(
+      `Workbench Idea queue request failed with HTTP ${queueResponse.status()}.`,
+    );
+  }
+  const queueEnvelope = requireCanonicalRecord(
+    await queueResponse.json(),
+    "Idea queue response",
+  );
+  const queue = requireCanonicalRecord(
+    queueEnvelope.data ?? queueEnvelope,
+    "Idea queue response data",
+  );
+  if (!Array.isArray(queue.items)) {
+    throw new Error("Canonical Idea queue response omitted its ranked items.");
+  }
+  const renderedQueueItem = queue.items.find((item) => {
+    const candidate = item?.candidate;
+    return candidate?.candidateId === expectedIdeaCandidateId;
+  });
+  const renderedQueueCandidate = requireCanonicalRecord(
+    renderedQueueItem?.candidate,
+    "rendered Idea queue candidate",
+  );
   const presentationReceiptResponse = await presentationReceiptResponsePromise;
   if (!presentationReceiptResponse.ok()) {
     throw new Error(
@@ -1464,6 +1587,11 @@ export async function validateCanonicalIdeaJourney(page, preparedJourney) {
   }
   const presentationEvidence = assertCanonicalIdeaPresentationReceiptEvidence({
     expectedCandidateId: expectedIdeaCandidateId,
+    expectedSourceLineage: {
+      sourceRevisionVectorDigest:
+        renderedQueueCandidate.sourceRevisionVectorDigest,
+      sourceCutPosture: renderedQueueCandidate.sourceCutPosture,
+    },
     idempotencyKey: await presentationReceiptResponse
       .request()
       .headerValue("idempotency-key"),

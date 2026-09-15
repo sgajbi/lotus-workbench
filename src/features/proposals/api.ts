@@ -74,6 +74,7 @@ import {
   type IdeaPresentationReceiptDraft,
   type IdeaPresentationReceiptResponse,
 } from "./idea-presentation-receipt";
+import { utcTimestampsIdentifySameInstant } from "./utc-evidence";
 import {
   parseAdvisorIdeaAIExplanationResponse,
   type AdvisorIdeaEvidenceIdentity,
@@ -363,7 +364,10 @@ export async function getAdvisorIdeaReviewQueue({
     "advisor idea queue",
   );
   const data = unwrapGatewayData<AdvisorIdeaReviewQueueData>(payload);
-  if (evaluatedAtUtc && data.evaluatedAtUtc !== evaluatedAtUtc) {
+  if (
+    evaluatedAtUtc &&
+    !utcTimestampsIdentifySameInstant(data.evaluatedAtUtc, evaluatedAtUtc)
+  ) {
     throw new WorkbenchResponseEvidenceError(
       "The opportunity worklist did not confirm the requested evaluation time. No current worklist is shown.",
     );
