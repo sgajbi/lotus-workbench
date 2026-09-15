@@ -29,6 +29,31 @@ Reference seeded portfolio:
 
 ## Canonical local prerequisites
 
+Acquire the single machine reservation from the canonical sibling `lotus-platform` checkout
+before `live:stack:up`, `live:stack:preflight` or `live:stack:down`. Follow the
+[Platform reservation control](https://github.com/sgajbi/lotus-platform/blob/main/docs/operations/canonical-runtime-reservation.md)
+for explicit holder, issue/PR purpose, UTC start/expiry, exact resolved projects/ports and pinned
+source vector. Set `LOTUS_CANONICAL_RUNTIME_HOLDER` explicitly or pass `-RuntimeHolder` to the
+PowerShell scripts. Neither a free port nor a matching Compose label grants the runtime.
+
+The shipped scripts consume Platform's OS-locked v1 operation protocol before mutation and publish
+the actual final container/PID-birth inventory plus native success/failure in `finally`. Teardown
+releases only on success and zero canonical containers/listeners. `-KeepReservation` is for an
+explicit cleanup/rebuild inside the already acquired window, not automatic reacquisition. Missing,
+expired, changed, foreign or interrupted ownership refuses; use the reviewed digest-bound
+handover/recovery/reclaim procedure rather than deleting the book. The lease is local coordination,
+not production IAM, image qualification or canonical seed acceptance. Standalone validation holds
+its own operation across the complete DNS/HTTP/evidence/browser path; validation nested in startup
+uses the caller's admitted token and does not replace or finish that caller's operation. Compose
+teardown verifies current full container IDs and checkout identities before any project down.
+Startup shares the same fence before mutations and at every Compose down/up, including forced
+recreation. A failed ingress run stops before seeding and records failure immediately.
+
+The selected `-WorkbenchRepoPath` must match the checkout executing each script. Acquire with
+Platform's `--workbench-repo-path` set to that same path when using an alternate checkout; its
+exact revision and path are carried through admission and publication, never replaced by the
+default sibling checkout.
+
 Required canonical host mappings on the host:
 
 ```txt
@@ -819,6 +844,20 @@ not replace a source adapter with a generic field mapper or change expected evid
 canonical validation pass.
 
 ## Current local limitation
+
+All Compose mutations use the dedicated reservation/admitted-container helper, including AI
+startup with its scoped environment file. Nested DPM seeding runs in-process with the parent's
+original live exclusive FileStream registered to its token in that same module instance and explicit holder, workspace, selected checkout and token unchanged.
+Replacement same-path handles and new-process reconstruction refuse before I/O. Diagnostic
+`-CoreManageOnly` startup requires explicit Platform `--runtime-mode core-manage` acquisition;
+only selected Core/Manage Compose inputs plus immutable executing Workbench/Platform sources
+are required. Skipped product repositories may be absent or unresolved. Teardown carries the
+acquired four-source scope and its ports; skipped-service listeners remain untouched. Partial
+startup returns before DPM seeding, which requires full Gateway/Advise authority. Full and partial
+authority cannot substitute or certify Level B.
+Absent/disposed/foreign handles refuse before outbound I/O. It validates that
+admission rather than reacquiring the whole-operation lock; native failure remains a startup
+failure. Portfolio identifiers are configuration, never operation authority.
 
 If `ai.dev.lotus` is not mapped in the host DNS/hosts file, direct canonical probing of the AI
 service from the host will fail even if:

@@ -1,11 +1,19 @@
 [CmdletBinding()]
 param(
   [string]$ProjectsRoot = "C:\Users\Sandeep\projects",
+  [string]$RuntimeHolder = $env:LOTUS_CANONICAL_RUNTIME_HOLDER,
+  [string]$WorkbenchRepoPath,
+  [switch]$KeepReservation,
   [switch]$RemoveVolumes,
   [switch]$RemoveImages
 )
 
 $ErrorActionPreference = "Stop"
+$selectedWorkbench = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+if ($WorkbenchRepoPath -and [System.IO.Path]::GetFullPath($WorkbenchRepoPath) -ne $selectedWorkbench) {
+  throw 'Selected Workbench checkout does not match the executing script.'
+}
+$WorkbenchRepoPath = $selectedWorkbench
 
 $coreRepo = Join-Path $ProjectsRoot "lotus-core"
 $performanceRepo = Join-Path $ProjectsRoot "lotus-performance"
@@ -18,7 +26,10 @@ $archiveRepo = Join-Path $ProjectsRoot "lotus-archive"
 $renderRepo = Join-Path $ProjectsRoot "lotus-render"
 $ideaRepo = Join-Path $ProjectsRoot "lotus-idea"
 $gatewayRepo = Join-Path $ProjectsRoot "lotus-gateway"
-$workbenchRepo = Join-Path $ProjectsRoot "lotus-workbench"
+$workbenchRepo = $WorkbenchRepoPath
+$platformRepo = Join-Path $ProjectsRoot "lotus-platform"
+Import-Module (Join-Path $platformRepo 'automation/CanonicalRuntimeReservation.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'CanonicalComposeAdmission.psm1') -Force
 
 function Invoke-RepoCommand {
   param(
@@ -28,7 +39,9 @@ function Invoke-RepoCommand {
 
   Push-Location $RepoPath
   try {
+    Assert-CanonicalComposeAdmission -RepoPath $RepoPath -Operation $runtimeOperation
     Invoke-Expression $Command
+    if ($LASTEXITCODE -ne 0) { throw "Canonical teardown command failed (exit $LASTEXITCODE): $Command" }
   } finally {
     Pop-Location
   }
@@ -44,14 +57,19 @@ function Stop-ListenersOnPorts {
   foreach ($processId in $owningProcesses) {
     try {
       $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+      if (-not $process) { continue } # The observed listener already exited; nothing to kill.
       if ($process -and $process.ProcessName -match "^(com\.docker|docker|vpnkit)") {
         Write-Host "Leaving Docker-owned listener $processId ($($process.ProcessName)) in place"
         continue
       }
-      Stop-Process -Id $processId -Force -ErrorAction Stop
+      $identity = "$($process.Id):$($process.StartTime.ToUniversalTime().ToString('o'))"
+      if (-not @($runtimeOperation.Bindings | Where-Object {
+        $_.kind -eq 'host-process' -and $_.id -eq $identity
+      }).Count) { throw "Host process identity changed after admission: $identity" }
+      Stop-Process -InputObject $process -Force -ErrorAction Stop
       Write-Host "Stopped host process $processId"
     } catch {
-      Write-Warning ("Unable to stop host process {0}: {1}" -f $processId, $_.Exception.Message)
+      throw ("Unable to stop admitted host process {0}: {1}" -f $processId, $_.Exception.Message)
     }
   }
 }
@@ -61,13 +79,22 @@ function Remove-ContainerIfPresent {
 
   $existing = docker ps -a --format "{{.Names}}" | Where-Object { $_ -eq $Name }
   if ($existing) {
-    docker rm -f $Name | Out-Null
+    $identity = docker inspect --format '{{.Id}}' $Name
+    if ($LASTEXITCODE -ne 0 -or -not @($runtimeOperation.Bindings | Where-Object {
+      $_.kind -eq 'container' -and $_.id -eq $identity
+    }).Count) { throw "Container identity is not admitted: $Name" }
+    docker rm -f $identity | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Admitted container removal failed: $identity" }
     Write-Host "Removed container $Name"
   }
 }
 
+$operationAction = if ($KeepReservation) { 'change' } else { 'teardown' }
+$runtimeOperation = Enter-CanonicalRuntimeOperation -ProjectsRoot $ProjectsRoot -Holder $RuntimeHolder -Action $operationAction -WorkbenchRepoPath $workbenchRepo
+$runtimeOutcome = 'failure'
+try {
 Write-Host "Stopping canonical host processes..."
-Stop-ListenersOnPorts @(3000, 8001, 8100, 8111, 8150, 8310, 8330)
+Stop-ListenersOnPorts @($runtimeOperation.Scope.ports)
 
 Write-Host "Stopping direct ingress..."
 Remove-ContainerIfPresent "lotus-direct-dev-ingress"
@@ -80,17 +107,16 @@ if ($RemoveVolumes) {
 if ($RemoveImages) {
   $downCommand = "$downCommand --rmi local"
 }
-Invoke-RepoCommand $coreRepo $downCommand
-Invoke-RepoCommand $performanceRepo $downCommand
-Invoke-RepoCommand $riskRepo $downCommand
-Invoke-RepoCommand $aiRepo $downCommand
-Invoke-RepoCommand $adviseRepo $downCommand
-Invoke-RepoCommand $manageRepo $downCommand
-Invoke-RepoCommand $reportRepo $downCommand
-Invoke-RepoCommand $archiveRepo $downCommand
-Invoke-RepoCommand $renderRepo $downCommand
-Invoke-RepoCommand $ideaRepo $downCommand
-Invoke-RepoCommand $gatewayRepo $downCommand
-Invoke-RepoCommand $workbenchRepo $downCommand
+$sourceNames = @($runtimeOperation.Scope.sources.PSObject.Properties.Name)
+$partialScope = $sourceNames.Count -eq 4 -and @('lotus-core','lotus-manage','lotus-workbench','lotus-platform' | Where-Object { $_ -notin $sourceNames }).Count -eq 0
+$teardownRepositories = if ($partialScope) { @($coreRepo,$manageRepo) } else {
+  @($coreRepo,$performanceRepo,$riskRepo,$aiRepo,$adviseRepo,$manageRepo,$reportRepo,
+    $archiveRepo,$renderRepo,$ideaRepo,$gatewayRepo,$workbenchRepo)
+}
+foreach ($repo in $teardownRepositories) { Invoke-RepoCommand $repo $downCommand }
 
 Write-Host "Canonical front-office local runtime stopped."
+$runtimeOutcome = 'success'
+} finally {
+  Exit-CanonicalRuntimeOperation -Operation $runtimeOperation -Outcome $runtimeOutcome
+}

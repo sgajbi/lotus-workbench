@@ -693,7 +693,8 @@ describe("canonical live validation script", () => {
     expect(script).toContain("--benchmark-start-date 2025-01-06");
     expect(script).toContain("--wait-seconds $SeedWaitSeconds");
     expect(script).toContain('$seedCommand = "$seedCommand --skip-cleanup"');
-    expect(script).toContain("automation\\Invoke-DpmCommandCenterSeed.ps1");
+    expect(script).toContain("Join-Path $platformRepo 'automation/Invoke-DpmCommandCenterSeed.ps1'");
+    expect(script).toContain("-RuntimeHolder $RuntimeHolder -RuntimeOperationToken $runtimeOperation.Token -RuntimeOperationFence $runtimeOperation.Lock");
     expect(script).toContain(
       "Seeding governed DPM command-center and action-register evidence",
     );
@@ -778,13 +779,18 @@ describe("canonical live validation script", () => {
       "lotus-render",
       "lotus-idea",
       "lotus-gateway",
-      "lotus-workbench",
     ]) {
       expect(startScript).toContain(service);
       expect(stopScript).toContain(service);
     }
+    for (const script of [startScript, stopScript]) {
+      expect(script).toContain('$workbenchRepo = $WorkbenchRepoPath');
+      expect(script).toContain("$selectedWorkbench = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path");
+      expect(script).toContain("-WorkbenchRepoPath $workbenchRepo");
+      expect(script).toContain("Selected Workbench checkout does not match the executing script.");
+    }
     expect(stopScript).toContain(
-      "Stop-ListenersOnPorts @(3000, 8001, 8100, 8111, 8150, 8310, 8330)",
+      "Stop-ListenersOnPorts @($runtimeOperation.Scope.ports)",
     );
     expect(stopScript).toContain("Leaving Docker-owned listener");
     expect(validationScript).toContain(

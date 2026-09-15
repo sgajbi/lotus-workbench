@@ -21,4 +21,10 @@ if (result.error) {
   process.exit(1);
 }
 
-process.exit(result.status ?? 1);
+if (result.status !== 0) process.exit(result.status ?? 1);
+const reservation = spawnSync(powershell, [
+  "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+  join(process.cwd(), "scripts", "quality", "Test-CanonicalRuntimeReservation.ps1"),
+], { stdio: "inherit" });
+if (reservation.error) console.error(reservation.error.message);
+process.exit(reservation.status ?? 1);
