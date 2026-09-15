@@ -348,6 +348,25 @@ Update this file when repository ownership, architecture, integration boundaries
 commands, validation expectations, dominant patterns, or material rollout posture changes. Keep it
 concise; route detail to its purpose-owned document and execution state to GitHub.
 
+## Canonical Runtime Practice
+
+Canonical runtime practice: `scripts/live/Start-LotusFrontOfficeCanonical.ps1` and
+`Stop-LotusFrontOfficeCanonical.ps1` consume the Platform-owned reservation adapter from the one
+canonical sibling checkout. An explicit acquired `LOTUS_CANONICAL_RUNTIME_HOLDER` is required for
+startup, preflight, validation and teardown; live exact IDs/PID births and operation outcomes are
+recorded. Standalone validation holds one operation across all observations; nested validation
+retains the startup token. Every project teardown verifies current admitted full IDs and exact
+checkout metadata before Compose down, not merely its eventual exit status. Dedicated admission
+also guards environment-scoped AI startup; in-process nested DPM seeding retains the live exclusive
+original parent FileStream registered to its token in the same module instance and explicit parent
+holder/workspace/selected-checkout/token without reacquiring or finishing its operation.
+Read the [canonical runtime runbook](./docs/operations/canonical-front-office-local-runtime.md)
+for recovery and release. Unit/runner fixtures are hermetic controlled interfaces; consumer
+acceptance additionally records the immutable actual Platform revision. Source/CI ownership,
+Level A receipts, Level B readiness and production IAM are independent. Explicit `core-manage`
+diagnostic acquisition/startup carries its bounded source/configuration scope; skipped products
+are not consulted and teardown uses acquired scope rather than manufacturing full authority.
+
 ## Cross-Links
 
 Local sibling paths use `<workspace-root>` for the directory containing Lotus repositories:

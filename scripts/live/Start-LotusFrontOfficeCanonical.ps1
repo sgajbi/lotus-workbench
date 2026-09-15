@@ -1,6 +1,8 @@
 [CmdletBinding()]
 param(
   [string]$ProjectsRoot = "C:\Users\Sandeep\projects",
+  [string]$RuntimeHolder = $env:LOTUS_CANONICAL_RUNTIME_HOLDER,
+  [string]$WorkbenchRepoPath,
   [string]$PortfolioId = "PB_SG_GLOBAL_BAL_001",
   [string]$BenchmarkCode = "BMK_PB_GLOBAL_BALANCED_60_40",
   [string]$ScreenshotDirectory = "",
@@ -18,7 +20,13 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$selectedWorkbench = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+if ($WorkbenchRepoPath -and [System.IO.Path]::GetFullPath($WorkbenchRepoPath) -ne $selectedWorkbench) {
+  throw 'Selected Workbench checkout does not match the executing script.'
+}
+$WorkbenchRepoPath = $selectedWorkbench
 Import-Module (Join-Path $PSScriptRoot "CanonicalPortOwnership.psm1") -Force
+Import-Module (Join-Path $PSScriptRoot 'CanonicalComposeAdmission.psm1') -Force
 
 $coreRepo = Join-Path $ProjectsRoot "lotus-core"
 $performanceRepo = Join-Path $ProjectsRoot "lotus-performance"
@@ -31,7 +39,7 @@ $archiveRepo = Join-Path $ProjectsRoot "lotus-archive"
 $renderRepo = Join-Path $ProjectsRoot "lotus-render"
 $ideaRepo = Join-Path $ProjectsRoot "lotus-idea"
 $gatewayRepo = Join-Path $ProjectsRoot "lotus-gateway"
-$workbenchRepo = Join-Path $ProjectsRoot "lotus-workbench"
+$workbenchRepo = $WorkbenchRepoPath
 $platformRepo = Join-Path $ProjectsRoot "lotus-platform"
 $ingressCaddyfile = Join-Path $platformRepo "platform-stack\\dev-ingress\\Caddyfile.direct-host"
 $canonicalContractPath = Join-Path $platformRepo "context\\contracts\\canonical-front-office-demo-data-contract.json"
@@ -111,6 +119,14 @@ function Invoke-RepoCommand {
   }
 }
 
+function Invoke-CanonicalComposeCommand {
+  param([string]$RepoPath, [string]$Command)
+  Invoke-CanonicalReservation -Action preflight-operation -ProjectsRoot $ProjectsRoot -Holder $RuntimeHolder `
+    -WorkbenchRepoPath $workbenchRepo -OperationToken $runtimeOperation.Token -RuntimeMode $runtimeMode | Out-Host
+  Assert-CanonicalComposeAdmission -RepoPath $RepoPath -Operation $runtimeOperation
+  Invoke-RepoCommand $RepoPath $Command
+}
+
 function Test-HttpReady {
   param([string]$Url)
 
@@ -165,7 +181,12 @@ function Remove-ContainerIfPresent {
 
   $existing = docker ps -a --format "{{.Names}}" | Where-Object { $_ -eq $Name }
   if ($existing) {
-    docker rm -f $Name | Out-Null
+    $identity = docker inspect --format '{{.Id}}' $Name
+    if ($LASTEXITCODE -ne 0 -or -not @($runtimeOperation.Bindings | Where-Object {
+      $_.kind -eq 'container' -and $_.id -eq $identity
+    }).Count) { throw "Container identity is not admitted: $Name" }
+    docker rm -f $identity | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Admitted container removal failed: $identity" }
   }
 }
 
@@ -197,7 +218,11 @@ function Stop-HostProcessOnPort {
     }
 
     Write-Host "Stopping stale $Description process on :$Port (PID $processId) ..."
-    Stop-Process -Id $processId -Force -ErrorAction Stop
+    $identity = "$($process.Id):$($process.StartTime.ToUniversalTime().ToString('o'))"
+    if (-not @($runtimeOperation.Bindings | Where-Object {
+      $_.kind -eq 'host-process' -and $_.id -eq $identity -and $Port -in $_.ports
+    }).Count) { throw "Host process identity changed after admission: $identity" }
+    Stop-Process -InputObject $process -Force -ErrorAction Stop
   }
 
   Start-Sleep -Seconds 2
@@ -407,7 +432,7 @@ function Invoke-ComposeUp {
   }
 
   Invoke-WithProcessEnvironment -Environment $Environment -ScriptBlock {
-    Invoke-RepoCommand $RepoPath $composeCommand
+    Invoke-CanonicalComposeCommand $RepoPath $composeCommand
   }
 }
 
@@ -534,16 +559,12 @@ function Resolve-LotusAiEnvFile {
   return $resolved
 }
 
-function Get-EnvScopedComposeCommand {
-  param(
-    [string]$Command,
-    [string]$EnvFile
-  )
-
-  if ([string]::IsNullOrWhiteSpace($EnvFile)) {
-    return $Command
-  }
-  return "`$env:LOTUS_AI_ENV_FILE = '$EnvFile'; $Command"
+function Start-CanonicalAi {
+  param([string]$EnvFile)
+  $resolved = Resolve-LotusAiEnvFile -EnvFile $EnvFile
+  $environment = @{}
+  if ($resolved) { $environment.LOTUS_AI_ENV_FILE = $resolved }
+  Invoke-ComposeUp $aiRepo $environment
 }
 
 function Start-CanonicalManage {
@@ -560,7 +581,7 @@ function Start-CanonicalManage {
   $dockerManageEnvironment["DPM_CORE_QUERY_BASE_URL"] = "http://host.docker.internal:8201"
 
   if (Test-LocalApp "manage") {
-    Invoke-RepoCommand $manageRepo "docker compose down --remove-orphans"
+    Invoke-CanonicalComposeCommand $manageRepo "docker compose down --remove-orphans"
     Write-Host "Starting canonical lotus-manage locally on :8001 ..."
     Invoke-WithProcessEnvironment -Environment $localManageEnvironment -ScriptBlock {
       & (Join-Path $manageRepo "scripts\\Start-CanonicalManage.ps1") -Port 8001
@@ -579,6 +600,7 @@ function Start-DirectIngress {
   Write-Host "Ensuring direct ingress container is running..."
   Remove-ContainerIfPresent "lotus-direct-dev-ingress"
   docker run -d --name lotus-direct-dev-ingress -p 80:80 -v "${ingressCaddyfile}:/etc/caddy/Caddyfile" caddy:2.8.4 | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw "Canonical direct-ingress startup failed with exit code $LASTEXITCODE." }
 }
 
 function Invoke-CanonicalCoreSeed {
@@ -608,13 +630,11 @@ function Invoke-CanonicalCoreSeed {
 }
 
 function Invoke-DpmCommandCenterSeed {
-  $dpmSeedCommand = (
-    "powershell -ExecutionPolicy Bypass -File automation\Invoke-DpmCommandCenterSeed.ps1 " +
-    "-PortfolioId $PortfolioId"
-  )
-
   Write-Host "Seeding governed DPM command-center and action-register evidence for $PortfolioId ..."
-  Invoke-RepoCommand $platformRepo $dpmSeedCommand
+  & (Join-Path $platformRepo 'automation/Invoke-DpmCommandCenterSeed.ps1') `
+    -PortfolioId $PortfolioId -ProjectsRoot $ProjectsRoot -WorkbenchRepoPath $workbenchRepo `
+    -RuntimeHolder $RuntimeHolder -RuntimeOperationToken $runtimeOperation.Token -RuntimeOperationFence $runtimeOperation.Lock -RuntimeMode $runtimeMode
+  if ($LASTEXITCODE -ne 0) { throw "Canonical nested DPM seed failed with exit code $LASTEXITCODE." }
 }
 
 function Get-CanonicalTextSha256 {
@@ -816,13 +836,27 @@ function Invoke-CanonicalIdeaCapacitySeed {
   }
 }
 
-Test-CanonicalPortOwnership -CoreManageOnlyMode:$CoreManageOnly
+Import-Module (Join-Path $platformRepo 'automation/CanonicalRuntimeReservation.psm1') -Force
+$runtimeMode = if ($CoreManageOnly) { 'core-manage' } else { 'full' }
 if ($PortOwnershipPreflightOnly) {
+  Invoke-CanonicalReservation -Action preflight -ProjectsRoot $ProjectsRoot -Holder $RuntimeHolder -WorkbenchRepoPath $workbenchRepo -RuntimeMode $runtimeMode | Out-Host
+  Test-CanonicalPortOwnership -CoreManageOnlyMode:$CoreManageOnly
   Write-Host (
     "Canonical port ownership preflight passed. " +
     "No hosts, builds, containers, processes, seeds, or validation state were changed."
   )
   return
+}
+$runtimeOperation = Enter-CanonicalRuntimeOperation -ProjectsRoot $ProjectsRoot -Holder $RuntimeHolder -WorkbenchRepoPath $workbenchRepo -RuntimeMode $runtimeMode
+$runtimeOutcome = 'failure'
+try {
+Test-CanonicalPortOwnership -CoreManageOnlyMode:$CoreManageOnly
+$admissionRepositories = if ($CoreManageOnly) { @($coreRepo,$manageRepo) } else {
+  @($coreRepo,$performanceRepo,$riskRepo,$aiRepo,$adviseRepo,$manageRepo,
+    $reportRepo,$archiveRepo,$renderRepo,$ideaRepo,$gatewayRepo,$workbenchRepo)
+}
+foreach ($repo in $admissionRepositories) {
+  Assert-CanonicalComposeAdmission -RepoPath $repo -Operation $runtimeOperation
 }
 if ($RequireMainlineSources) {
   $mainlineProvenance = Invoke-MainlineSourceProvenancePreflight
@@ -838,7 +872,7 @@ $canonicalDpmCommandCenterEnvironment = Get-CanonicalDpmCommandCenterEnvironment
 
 if ($CleanCoreState) {
   Write-Host "Resetting lotus-core Docker state before canonical reseed ..."
-  Invoke-RepoCommand $coreRepo "docker compose down -v --remove-orphans"
+  Invoke-CanonicalComposeCommand $coreRepo "docker compose down -v --remove-orphans"
 }
 
 if ($localAppSet.Count -gt 0) {
@@ -864,6 +898,7 @@ if ($CoreManageOnly) {
   Write-Host "  Manage:       http://manage.dev.lotus"
   Write-Host ""
   Write-Host "Run the core and manage API validators for RFC-087/RFC-0036 proof."
+  $runtimeOutcome = 'success'
   return
 }
 
@@ -887,7 +922,7 @@ Write-Host "Using lotus-ai env file for canonical proof: $resolvedLotusAiEnvFile
 
 Invoke-ComposeUp $performanceRepo
 Invoke-ComposeUp $riskRepo
-Invoke-RepoCommand $aiRepo (Get-EnvScopedComposeCommand -Command $composeUpCommand -EnvFile $resolvedLotusAiEnvFile)
+Start-CanonicalAi -EnvFile $resolvedLotusAiEnvFile
 Invoke-ComposeUp $adviseRepo
 
 Start-CanonicalManage
@@ -899,7 +934,7 @@ Invoke-ComposeUp $ideaRepo $ideaBuildEnvironment -Build
 Invoke-CanonicalIdeaSeed
 
 if (Test-LocalApp "archive") {
-  Invoke-RepoCommand $archiveRepo "docker compose down --remove-orphans"
+  Invoke-CanonicalComposeCommand $archiveRepo "docker compose down --remove-orphans"
   Write-Host "Starting canonical lotus-archive locally on :8150 ..."
   Start-LocalUvicornService -RepoPath $archiveRepo -ServiceName "lotus-archive" -AppModule "app.main:app" -Port 8150
 } else {
@@ -908,7 +943,7 @@ if (Test-LocalApp "archive") {
 }
 
 if (Test-LocalApp "render") {
-  Invoke-RepoCommand $renderRepo "docker compose down --remove-orphans"
+  Invoke-CanonicalComposeCommand $renderRepo "docker compose down --remove-orphans"
   Write-Host "Starting canonical lotus-render locally on :8310 ..."
   Start-LocalUvicornService -RepoPath $renderRepo -ServiceName "lotus-render" -AppModule "app.main:app" -Port 8310
 } else {
@@ -919,7 +954,7 @@ if (Test-LocalApp "render") {
 Start-DirectIngress
 
 if (Test-LocalApp "gateway") {
-  Invoke-RepoCommand $gatewayRepo "docker compose down --remove-orphans"
+  Invoke-CanonicalComposeCommand $gatewayRepo "docker compose down --remove-orphans"
   Write-Host "Starting canonical Gateway locally on :8100 ..."
   & (Join-Path $gatewayRepo "scripts\\Start-CanonicalGateway.ps1") -Port 8100
   if ($LASTEXITCODE -ne 0) {
@@ -935,7 +970,7 @@ Invoke-DpmCommandCenterSeed
 Invoke-CanonicalIdeaCapacitySeed
 
 if (Test-LocalApp "workbench") {
-  Invoke-RepoCommand $workbenchRepo "docker compose down --remove-orphans"
+  Invoke-CanonicalComposeCommand $workbenchRepo "docker compose down --remove-orphans"
   Start-WorkbenchDevServer
 } else {
   Stop-HostProcessOnPort -Port 3000 -Description "Workbench"
@@ -961,6 +996,7 @@ if (-not $RunValidation) {
   Write-Host "  Render:    http://render.dev.lotus"
   Write-Host ""
   Write-Host "Run 'npm run live:validate' from lotus-workbench when you want end-to-end validation."
+  $runtimeOutcome = 'success'
   return
 }
 
@@ -978,6 +1014,11 @@ if ($RequireMainlineSources) {
 
 Write-Host "Running canonical live validation ..."
 $validationArguments = @{
+  ProjectsRoot = $ProjectsRoot
+  RuntimeHolder = $RuntimeHolder
+  WorkbenchRepoPath = $workbenchRepo
+  RuntimeOperationToken = $runtimeOperation.Token
+  RuntimeOperationFence = $runtimeOperation.Lock
   PortfolioId = $PortfolioId
   BenchmarkCode = $BenchmarkCode
   CanonicalEvidenceDirectory = $canonicalEvidenceRoot
@@ -990,3 +1031,8 @@ if ($RequireMainlineSources) {
   $validationArguments.IdeaCapacitySeedEvidencePath = Join-Path $ideaCapacityEvidenceRoot "idea-capacity-seed-evidence.json"
 }
 & (Join-Path $workbenchRepo "scripts\\live\\Validate-LotusFrontOfficeCanonical.ps1") @validationArguments
+if ($LASTEXITCODE -ne 0) { throw "Canonical validation failed with exit code $LASTEXITCODE." }
+$runtimeOutcome = 'success'
+} finally {
+  Exit-CanonicalRuntimeOperation -Operation $runtimeOperation -Outcome $runtimeOutcome
+}

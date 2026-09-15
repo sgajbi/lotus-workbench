@@ -23,6 +23,27 @@ replace source-service recovery procedures or turn diagnostic screenshots into r
 
 ## Practical runtime flow
 
+First acquire Platform's single-workspace reservation with an explicit holder, issue/PR purpose,
+UTC expiry and exact resolved source/project/port scope, then set
+`LOTUS_CANONICAL_RUNTIME_HOLDER`. Read the
+[reservation control](https://github.com/sgajbi/lotus-platform/blob/main/docs/operations/canonical-runtime-reservation.md).
+The shipped startup/preflight/teardown refuse missing, foreign, expired or unfinished ownership.
+Successful zero-resource teardown releases the machine record; a native failure retains it.
+Controlled runner fixtures are not actual supplier acceptance, seed readiness or production IAM.
+The selected Workbench checkout must match admission and each executing script before I/O.
+Standalone validation holds one operation through DNS/HTTP/evidence/browser execution; nested
+validation retains the startup token. Project teardown verifies all current full IDs and exact
+checkout metadata before Compose down; already-exited listeners are not teardown failures.
+Startup shares the full-ID fence before mutations and checks every Compose down/up, including
+environment-scoped AI startup. In-process nested DPM seeding shares its actual live exclusive
+original parent FileStream registered to its token in the same module instance and validates the unchanged parent
+holder/workspace/selected-checkout/operation token without reacquiring or finishing its lock; ingress
+failure stops before seed and remains a failed operation.
+Diagnostic `-CoreManageOnly` startup requires explicit `--runtime-mode core-manage` acquisition.
+Skipped product checkouts/configuration are not consulted; teardown carries that acquired scope
+and its ports, leaving skipped listeners untouched. Partial startup does not invoke full-scope DPM seed.
+Full and partial source authority cannot substitute; neither partial proof nor CI certifies Level B.
+
 ```powershell
 npm run live:stack:up
 npm run live:validate

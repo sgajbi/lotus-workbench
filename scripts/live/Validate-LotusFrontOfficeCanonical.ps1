@@ -1,5 +1,10 @@
 [CmdletBinding()]
 param(
+  [string]$ProjectsRoot,
+  [string]$RuntimeHolder = $env:LOTUS_CANONICAL_RUNTIME_HOLDER,
+  [string]$WorkbenchRepoPath,
+  [string]$RuntimeOperationToken,
+  [System.IO.FileStream]$RuntimeOperationFence,
   [string]$PortfolioId = "PB_SG_GLOBAL_BAL_001",
   [string]$BenchmarkCode = "BMK_PB_GLOBAL_BALANCED_60_40",
   [string]$StartDate = "2025-03-31",
@@ -15,6 +20,23 @@ param(
 
 $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+if ($WorkbenchRepoPath -and [System.IO.Path]::GetFullPath($WorkbenchRepoPath) -ne $repoRoot) {
+  throw 'Selected Workbench checkout does not match the executing script.'
+}
+$WorkbenchRepoPath = $repoRoot
+if ([string]::IsNullOrWhiteSpace($ProjectsRoot)) { $ProjectsRoot = Split-Path -Parent $repoRoot }
+Import-Module (Join-Path $ProjectsRoot 'lotus-platform/automation/CanonicalRuntimeReservation.psm1')
+$validationOperation = $null
+$validationOutcome = 'failure'
+try {
+if (-not $RuntimeOperationToken) {
+  $validationOperation = Enter-CanonicalRuntimeOperation -ProjectsRoot $ProjectsRoot -Holder $RuntimeHolder -WorkbenchRepoPath $WorkbenchRepoPath
+  $RuntimeOperationToken = $validationOperation.Token
+} else {
+  Assert-CanonicalRuntimeOperationFence -ProjectsRoot $ProjectsRoot -OperationToken $RuntimeOperationToken -Fence $RuntimeOperationFence
+}
+Invoke-CanonicalReservation -Action preflight-operation -ProjectsRoot $ProjectsRoot -Holder $RuntimeHolder `
+  -OperationToken $RuntimeOperationToken -WorkbenchRepoPath $WorkbenchRepoPath | Out-Host
 Import-Module (Join-Path $PSScriptRoot "CanonicalIdeaEvidence.psm1") -Force
 $canonicalEvidenceRoot = if ([string]::IsNullOrWhiteSpace($CanonicalEvidenceDirectory)) {
   Join-Path $repoRoot "output\\canonical-front-office"
@@ -175,4 +197,10 @@ try {
   }
 } finally {
   Pop-Location
+}
+$validationOutcome = 'success'
+} finally {
+  if ($validationOperation) {
+    Exit-CanonicalRuntimeOperation -Operation $validationOperation -Outcome $validationOutcome
+  }
 }
