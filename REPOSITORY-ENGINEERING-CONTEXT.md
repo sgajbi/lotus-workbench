@@ -384,6 +384,10 @@ without same-source measured full-stack comparison. See the runbook for the exac
 The default canonical evidence directory is Git-ignored and excluded from Docker inputs. Runtime
 regressions use the shipped default path and committed ignore rules in fresh Git repositories;
 private `.git/info/exclude` entries or blanket fixture ignores must not mask self-generated dirtiness.
+Scoped process-environment restoration must preserve absence as well as value. Use
+`[NullString]::Value` when removing an originally absent .NET environment variable: PowerShell 7
+can convert a saved null into an empty string, unlike Windows PowerShell 5. Exercise both shells
+when changing these process-boundary helpers; empty and absent are not interchangeable inputs.
 
 ## Cross-Links
 

@@ -77,7 +77,12 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
       if ($scenario -eq 'bounded') { $entry.Environment.LOTUS_BUILD_PROOF_BARRIER='2' }
       if ($scenario -in @('source-during','untracked-during','config-during')) { $entry.Environment.LOTUS_BUILD_PROOF_SLEEP=$(if ($entry.Name -eq 'a') {'3'} else {'30'}) }
       if ($scenario -eq 'source-drift' -and $entry.Name -eq 'a') { $entry.CommitSha = '0' * 40 }
+      $beforeEnvironment=@{}
+      foreach ($key in $entry.Environment.Keys) { $beforeEnvironment[$key]=[Environment]::GetEnvironmentVariable($key,'Process') }
       $entry.ComposeFingerprint=Get-CanonicalComposeFingerprint -RepoPath $entry.RepoPath -Environment $entry.Environment
+      foreach ($key in $beforeEnvironment.Keys) {
+        if ([Environment]::GetEnvironmentVariable($key,'Process') -cne $beforeEnvironment[$key]) { throw 'Compose fingerprint changed parent environment presence/value.' }
+      }
       [pscustomobject]$entry
     }
     $configPath=Join-Path $repositories[0].RepoPath '.env'
@@ -94,7 +99,7 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
       catch [IO.IOException] { $contended = $true }
       if (-not $contended) { throw 'Parent fence was not exclusive.' }
       if ($scenario -in @('completed-sibling','completed-before-refusal') -and
-          (Test-Path -LiteralPath (Join-Path $output 'a.json')) -and (Test-Path -LiteralPath (Join-Path $output 'b.json'))) {
+          @(Get-Job).Count -eq 2) {
         # Force both real children terminal before the scheduler collects either result.
         $children = @(Get-Job)
         $children | Wait-Job -Timeout 20 | Out-Null
@@ -190,7 +195,11 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
   Invoke-CanonicalBuildPlan -Plan @($defaultPlan) -Concurrency 1 -PollMilliseconds 100 -AssertAdmission { if (-not $fence.CanRead) { throw 'Parent fence lost.' } } -EvidencePath $defaultReceipt
   $prebuiltRepositories[$testRepo]=$defaultPlan
   if (-not (Test-Path -LiteralPath $defaultReceipt)) { throw 'Default receipt was not written.' }
+  $beforeParallel=[Environment]::GetEnvironmentVariable('COMPOSE_PARALLEL_LIMIT','Process')
+  $beforePwd=[Environment]::GetEnvironmentVariable('PWD','Process')
   Invoke-ComposeUp $testRepo
+  if ([Environment]::GetEnvironmentVariable('COMPOSE_PARALLEL_LIMIT','Process') -cne $beforeParallel -or
+      [Environment]::GetEnvironmentVariable('PWD','Process') -cne $beforePwd) { throw 'Prebuilt startup changed parent environment presence/value.' }
   if ($script:startupCommands.Count -ne 1 -or $script:startupCommands[0] -notmatch '--no-build') { throw 'Clean prebuilt startup was refused.' }
   $ignoredEnv=Join-Path $testRepo '.env'
   [IO.File]::WriteAllText($ignoredEnv, 'WORKBENCH_DEPLOYMENT_ID=changed-after-build')

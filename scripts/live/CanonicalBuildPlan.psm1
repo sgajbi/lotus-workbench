@@ -34,7 +34,11 @@ function Get-CanonicalComposeFingerprint {
     finally { $hasher.Dispose() }
   } finally {
     if ($pushed) { Pop-Location }
-    foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key,$previous[$key],'Process') }
+    foreach ($key in $previous.Keys) {
+      if ($null -eq $previous[$key]) {
+        [Environment]::SetEnvironmentVariable($key,[NullString]::Value,'Process')
+      } else { [Environment]::SetEnvironmentVariable($key,$previous[$key],'Process') }
+    }
   }
 }
 
