@@ -64,6 +64,12 @@ are separate stages. A Compose stage includes its native build/start work, not i
 Core seed duration includes its existing ingestion/readiness/queue waits. No per-query or per-pull
 timing is inferred from these aggregate boundaries.
 
+The default `output/canonical-front-office/` is committed as a generated-evidence ignore rule
+and remains excluded from the Docker build context. This prevents build/seed receipts from
+invalidating the later Workbench source check. A custom evidence directory must be outside the
+guarded checkouts or already covered by their committed generated-output ignore rules; do not
+depend on a developer's private `.git/info/exclude` to make the documented flow work.
+
 Two builds is a conservative opt-in ceiling, not a measured capacity certification. Keep serial
 as the default until same-machine/source serial and bounded cold runs plus a warm run record
 wall time, peak resources, full API/calculation/browser acceptance and teardown. A faster partial

@@ -378,6 +378,9 @@ Dependency-sensitive startup, fresh Idea build identity, seed order and financia
 unchanged. Unique phase/build receipts distinguish
 construction/startup from data materialization and validation; no speedup or capacity claim follows
 without same-source measured full-stack comparison. See the runbook for the exact bounded set.
+The default canonical evidence directory is Git-ignored and excluded from Docker inputs. Runtime
+regressions use the shipped default path and committed ignore rules in fresh Git repositories;
+private `.git/info/exclude` entries or blanket fixture ignores must not mask self-generated dirtiness.
 
 ## Cross-Links
 
