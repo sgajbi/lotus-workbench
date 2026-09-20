@@ -67,6 +67,9 @@ customer payloads. Build/start, Core seed materialization, DPM seed, Idea seed a
 are separate stages. A Compose stage includes its native build/start work, not isolated CPU time;
 Core seed duration includes its existing ingestion/readiness/queue waits. No per-query or per-pull
 timing is inferred from these aggregate boundaries.
+The overall timing receipt remains failure until reservation outcome publication succeeds;
+successful stage timings alone cannot promote a failed command. Final success is written by
+same-directory replacement only after publication, preserving failure if finalization fails.
 
 The default `output/canonical-front-office/` is committed as a generated-evidence ignore rule
 and remains excluded from the Docker build context. This prevents build/seed receipts from

@@ -32,8 +32,13 @@ function Assert-CanonicalRuntimeOperationFence {
 function Exit-CanonicalRuntimeOperation {
   param($Operation, $Outcome)
   if ($Operation.Token -ne 'controlled-admission') { throw 'UNADMITTED_FINISH' }
+  if ($global:proofFinishFailure) { throw 'CONTROLLED_PUBLICATION_FAILED' }
   $global:proofOutcomes += $Outcome
   $global:proofOperationDepth--
+  if ($global:proofFinalizationFailureDirectory) {
+    $receipt=Get-ChildItem -LiteralPath $global:proofFinalizationFailureDirectory -Filter 'runtime-phases-*.json'
+    New-Item -ItemType Directory -Path "$($receipt.FullName).pending" | Out-Null
+  }
 }
 Export-ModuleMember -Function Invoke-CanonicalReservation,Enter-CanonicalRuntimeOperation,Assert-CanonicalRuntimeOperationFence,Exit-CanonicalRuntimeOperation
 '@
@@ -355,6 +360,30 @@ exit $global:proofDpmStatus
     $cases += "shipped ingress exit$status / $expected; seed is fenced behind successful startup"
   }
 
+  foreach ($failureStage in @('none','publication','finalization')) {
+    $publicationFailure=$failureStage -eq 'publication'
+    $global:proofFinishFailure=$publicationFailure
+    $global:proofOperationDepth=0; $global:proofOutcomes=@(); $global:proofIngressStatus=0
+    $timingDirectory=Join-Path $fixtureRoot "receipt-$failureStage"
+    $global:proofFinalizationFailureDirectory=if ($failureStage -eq 'finalization') { $timingDirectory } else { '' }
+    $refused=$false
+    try {
+      & (Join-Path $repoRoot 'scripts/live/Start-LotusFrontOfficeCanonical.ps1') -ProjectsRoot $fixtureRoot -RuntimeHolder 'fixture-owner' -CoreManageOnly -CanonicalEvidenceDirectory $timingDirectory
+    } catch {
+      if ($failureStage -ne 'finalization' -and $_.Exception.Message -ne 'CONTROLLED_PUBLICATION_FAILED') { throw }
+      $refused=$true
+    } finally { $global:proofFinishFailure=$false; $global:proofFinalizationFailureDirectory='' }
+    $timingFiles=@(Get-ChildItem -LiteralPath $timingDirectory -Filter 'runtime-phases-*.json')
+    if ($timingFiles.Count -ne 1) { throw 'Missing unique final timing receipt.' }
+    $timing=Get-Content -Raw -LiteralPath $timingFiles[0].FullName | ConvertFrom-Json
+    $expectedFailure=$failureStage -ne 'none'
+    $expectedStatus=if ($expectedFailure) {'failure'} else {'success'}
+    if ($refused -ne $expectedFailure -or $timing.status -ne $expectedStatus) { throw 'Timing receipt promoted failed operation publication.' }
+    if ($failureStage -eq 'finalization' -and ($global:proofOutcomes.Count -ne 1 -or $global:proofOutcomes[0] -ne 'success' -or
+        -not (Test-Path -LiteralPath "$($timingFiles[0].FullName).pending" -PathType Container))) { throw 'Finalization I/O fault was not exercised after publication.' }
+    $cases += "shipped final receipt after operation publication / failure-stage=$failureStage"
+  }
+  $global:proofOperationDepth=0
   # Actual strict evidence reader; controlled HTTP/browser transports only prove fencing.
   $evidence = Join-Path $fixtureRoot 'evidence'
   New-Item -ItemType Directory -Path $evidence | Out-Null
