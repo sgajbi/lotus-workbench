@@ -1,4 +1,43 @@
 # Independent image construction only. The caller retains its original runtime fence.
+function Get-CanonicalComposeFingerprint {
+  param([Parameter(Mandatory)][string]$RepoPath, [hashtable]$Environment = @{})
+  $overlay=$Environment.Clone()
+  $overlay.PWD=$RepoPath
+  $overlay.COMPOSE_PARALLEL_LIMIT='1'
+  $previous=@{}
+  foreach ($key in $overlay.Keys) {
+    $previous[$key]=[Environment]::GetEnvironmentVariable($key,'Process')
+    [Environment]::SetEnvironmentVariable($key,[string]$overlay[$key],'Process')
+  }
+  $pushed=$false
+  try {
+    Push-Location -LiteralPath $RepoPath -ErrorAction Stop
+    $pushed=$true
+    # Compose resolves .env, env_file and interpolation here. Never emit or persist
+    # that potentially secret-bearing document, including parser/native diagnostics.
+    $priorPreference=$ErrorActionPreference
+    $ErrorActionPreference='Continue'
+    try {
+      $global:LASTEXITCODE=$null
+      $lines=@(& docker compose config --format json 2>$null)
+      $configExit=$LASTEXITCODE
+    } finally { $ErrorActionPreference=$priorPreference }
+    if ($null -eq $configExit -or $configExit -ne 0) { throw 'Canonical Compose configuration could not be resolved.' }
+    $document=($lines -join "`n").Trim()
+    try { $parsed=$document | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw 'Canonical Compose configuration is invalid.' }
+    if (-not $document.StartsWith('{') -or -not $parsed.name -or -not $parsed.services) {
+      throw 'Canonical Compose configuration is incomplete.'
+    }
+    $hasher=[Security.Cryptography.SHA256]::Create()
+    try { return ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes($document)))).Replace('-','').ToLowerInvariant() }
+    finally { $hasher.Dispose() }
+  } finally {
+    if ($pushed) { Pop-Location }
+    foreach ($key in $previous.Keys) { [Environment]::SetEnvironmentVariable($key,$previous[$key],'Process') }
+  }
+}
+
 function Complete-CanonicalBuildJob {
   param([Parameter(Mandatory)]$Item)
   $Item.Finished = $true
@@ -33,7 +72,8 @@ function Invoke-CanonicalBuildPlan {
   $names = @{}
   foreach ($entry in $Plan) {
     if (-not $entry.Name -or $names.ContainsKey($entry.Name) -or
-        $entry.CommitSha -notmatch '^[a-f0-9]{40}$' -or -not (Test-Path -LiteralPath $entry.RepoPath)) {
+        $entry.CommitSha -notmatch '^[a-f0-9]{40}$' -or $entry.ComposeFingerprint -notmatch '^[a-f0-9]{64}$' -or
+        -not (Test-Path -LiteralPath $entry.RepoPath)) {
       throw 'Invalid canonical image build plan.'
     }
     $names[$entry.Name] = $true
@@ -68,6 +108,7 @@ function Invoke-CanonicalBuildPlan {
         $record = [ordered]@{
           repository = $entry.Name
           source_sha = $entry.CommitSha
+          compose_configuration_sha256 = $entry.ComposeFingerprint
           started_at_utc = [DateTime]::UtcNow.ToString('o')
           ended_at_utc = $null
           duration_ms = $null
@@ -75,9 +116,10 @@ function Invoke-CanonicalBuildPlan {
         }
         [void]$records.Add($record)
         try {
-          $job = Start-Job -ArgumentList $entry -ScriptBlock {
-            param($Entry)
+          $job = Start-Job -ArgumentList $entry,(Join-Path $PSScriptRoot 'CanonicalBuildPlan.psm1') -ScriptBlock {
+            param($Entry,$ModulePath)
             $ErrorActionPreference = 'Stop'
+            Import-Module $ModulePath -Function Get-CanonicalComposeFingerprint
             Set-Location -LiteralPath $Entry.RepoPath
             foreach ($key in $Entry.Environment.Keys) {
               [Environment]::SetEnvironmentVariable($key, [string]$Entry.Environment[$key], 'Process')
@@ -89,6 +131,9 @@ function Invoke-CanonicalBuildPlan {
             if ($LASTEXITCODE -ne 0 -or $before -cne $Entry.CommitSha) { throw 'Build source changed before execution.' }
             $changes = @(& git status --porcelain --untracked-files=all)
             if ($LASTEXITCODE -ne 0 -or $changes.Count) { throw 'Build source is not clean.' }
+            if ((Get-CanonicalComposeFingerprint -RepoPath $Entry.RepoPath) -cne $Entry.ComposeFingerprint) {
+              throw 'Build Compose configuration changed before execution.'
+            }
             # Native progress uses stderr. Windows PowerShell 5 must not promote that
             # stream to a terminating error; the native exit code remains authoritative.
             $ErrorActionPreference = 'Continue'
@@ -102,6 +147,9 @@ function Invoke-CanonicalBuildPlan {
             if ($LASTEXITCODE -ne 0 -or $after -cne $Entry.CommitSha) { throw 'Build source changed during execution.' }
             $changes = @(& git status --porcelain --untracked-files=all)
             if ($LASTEXITCODE -ne 0 -or $changes.Count) { throw 'Build source changed during execution.' }
+            if ((Get-CanonicalComposeFingerprint -RepoPath $Entry.RepoPath) -cne $Entry.ComposeFingerprint) {
+              throw 'Build Compose configuration changed during execution.'
+            }
           }
         } catch {
           $record.status = 'failed'
@@ -150,4 +198,4 @@ function Invoke-CanonicalRuntimePhase {
   }
 }
 
-Export-ModuleMember -Function Invoke-CanonicalBuildPlan,Invoke-CanonicalRuntimePhase
+Export-ModuleMember -Function Invoke-CanonicalBuildPlan,Invoke-CanonicalRuntimePhase,Get-CanonicalComposeFingerprint

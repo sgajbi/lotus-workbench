@@ -276,6 +276,7 @@ exit $global:proofDpmStatus
       Set-Variable -Name ($name+'Repo') -Value (Join-Path $fixtureRoot ('lotus-'+$name))
     }
     function Get-GitRepositoryIdentity { param($RepoPath,[switch]$RequireCleanPrebuiltSource); return @{CommitSha=$(if ($script:proofBuildDrift) {'b'*40} else {'a'*40})} }
+    function Get-CanonicalComposeFingerprint { param($RepoPath,$Environment); return ('c'*64) }
     function Invoke-CanonicalBuildPlan {
       param($Plan,$Concurrency,$AssertAdmission,$EvidencePath)
       & $AssertAdmission
@@ -302,7 +303,7 @@ exit $global:proofDpmStatus
     catch { if ($_.Exception.Message -ne 'Prebuilt canonical source changed before startup.') { throw }; $refused=$true }
     if (-not $refused -or $global:proofMutations.Count) { throw 'PREBUILT_SOURCE_DRIFT_ADMITTED' }
     $cases += 'prebuilt source drift refuses before Compose startup'
-    Remove-Item Function:Invoke-CanonicalBuildPlan,Function:Get-GitRepositoryIdentity
+    Remove-Item Function:Invoke-CanonicalBuildPlan,Function:Get-GitRepositoryIdentity,Function:Get-CanonicalComposeFingerprint
     $prebuiltRepositories=@{}; $global:proofNestedParentFence=$null
   } finally { $parentFence.Dispose() }
   $global:proofOperationDepth=1
