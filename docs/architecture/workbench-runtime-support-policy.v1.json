@@ -2,8 +2,8 @@
   "contract": "workbench-runtime-support-policy.v1",
   "owner": "lotus-workbench",
   "governedByIssue": 612,
-  "reviewedOn": "2026-09-04",
-  "nextReviewBy": "2026-09-15",
+  "reviewedOn": "2026-09-16",
+  "nextReviewBy": "2026-09-30",
   "developerRuntime": {
     "node": {
       "majorLine": "22",

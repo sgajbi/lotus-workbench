@@ -27,4 +27,10 @@ const reservation = spawnSync(powershell, [
   join(process.cwd(), "scripts", "quality", "Test-CanonicalRuntimeReservation.ps1"),
 ], { stdio: "inherit" });
 if (reservation.error) console.error(reservation.error.message);
-process.exit(reservation.status ?? 1);
+if (reservation.status !== 0) process.exit(reservation.status ?? 1);
+const builds = spawnSync(powershell, [
+  "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+  join(process.cwd(), "scripts", "quality", "Test-CanonicalBuildPlan.ps1"),
+], { stdio: "inherit" });
+if (builds.error) console.error(builds.error.message);
+process.exit(builds.status ?? 1);

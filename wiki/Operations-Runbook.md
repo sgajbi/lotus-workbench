@@ -11,6 +11,7 @@ replace source-service recovery procedures or turn diagnostic screenshots into r
 | Data appears partial or stale | Inspect Gateway source-supportability and owning-service posture | Correlation-safe API evidence and source freshness state |
 | Metrics or dashboards missing | Check Workbench metrics, Prometheus targets, and Grafana health | Same-run evidence pack with target and query results |
 | Demo preparation | Validate `PB_SG_GLOBAL_BAL_001` before capture | Passing validation and same-run screenshots/manifest |
+| Slow canonical bring-up | Compare unique `runtime-phases-*.json` and `build-plan-*.json` receipts using the [bounded-build runbook](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md#bounded-image-construction-and-timing) | Separate build/start, Core materialization, DPM/Idea seed and validation; default remains serial until full measured comparison |
 
 ## Important operational checks
 

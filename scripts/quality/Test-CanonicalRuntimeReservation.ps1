@@ -47,6 +47,7 @@ function global:docker {
       return (@{name=(Split-Path (Get-Location).Path -Leaf)} | ConvertTo-Json -Compress)
     }
     $global:proofMutations += (Get-Location).Path
+    $global:proofLastComposeArguments = @($args)
     $global:LASTEXITCODE = if ($global:proofFailAt -eq $global:proofMutations.Count) { 23 } else { 0 }
     return
   }
@@ -239,11 +240,14 @@ try {
   $tokens=$null; $parseErrors=$null
   $startAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'scripts/live/Start-LotusFrontOfficeCanonical.ps1'),[ref]$tokens,[ref]$parseErrors)
   if ($parseErrors.Count) { throw 'Startup helper parse failed' }
-  foreach ($name in @('Invoke-RepoCommand','Invoke-CanonicalComposeCommand','Invoke-ComposeUp','Invoke-WithProcessEnvironment','Resolve-LotusAiEnvFile','Start-CanonicalAi','Invoke-DpmCommandCenterSeed')) {
+  foreach ($name in @('Invoke-RepoCommand','Invoke-CanonicalComposeCommand','Invoke-ComposeUp','Invoke-WithProcessEnvironment','Resolve-LotusAiEnvFile','Start-CanonicalAi','Invoke-DpmCommandCenterSeed','Get-DockerWorkbenchEnvironment','Invoke-IndependentImageBuilds')) {
     $helper=$startAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name},$true)
     . ([scriptblock]::Create($helper.Extent.Text))
   }
   $ProjectsRoot=$fixtureRoot; $RuntimeHolder='fixture-owner'; $workbenchRepo=$repoRoot; $runtimeMode='full'
+  Import-Module (Join-Path $repoRoot 'scripts/live/CanonicalBuildPlan.psm1') -Force
+  $prebuiltRepositories=@{}
+  $runtimePhases=[System.Collections.ArrayList]::new()
   $platformRepo=Join-Path $fixtureRoot 'lotus-platform'; $PortfolioId='business-identifier-not-authority'
   $fixtureSeed=Join-Path $platformRepo 'automation/Invoke-DpmCommandCenterSeed.ps1'
   @'
@@ -265,6 +269,41 @@ exit $global:proofDpmStatus
       if ($refused -ne [bool]$status) { throw 'Nested DPM native outcome was hidden' }
       $cases += "actual in-process nested DPM helper / unchanged live fence and authority / exit=$status"
     }
+    $global:proofNestedParentFence=$parentFence; $global:proofOperationDepth=1
+    $BuildConcurrency=2; $canonicalEvidenceRoot=Join-Path $fixtureRoot 'build-receipts'
+    $canonicalDpmCommandCenterEnvironment=@{WORKBENCH_BFF_TENANT_ID='controlled-caller'; WORKBENCH_DPM_COMMAND_CENTER_TENANT_ID='controlled-command'}
+    foreach ($name in @('performance','risk','advise','report','archive','render','gateway')) {
+      Set-Variable -Name ($name+'Repo') -Value (Join-Path $fixtureRoot ('lotus-'+$name))
+    }
+    function Get-GitRepositoryIdentity { param($RepoPath); return @{CommitSha=$(if ($script:proofBuildDrift) {'b'*40} else {'a'*40})} }
+    function Invoke-CanonicalBuildPlan {
+      param($Plan,$Concurrency,$AssertAdmission,$EvidencePath)
+      & $AssertAdmission
+      if ($Concurrency -ne 2 -or $Plan.Count -ne 8 -or
+          @($Plan | Where-Object { $_.Name -in @('lotus-core','lotus-manage','lotus-ai','lotus-idea') }).Count) { throw 'UNBOUNDED_SHIPPED_BUILD_PLAN' }
+      $wb=@($Plan | Where-Object Name -eq 'lotus-workbench')[0]
+      if ($wb.Environment.WORKBENCH_BFF_TENANT_ID -ne 'controlled-caller' -or
+          $wb.Environment.WORKBENCH_DPM_COMMAND_CENTER_TENANT_ID -ne 'controlled-command' -or
+          @($Plan | Where-Object { $_.Name -ne 'lotus-workbench' -and $_.Environment.Count }).Count) { throw 'SHIPPED_BUILD_AUTHORITY_CHANGED' }
+      if ($script:proofBuildFailure) { throw 'CONTROLLED_BUILD_BARRIER_FAILURE' }
+    }
+    $composeUpCommand='docker compose up -d --build --force-recreate'
+    foreach ($failure in @($true,$false)) {
+      $script:proofBuildFailure=$failure; $prebuiltRepositories=@{}; $global:proofMutations=@(); $refused=$false
+      try { Invoke-IndependentImageBuilds; Invoke-ComposeUp $performanceRepo }
+      catch { if ($_.Exception.Message -ne 'CONTROLLED_BUILD_BARRIER_FAILURE') { throw }; $refused=$true }
+      if ($refused -ne $failure -or $global:proofMutations.Count -ne $(if ($failure) {0} else {1}) -or
+          $prebuiltRepositories.Count -ne $(if ($failure) {0} else {8}) -or -not $parentFence.CanRead) { throw 'SHIPPED_BUILD_BARRIER_BYPASSED' }
+      if (-not $failure -and ($global:proofLastComposeArguments -notcontains '--no-build' -or $global:proofLastComposeArguments -contains '--build')) { throw 'PREBUILT_SOURCE_REBUILT' }
+      $cases += "shipped build plan / original parent fence / dependent startup blocked=$failure"
+    }
+    $script:proofBuildDrift=$true; $global:proofMutations=@(); $refused=$false
+    try { Invoke-ComposeUp $performanceRepo }
+    catch { if ($_.Exception.Message -ne 'Prebuilt canonical source changed before startup.') { throw }; $refused=$true }
+    if (-not $refused -or $global:proofMutations.Count) { throw 'PREBUILT_SOURCE_DRIFT_ADMITTED' }
+    $cases += 'prebuilt source drift refuses before Compose startup'
+    Remove-Item Function:Invoke-CanonicalBuildPlan,Function:Get-GitRepositoryIdentity
+    $prebuiltRepositories=@{}; $global:proofNestedParentFence=$null
   } finally { $parentFence.Dispose() }
   $global:proofOperationDepth=1
   $global:proofComposeContainers=@([pscustomobject]@{Id='replacement-full-id'; Config=@{Labels=@{

@@ -367,6 +367,14 @@ Level A receipts, Level B readiness and production IAM are independent. Explicit
 diagnostic acquisition/startup carries its bounded source/configuration scope; skipped products
 are not consulted and teardown uses acquired scope rather than manufacturing full authority.
 
+Canonical image scheduling defaults to serial. Full Docker-backed builds may explicitly select
+`-BuildConcurrency 2`; only independent image construction overlaps in process-isolated children.
+The original parent operation fence and repeated source/lease admission cover all children, which
+must be stopped/joined before failure publication. Dependency-sensitive startup, fresh Idea build
+identity, seed order and financial readiness stay unchanged. Unique phase/build receipts distinguish
+construction/startup from data materialization and validation; no speedup or capacity claim follows
+without same-source measured full-stack comparison. See the runbook for the exact bounded set.
+
 ## Cross-Links
 
 Local sibling paths use `<workspace-root>` for the directory containing Lotus repositories:

@@ -13,6 +13,7 @@ param(
   [switch]$CleanCoreState,
   [switch]$SkipSeedCleanup,
   [switch]$BuildImages,
+  [ValidateSet(1, 2)][int]$BuildConcurrency = 1,
   [switch]$CoreManageOnly,
   [switch]$PortOwnershipPreflightOnly,
   [switch]$RequireMainlineSources,
@@ -27,6 +28,10 @@ if ($WorkbenchRepoPath -and [System.IO.Path]::GetFullPath($WorkbenchRepoPath) -n
 $WorkbenchRepoPath = $selectedWorkbench
 Import-Module (Join-Path $PSScriptRoot "CanonicalPortOwnership.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot 'CanonicalComposeAdmission.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'CanonicalBuildPlan.psm1') -Force
+$prebuiltRepositories = @{}
+$runtimePhases = [System.Collections.ArrayList]::new()
+$runtimeTimingId = [guid]::NewGuid().ToString('N')
 
 $coreRepo = Join-Path $ProjectsRoot "lotus-core"
 $performanceRepo = Join-Path $ProjectsRoot "lotus-performance"
@@ -68,6 +73,9 @@ foreach ($item in $LocalApps) {
       [void]$localAppSet.Add($trimmed)
     }
   }
+}
+if ($BuildConcurrency -gt 1 -and ($CoreManageOnly -or $localAppSet.Count -gt 0 -or -not ($BuildImages -or $RequireMainlineSources))) {
+  throw 'Bounded image builds require a full Docker-backed BuildImages or RequireMainlineSources run.'
 }
 
 if ($RequireMainlineSources) {
@@ -430,9 +438,19 @@ function Invoke-ComposeUp {
   if ($Build -and $composeCommand -notmatch "(?:^|\s)--build(?:\s|$)") {
     $composeCommand = "$composeCommand --build"
   }
+  if ($prebuiltRepositories.ContainsKey($RepoPath)) {
+    $identity = Get-GitRepositoryIdentity -RepoPath $RepoPath
+    if ($identity.CommitSha -cne $prebuiltRepositories[$RepoPath]) {
+      throw 'Prebuilt canonical source changed before startup.'
+    }
+    $composeCommand = ($composeCommand -replace '\s--build(?=\s|$)', '') + ' --no-build'
+  }
 
-  Invoke-WithProcessEnvironment -Environment $Environment -ScriptBlock {
-    Invoke-CanonicalComposeCommand $RepoPath $composeCommand
+  $stage = if ($composeCommand -match '(?:^|\s)--build(?:\s|$)') { 'compose-build-start' } else { 'compose-start' }
+  Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name "$stage/$(Split-Path -Leaf $RepoPath)" -Action {
+    Invoke-WithProcessEnvironment -Environment $Environment -ScriptBlock {
+      Invoke-CanonicalComposeCommand $RepoPath $composeCommand
+    }
   }
 }
 
@@ -456,6 +474,32 @@ function Get-CanonicalDpmCommandCenterEnvironment {
     }
   }
   return $requiredValues
+}
+
+function Get-DockerWorkbenchEnvironment {
+  $environment = $canonicalDpmCommandCenterEnvironment.Clone()
+  $environment.BFF_BASE_URL = "http://host.docker.internal:8100"
+  $environment.LOTUS_ENVIRONMENT = "dev"
+  $environment.WORKBENCH_IDEA_AUTH_MODE = "development_configured"
+  return $environment
+}
+
+function Invoke-IndependentImageBuilds {
+  if ($BuildConcurrency -eq 1) { return } # Preserve the measured serial fallback by default.
+  $plan = @()
+  foreach ($repo in @($performanceRepo,$riskRepo,$adviseRepo,$reportRepo,$archiveRepo,$renderRepo,$gatewayRepo,$workbenchRepo)) {
+    $environment = if ($repo -eq $workbenchRepo) { Get-DockerWorkbenchEnvironment } else { @{} }
+    $identity = Get-GitRepositoryIdentity -RepoPath $repo
+    $plan += [pscustomobject]@{Name=(Split-Path -Leaf $repo); RepoPath=$repo; CommitSha=$identity.CommitSha; Environment=$environment}
+  }
+  $assertAdmission = {
+    Assert-CanonicalRuntimeOperationFence -ProjectsRoot $ProjectsRoot -OperationToken $runtimeOperation.Token -Fence $runtimeOperation.Lock
+    Invoke-CanonicalReservation -Action preflight-operation -ProjectsRoot $ProjectsRoot -Holder $RuntimeHolder `
+      -WorkbenchRepoPath $workbenchRepo -OperationToken $runtimeOperation.Token -RuntimeMode $runtimeMode | Out-Null
+  }
+  $buildReceipt = Join-Path $canonicalEvidenceRoot "build-plan-$([guid]::NewGuid().ToString('N')).json"
+  Invoke-CanonicalBuildPlan -Plan $plan -Concurrency $BuildConcurrency -AssertAdmission $assertAdmission -EvidencePath $buildReceipt
+  foreach ($entry in $plan) { $prebuiltRepositories[$entry.RepoPath] = $entry.CommitSha }
 }
 
 function Invoke-WithProcessEnvironment {
@@ -920,6 +964,7 @@ $ideaBuildEnvironment = @{
 $resolvedLotusAiEnvFile = Resolve-LotusAiEnvFile -EnvFile $LotusAiEnvFile
 Write-Host "Using lotus-ai env file for canonical proof: $resolvedLotusAiEnvFile"
 
+Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'independent-image-builds' -Action { Invoke-IndependentImageBuilds }
 Invoke-ComposeUp $performanceRepo
 Invoke-ComposeUp $riskRepo
 Start-CanonicalAi -EnvFile $resolvedLotusAiEnvFile
@@ -931,7 +976,7 @@ Invoke-ComposeUp $reportRepo
 # The capacity proof binds to a fresh per-startup run id embedded in Idea's image metadata.
 # Rebuild only the Idea Compose project so reusable images cannot retain a prior run id.
 Invoke-ComposeUp $ideaRepo $ideaBuildEnvironment -Build
-Invoke-CanonicalIdeaSeed
+Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'idea-readiness-queue-seed' -Action { Invoke-CanonicalIdeaSeed }
 
 if (Test-LocalApp "archive") {
   Invoke-CanonicalComposeCommand $archiveRepo "docker compose down --remove-orphans"
@@ -965,19 +1010,16 @@ if (Test-LocalApp "gateway") {
   Invoke-ComposeUp $gatewayRepo
 }
 
-Invoke-CanonicalCoreSeed
-Invoke-DpmCommandCenterSeed
-Invoke-CanonicalIdeaCapacitySeed
+Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'core-seed-materialization' -Action { Invoke-CanonicalCoreSeed }
+Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'dpm-seed' -Action { Invoke-DpmCommandCenterSeed }
+Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'idea-capacity-seed' -Action { Invoke-CanonicalIdeaCapacitySeed }
 
 if (Test-LocalApp "workbench") {
   Invoke-CanonicalComposeCommand $workbenchRepo "docker compose down --remove-orphans"
   Start-WorkbenchDevServer
 } else {
   Stop-HostProcessOnPort -Port 3000 -Description "Workbench"
-  $dockerWorkbenchEnvironment = $canonicalDpmCommandCenterEnvironment.Clone()
-  $dockerWorkbenchEnvironment.BFF_BASE_URL = "http://host.docker.internal:8100"
-  $dockerWorkbenchEnvironment.LOTUS_ENVIRONMENT = "dev"
-  $dockerWorkbenchEnvironment.WORKBENCH_IDEA_AUTH_MODE = "development_configured"
+  $dockerWorkbenchEnvironment = Get-DockerWorkbenchEnvironment
   Invoke-ComposeUp $workbenchRepo $dockerWorkbenchEnvironment
 }
 
@@ -1030,9 +1072,20 @@ if ($RequireMainlineSources) {
   $validationArguments.MainlineSourceProvenancePath = $mainlineSourceRuntimePath
   $validationArguments.IdeaCapacitySeedEvidencePath = Join-Path $ideaCapacityEvidenceRoot "idea-capacity-seed-evidence.json"
 }
-& (Join-Path $workbenchRepo "scripts\\live\\Validate-LotusFrontOfficeCanonical.ps1") @validationArguments
-if ($LASTEXITCODE -ne 0) { throw "Canonical validation failed with exit code $LASTEXITCODE." }
+Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'api-calculation-browser-validation' -Action {
+  & (Join-Path $workbenchRepo "scripts\\live\\Validate-LotusFrontOfficeCanonical.ps1") @validationArguments
+  if ($LASTEXITCODE -ne 0) { throw "Canonical validation failed with exit code $LASTEXITCODE." }
+}
 $runtimeOutcome = 'success'
 } finally {
-  Exit-CanonicalRuntimeOperation -Operation $runtimeOperation -Outcome $runtimeOutcome
+  try {
+    New-Item -ItemType Directory -Force -Path $canonicalEvidenceRoot | Out-Null
+    @{schema='lotus-workbench.canonical-runtime-phases.v1'; status=$runtimeOutcome; build_concurrency=$BuildConcurrency; phases=$runtimePhases} |
+      ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $canonicalEvidenceRoot "runtime-phases-$runtimeTimingId.json") -Encoding UTF8
+  } catch {
+    $runtimeOutcome = 'failure'
+    throw
+  } finally {
+    Exit-CanonicalRuntimeOperation -Operation $runtimeOperation -Outcome $runtimeOutcome
+  }
 }
