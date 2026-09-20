@@ -1092,14 +1092,25 @@ Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'api-calculation-brow
 }
 $runtimeOutcome = 'success'
 } finally {
+  $timingPath=Join-Path $canonicalEvidenceRoot "runtime-phases-$runtimeTimingId.json"
+  $timingReceipt=@{schema='lotus-workbench.canonical-runtime-phases.v1'; status='failure'; build_concurrency=$BuildConcurrency; phases=$runtimePhases}
   try {
     New-Item -ItemType Directory -Force -Path $canonicalEvidenceRoot | Out-Null
-    @{schema='lotus-workbench.canonical-runtime-phases.v1'; status=$runtimeOutcome; build_concurrency=$BuildConcurrency; phases=$runtimePhases} |
-      ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $canonicalEvidenceRoot "runtime-phases-$runtimeTimingId.json") -Encoding UTF8
+    # Fail closed until operation publication has actually succeeded. A failed
+    # receipt write also makes the operation fail; the original fence is always finished.
+    $timingReceipt | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $timingPath -Encoding UTF8
   } catch {
     $runtimeOutcome = 'failure'
     throw
   } finally {
     Exit-CanonicalRuntimeOperation -Operation $runtimeOperation -Outcome $runtimeOutcome
+  }
+  if ($runtimeOutcome -eq 'success') {
+    $timingReceipt.status='success'
+    $pendingPath="$timingPath.pending"
+    $timingReceipt | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $pendingPath -Encoding UTF8
+    # Same-directory replacement is last: failed publication/finalization cannot
+    # leave an accepted success receipt from a command that has already failed.
+    Move-Item -LiteralPath $pendingPath -Destination $timingPath -Force
   }
 }

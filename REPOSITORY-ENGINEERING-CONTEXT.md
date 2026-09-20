@@ -377,6 +377,8 @@ also retain a digest of effective Compose configuration: planning, child pre/pos
 must agree under the same explicit environment, including ignored `.env`/`env_file` inputs.
 Resolved values must not enter receipts or failure diagnostics. Terminal child results
 are collected during failure cleanup too; completed work must not be relabelled cancelled.
+Overall timing success is finalized only after reservation outcome publication succeeds; phase
+success cannot override a failed producing command, and failure remains if receipt finalization fails.
 Dependency-sensitive startup, fresh Idea build identity, seed order and financial readiness stay
 unchanged. Unique phase/build receipts distinguish
 construction/startup from data materialization and validation; no speedup or capacity claim follows
