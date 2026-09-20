@@ -530,7 +530,9 @@ function Invoke-WithProcessEnvironment {
     & $ScriptBlock
   } finally {
     foreach ($key in $Environment.Keys) {
-      [Environment]::SetEnvironmentVariable($key, $previousValues[$key], "Process")
+      if ($null -eq $previousValues[$key]) {
+        [Environment]::SetEnvironmentVariable($key, [NullString]::Value, "Process")
+      } else { [Environment]::SetEnvironmentVariable($key, $previousValues[$key], "Process") }
     }
   }
 }
