@@ -147,7 +147,7 @@ function Test-HttpReady {
 }
 
 function Get-GitRepositoryIdentity {
-  param([string]$RepoPath)
+  param([string]$RepoPath, [switch]$RequireCleanPrebuiltSource)
 
   $commitSha = (& git -C $RepoPath rev-parse HEAD).Trim()
   if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commitSha)) {
@@ -163,6 +163,10 @@ function Get-GitRepositoryIdentity {
       throw "Detached Git checkout for $RepoPath is not exactly at origin/main."
     }
     $branch = "main"
+  }
+  if ($RequireCleanPrebuiltSource) {
+    & git -C $RepoPath diff --quiet HEAD --
+    if ($LASTEXITCODE -ne 0) { throw 'Prebuilt canonical source is not clean before startup.' }
   }
   return [ordered]@{ CommitSha = $commitSha; Branch = $branch }
 }
@@ -439,7 +443,7 @@ function Invoke-ComposeUp {
     $composeCommand = "$composeCommand --build"
   }
   if ($prebuiltRepositories.ContainsKey($RepoPath)) {
-    $identity = Get-GitRepositoryIdentity -RepoPath $RepoPath
+    $identity = Get-GitRepositoryIdentity -RepoPath $RepoPath -RequireCleanPrebuiltSource
     if ($identity.CommitSha -cne $prebuiltRepositories[$RepoPath]) {
       throw 'Prebuilt canonical source changed before startup.'
     }

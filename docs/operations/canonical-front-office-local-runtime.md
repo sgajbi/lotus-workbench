@@ -42,7 +42,9 @@ Each build runs in a separate process with its own environment and Compose paral
 The parent retains the original exclusive operation handle, rechecks source/lease admission while
 waiting, and stops/joins children on failure before publishing its outcome. No child acquires or
 releases the reservation. Source SHA drift or dirty tracked source refuses; prebuilt startup uses
-`--no-build` only after the complete build barrier and another source-identity check.
+`--no-build` only after the complete build barrier and another source-identity and tracked-worktree
+cleanliness check. Completed child outcomes remain succeeded/failed even if sibling failure or
+lost admission interrupts collection; only stopped children are reported as cancelled.
 
 From the `lotus-workbench` checkout after the reservation described below is acquired, on Windows
 PowerShell (use `pwsh` instead of `powershell` for PowerShell 7 on Windows; full canonical bring-up
