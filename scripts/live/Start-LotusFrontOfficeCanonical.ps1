@@ -165,8 +165,8 @@ function Get-GitRepositoryIdentity {
     $branch = "main"
   }
   if ($RequireCleanPrebuiltSource) {
-    & git -C $RepoPath diff --quiet HEAD --
-    if ($LASTEXITCODE -ne 0) { throw 'Prebuilt canonical source is not clean before startup.' }
+    $changes = @(& git -C $RepoPath status --porcelain --untracked-files=all)
+    if ($LASTEXITCODE -ne 0 -or $changes.Count) { throw 'Prebuilt canonical source is not clean before startup.' }
   }
   return [ordered]@{ CommitSha = $commitSha; Branch = $branch }
 }

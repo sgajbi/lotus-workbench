@@ -370,8 +370,9 @@ are not consulted and teardown uses acquired scope rather than manufacturing ful
 Canonical image scheduling defaults to serial. Full Docker-backed builds may explicitly select
 `-BuildConcurrency 2`; only independent image construction overlaps in process-isolated children.
 The original parent operation fence and repeated source/lease admission cover all children, which
-must be stopped/joined before failure publication. Prebuilt reuse checks both SHA and tracked
-cleanliness immediately before Compose. Terminal child results
+must be stopped/joined before failure publication. Construction checks both SHA and cleanliness
+before/after building, including untracked source but excluding Git-ignored generated output;
+prebuilt reuse repeats these checks immediately before Compose. Terminal child results
 are collected during failure cleanup too; completed work must not be relabelled cancelled.
 Dependency-sensitive startup, fresh Idea build identity, seed order and financial readiness stay
 unchanged. Unique phase/build receipts distinguish
