@@ -11,6 +11,11 @@ $fence = $null
 try {
   $probe = @'
 import json, os, pathlib, sys, time
+if sys.argv[1:3] == ['compose', 'config']:
+    env = pathlib.Path('.env')
+    deployment = env.read_text() if env.exists() else 'baseline'
+    print(json.dumps(dict(name=pathlib.Path.cwd().name, services=dict(app=dict(environment=dict(deployment=deployment))))))
+    sys.exit(0)
 root = pathlib.Path(os.environ['LOTUS_BUILD_PROOF_OUTPUT'])
 name = pathlib.Path.cwd().name
 record = dict(pid=os.getpid(), scope=os.environ['LOTUS_BUILD_PROOF_SCOPE'],
@@ -31,10 +36,12 @@ path.write_text(json.dumps(record))
 sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
 '@
   [IO.File]::WriteAllText((Join-Path $fixture 'probe.py'), $probe)
-  $docker = '& python (Join-Path $env:LOTUS_BUILD_PROOF_FIXTURE ''probe.py''); exit $LASTEXITCODE'
+  $docker = '& python (Join-Path $env:LOTUS_BUILD_PROOF_FIXTURE ''probe.py'') @args; exit $LASTEXITCODE'
   [IO.File]::WriteAllText((Join-Path $fixture 'docker.ps1'), $docker)
   $env:PATH = "$fixture$([IO.Path]::PathSeparator)$oldPath"
   $env:LOTUS_BUILD_PROOF_SCOPE = 'parent-unchanged'
+  $oldFixture=$env:LOTUS_BUILD_PROOF_FIXTURE
+  $env:LOTUS_BUILD_PROOF_FIXTURE=$fixture
   $fencePath = Join-Path $fixture 'parent.lock'
   $fence = [IO.File]::Open($fencePath, 'OpenOrCreate', 'ReadWrite', 'None')
   $repositories = @()
@@ -51,7 +58,7 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
     [IO.File]::WriteAllText((Join-Path $path 'output/playwright/ignored-log.txt'), 'Ignored evidence is not untracked source.')
     $repositories += @{Name=$name; RepoPath=$path; CommitSha=(& git -C $path rev-parse HEAD).Trim()}
   }
-  foreach ($scenario in @('serial','bounded','failure','completed-sibling','completed-before-refusal','expired','interrupted','source-drift','untracked-before','untracked-during','source-during')) {
+  foreach ($scenario in @('serial','bounded','failure','completed-sibling','completed-before-refusal','expired','interrupted','source-drift','untracked-before','untracked-during','config-before','config-during','source-during')) {
     $script:sourceMutationDone=$false
     $output = Join-Path $fixture $scenario
     New-Item -ItemType Directory -Path $output | Out-Null
@@ -68,10 +75,13 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
       if ($scenario -eq 'completed-sibling' -and $entry.Name -eq 'a') { $entry.Environment.LOTUS_BUILD_PROOF_EXIT='23' }
       if ($scenario -in @('expired','interrupted')) { $entry.Environment.LOTUS_BUILD_PROOF_SLEEP='30' }
       if ($scenario -eq 'bounded') { $entry.Environment.LOTUS_BUILD_PROOF_BARRIER='2' }
-      if ($scenario -in @('source-during','untracked-during')) { $entry.Environment.LOTUS_BUILD_PROOF_SLEEP=$(if ($entry.Name -eq 'a') {'3'} else {'30'}) }
+      if ($scenario -in @('source-during','untracked-during','config-during')) { $entry.Environment.LOTUS_BUILD_PROOF_SLEEP=$(if ($entry.Name -eq 'a') {'3'} else {'30'}) }
       if ($scenario -eq 'source-drift' -and $entry.Name -eq 'a') { $entry.CommitSha = '0' * 40 }
+      $entry.ComposeFingerprint=Get-CanonicalComposeFingerprint -RepoPath $entry.RepoPath -Environment $entry.Environment
       [pscustomobject]$entry
     }
+    $configPath=Join-Path $repositories[0].RepoPath '.env'
+    if ($scenario -eq 'config-before') { [IO.File]::WriteAllText($configPath,'private-config-change') }
     $untrackedPath=Join-Path $repositories[0].RepoPath 'src/app/new-route/page.tsx'
     if ($scenario -eq 'untracked-before') {
       New-Item -ItemType Directory -Force -Path (Split-Path -Parent $untrackedPath) | Out-Null
@@ -103,6 +113,10 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
         [IO.File]::WriteAllText($untrackedPath, 'export default function Page() { return null; }')
         $script:sourceMutationDone=$true
       }
+      if ($scenario -eq 'config-during' -and -not $script:sourceMutationDone -and (Test-Path -LiteralPath (Join-Path $output 'a.json'))) {
+        [IO.File]::WriteAllText($configPath,'private-config-change')
+        $script:sourceMutationDone=$true
+      }
     }
     $receipt = Join-Path $output 'receipt.json'
     $failed = $false
@@ -119,9 +133,10 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
       }
       if ($_.Exception.Message -notmatch [regex]::Escape($expectedReason)) { throw }
     }
-    $expectedFailure = $scenario -in @('failure','completed-sibling','completed-before-refusal','expired','interrupted','source-drift','untracked-before','untracked-during','source-during')
+    $expectedFailure = $scenario -in @('failure','completed-sibling','completed-before-refusal','expired','interrupted','source-drift','untracked-before','untracked-during','config-before','config-during','source-during')
     if ($failed -ne $expectedFailure) { throw "Unexpected build verdict: $scenario" }
     $evidence = Get-Content -Raw -LiteralPath $receipt | ConvertFrom-Json
+    if ((Get-Content -Raw -LiteralPath $receipt) -match 'private-config-change') { throw 'Compose input leaked into receipt.' }
     if (($evidence.status -eq 'failed') -ne $expectedFailure) { throw 'False evidence verdict.' }
     if (@($evidence.builds | Where-Object { $_.status -eq 'running' -or -not $_.ended_at_utc }).Count) { throw 'Build receipt has unjoined work.' }
     if ($scenario -in @('completed-sibling','completed-before-refusal')) {
@@ -145,6 +160,8 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
     if ($env:LOTUS_BUILD_PROOF_SCOPE -ne 'parent-unchanged' -or -not $fence.CanRead) { throw 'Parent state changed.' }
     if ($scenario -eq 'untracked-before' -and (Test-Path -LiteralPath (Join-Path $output 'a.json'))) { throw 'Untracked source reached native build.' }
     if ($scenario -in @('untracked-before','untracked-during')) { [IO.File]::Delete($untrackedPath) }
+    if ($scenario -eq 'config-before' -and (Test-Path -LiteralPath (Join-Path $output 'a.json'))) { throw 'Changed Compose input reached build.' }
+    if ($scenario -in @('config-before','config-during')) { [IO.File]::Delete($configPath) }
     Write-Host "PASS canonical build scheduler: $scenario"
   }
   # Execute the shipped startup helper against a real Git checkout. A same-SHA
@@ -158,7 +175,7 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
   }
   function Invoke-CanonicalComposeCommand { param($RepoPath,$Command); $script:startupCommands += $Command }
   $testRepo=$repositories[0].RepoPath
-  $prebuiltRepositories=@{}; $prebuiltRepositories[$testRepo]=(& git -C $testRepo rev-parse HEAD).Trim()
+  $prebuiltRepositories=@{}
   $composeUpCommand='docker compose up -d --build'; $runtimePhases=[Collections.ArrayList]::new(); $script:startupCommands=@()
   $workbenchRepo=$testRepo; $CanonicalEvidenceDirectory=''
   $defaultRoot=$ast.Find({param($node) $node -is [Management.Automation.Language.AssignmentStatementAst] -and
@@ -166,14 +183,22 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
   . ([scriptblock]::Create($defaultRoot.Extent.Text))
   $defaultOutput=Join-Path $fixture 'default-build-output'
   New-Item -ItemType Directory -Path $defaultOutput | Out-Null
-  $defaultPlan=[pscustomobject]@{Name='a'; RepoPath=$testRepo; CommitSha=$prebuiltRepositories[$testRepo]; Environment=@{
+  $defaultPlan=[pscustomobject]@{Name='a'; RepoPath=$testRepo; CommitSha=(& git -C $testRepo rev-parse HEAD).Trim(); ComposeFingerprint=(Get-CanonicalComposeFingerprint -RepoPath $testRepo); Environment=@{
     LOTUS_BUILD_PROOF_FIXTURE=$fixture; LOTUS_BUILD_PROOF_OUTPUT=$defaultOutput; LOTUS_BUILD_PROOF_SCOPE='a'
   }}
   $defaultReceipt=Join-Path $canonicalEvidenceRoot 'build-plan-default-proof.json'
   Invoke-CanonicalBuildPlan -Plan @($defaultPlan) -Concurrency 1 -PollMilliseconds 100 -AssertAdmission { if (-not $fence.CanRead) { throw 'Parent fence lost.' } } -EvidencePath $defaultReceipt
+  $prebuiltRepositories[$testRepo]=$defaultPlan
   if (-not (Test-Path -LiteralPath $defaultReceipt)) { throw 'Default receipt was not written.' }
   Invoke-ComposeUp $testRepo
   if ($script:startupCommands.Count -ne 1 -or $script:startupCommands[0] -notmatch '--no-build') { throw 'Clean prebuilt startup was refused.' }
+  $ignoredEnv=Join-Path $testRepo '.env'
+  [IO.File]::WriteAllText($ignoredEnv, 'WORKBENCH_DEPLOYMENT_ID=changed-after-build')
+  $refused=$false
+  try { Invoke-ComposeUp $testRepo }
+  catch { if ($_.Exception.Message -ne 'Prebuilt canonical Compose configuration changed before startup.') { throw }; $refused=$true }
+  if (-not $refused -or $script:startupCommands.Count -ne 1) { throw 'Ignored Compose input drift admitted at startup.' }
+  [IO.File]::Delete($ignoredEnv)
   [IO.File]::WriteAllText($untrackedPath, 'export default function Page() { return null; }')
   $refused=$false
   try { Invoke-ComposeUp $testRepo }
@@ -194,10 +219,45 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
   if ($phases.Count -ne 2 -or $phases[0].status -ne 'succeeded' -or $phases[1].status -ne 'failed' -or
       @($phases | Where-Object { -not $_.ended_at_utc -or $_.duration_ms -lt 0 }).Count) { throw 'Phase receipt lost actual outcome.' }
   Write-Host 'PASS canonical phase receipts: success, failure and unchanged output'
+  # Real Compose configuration resolution is read-only and requires no running daemon.
+  $env:PATH=$oldPath
+  $configRepo=Join-Path $fixture 'real-compose-inputs'
+  New-Item -ItemType Directory -Path $configRepo | Out-Null
+  $configFile=Join-Path $configRepo 'compose.yaml'
+  [IO.File]::WriteAllText($configFile, @'
+services:
+  app:
+    image: busybox:latest
+    env_file: runtime.env
+    environment:
+      DEPLOYMENT_ID: ${DEPLOYMENT_ID}
+'@)
+  $dotEnv=Join-Path $configRepo '.env'
+  $runtimeEnv=Join-Path $configRepo 'runtime.env'
+  [IO.File]::WriteAllText($dotEnv,'DEPLOYMENT_ID=build-a')
+  [IO.File]::WriteAllText($runtimeEnv,'PRIVATE_VALUE=controlled-private-a')
+  $configEnvironment=@{COMPOSE_FILE=$configFile; COMPOSE_PROJECT_NAME='canonical-config-proof'}
+  $first=Get-CanonicalComposeFingerprint -RepoPath $configRepo -Environment $configEnvironment
+  [IO.File]::WriteAllText($dotEnv,'DEPLOYMENT_ID=build-b')
+  $second=Get-CanonicalComposeFingerprint -RepoPath $configRepo -Environment $configEnvironment
+  [IO.File]::WriteAllText($runtimeEnv,'PRIVATE_VALUE=controlled-private-b')
+  $third=Get-CanonicalComposeFingerprint -RepoPath $configRepo -Environment $configEnvironment
+  if ($first -eq $second -or $second -eq $third -or "$first$second$third" -notmatch '^[a-f0-9]{192}$') { throw 'Real Compose inputs were not fingerprinted safely.' }
+  $configEnvironment.DEPLOYMENT_ID='explicit-overlay'
+  $overridden=Get-CanonicalComposeFingerprint -RepoPath $configRepo -Environment $configEnvironment
+  [IO.File]::WriteAllText($dotEnv,'DEPLOYMENT_ID=irrelevant-under-explicit-overlay')
+  if ((Get-CanonicalComposeFingerprint -RepoPath $configRepo -Environment $configEnvironment) -ne $overridden) { throw 'Effective explicit Compose overlay was not retained.' }
+  [IO.File]::Delete($runtimeEnv)
+  $refused=$false
+  try { Get-CanonicalComposeFingerprint -RepoPath $configRepo -Environment $configEnvironment | Out-Null }
+  catch { if ($_.Exception.Message -ne 'Canonical Compose configuration could not be resolved.') { throw }; $refused=$true }
+  if (-not $refused) { throw 'Missing Compose input admitted.' }
+  Write-Host 'PASS real Compose resolution: .env/env_file changes, explicit overlay, bounded missing-input failure; no container mutation'
 } finally {
   if ($fence) { $fence.Dispose() }
   $env:PATH = $oldPath
   $env:LOTUS_BUILD_PROOF_SCOPE = $oldMarker
+  $env:LOTUS_BUILD_PROOF_FIXTURE = $oldFixture
   $resolved = (Resolve-Path -LiteralPath $fixture).Path
   $temporary = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
   if (-not $resolved.StartsWith($temporary, [StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid fixture cleanup target.' }

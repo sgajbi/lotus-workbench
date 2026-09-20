@@ -372,7 +372,10 @@ Canonical image scheduling defaults to serial. Full Docker-backed builds may exp
 The original parent operation fence and repeated source/lease admission cover all children, which
 must be stopped/joined before failure publication. Construction checks both SHA and cleanliness
 before/after building, including untracked source but excluding Git-ignored generated output;
-prebuilt reuse repeats these checks immediately before Compose. Terminal child results
+prebuilt reuse repeats these checks immediately before Compose. Build receipts
+also retain a digest of effective Compose configuration: planning, child pre/post build and startup
+must agree under the same explicit environment, including ignored `.env`/`env_file` inputs.
+Resolved values must not enter receipts or failure diagnostics. Terminal child results
 are collected during failure cleanup too; completed work must not be relabelled cancelled.
 Dependency-sensitive startup, fresh Idea build identity, seed order and financial readiness stay
 unchanged. Unique phase/build receipts distinguish

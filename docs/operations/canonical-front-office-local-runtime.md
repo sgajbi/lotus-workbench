@@ -44,6 +44,10 @@ waiting, and stops/joins children on failure before publishing its outcome. No c
 releases the reservation. Source SHA drift, tracked edits or untracked source files refuse before
 and after construction; Git-ignored generated output is excluded. Prebuilt startup uses `--no-build`
 only after the complete build barrier and another source-identity and cleanliness check.
+Resolved Compose configuration is SHA-256-bound at planning, before/after construction and before
+reuse, under the same explicit environment and checkout. This includes ignored `.env` and service
+`env_file` inputs, not just Git source; changed effective configuration refuses reuse. Only the digest
+is retained, never resolved values or secret-bearing configuration/parser diagnostics.
 Completed child outcomes remain succeeded/failed even if sibling failure or
 lost admission interrupts collection; only stopped children are reported as cancelled.
 

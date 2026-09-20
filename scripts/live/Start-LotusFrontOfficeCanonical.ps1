@@ -443,10 +443,17 @@ function Invoke-ComposeUp {
     $composeCommand = "$composeCommand --build"
   }
   if ($prebuiltRepositories.ContainsKey($RepoPath)) {
+    $prebuilt=$prebuiltRepositories[$RepoPath]
     $identity = Get-GitRepositoryIdentity -RepoPath $RepoPath -RequireCleanPrebuiltSource
-    if ($identity.CommitSha -cne $prebuiltRepositories[$RepoPath]) {
+    if ($identity.CommitSha -cne $prebuilt.CommitSha) {
       throw 'Prebuilt canonical source changed before startup.'
     }
+    if ((Get-CanonicalComposeFingerprint -RepoPath $RepoPath -Environment $Environment) -cne $prebuilt.ComposeFingerprint) {
+      throw 'Prebuilt canonical Compose configuration changed before startup.'
+    }
+    $Environment=$Environment.Clone()
+    $Environment.PWD=$RepoPath
+    $Environment.COMPOSE_PARALLEL_LIMIT='1'
     $composeCommand = ($composeCommand -replace '\s--build(?=\s|$)', '') + ' --no-build'
   }
 
@@ -494,7 +501,8 @@ function Invoke-IndependentImageBuilds {
   foreach ($repo in @($performanceRepo,$riskRepo,$adviseRepo,$reportRepo,$archiveRepo,$renderRepo,$gatewayRepo,$workbenchRepo)) {
     $environment = if ($repo -eq $workbenchRepo) { Get-DockerWorkbenchEnvironment } else { @{} }
     $identity = Get-GitRepositoryIdentity -RepoPath $repo
-    $plan += [pscustomobject]@{Name=(Split-Path -Leaf $repo); RepoPath=$repo; CommitSha=$identity.CommitSha; Environment=$environment}
+    $fingerprint=Get-CanonicalComposeFingerprint -RepoPath $repo -Environment $environment
+    $plan += [pscustomobject]@{Name=(Split-Path -Leaf $repo); RepoPath=$repo; CommitSha=$identity.CommitSha; ComposeFingerprint=$fingerprint; Environment=$environment}
   }
   $assertAdmission = {
     Assert-CanonicalRuntimeOperationFence -ProjectsRoot $ProjectsRoot -OperationToken $runtimeOperation.Token -Fence $runtimeOperation.Lock
@@ -503,7 +511,7 @@ function Invoke-IndependentImageBuilds {
   }
   $buildReceipt = Join-Path $canonicalEvidenceRoot "build-plan-$([guid]::NewGuid().ToString('N')).json"
   Invoke-CanonicalBuildPlan -Plan $plan -Concurrency $BuildConcurrency -AssertAdmission $assertAdmission -EvidencePath $buildReceipt
-  foreach ($entry in $plan) { $prebuiltRepositories[$entry.RepoPath] = $entry.CommitSha }
+  foreach ($entry in $plan) { $prebuiltRepositories[$entry.RepoPath] = $entry }
 }
 
 function Invoke-WithProcessEnvironment {
