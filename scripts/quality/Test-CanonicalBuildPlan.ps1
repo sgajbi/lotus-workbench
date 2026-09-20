@@ -43,12 +43,12 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
     New-Item -ItemType Directory -Path $path | Out-Null
     & git -C $path init -q
     [IO.File]::WriteAllText((Join-Path $path 'compose.yaml'), 'services: {}')
-    [IO.File]::WriteAllText((Join-Path $path '.gitignore'), 'output/')
+    [IO.File]::WriteAllText((Join-Path $path '.gitignore'), [IO.File]::ReadAllText((Join-Path $repoRoot '.gitignore')))
     & git -C $path add compose.yaml .gitignore
     & git -C $path -c user.name=Fixture -c user.email=fixture@example.invalid -c commit.gpgsign=false commit -qm fixture
     if ($LASTEXITCODE -ne 0) { throw 'Fixture Git creation failed.' }
-    New-Item -ItemType Directory -Path (Join-Path $path 'output') | Out-Null
-    [IO.File]::WriteAllText((Join-Path $path 'output/ignored-log.txt'), 'Ignored evidence is not untracked source.')
+    New-Item -ItemType Directory -Path (Join-Path $path 'output/playwright') -Force | Out-Null
+    [IO.File]::WriteAllText((Join-Path $path 'output/playwright/ignored-log.txt'), 'Ignored evidence is not untracked source.')
     $repositories += @{Name=$name; RepoPath=$path; CommitSha=(& git -C $path rev-parse HEAD).Trim()}
   }
   foreach ($scenario in @('serial','bounded','failure','completed-sibling','completed-before-refusal','expired','interrupted','source-drift','untracked-before','untracked-during','source-during')) {
@@ -160,6 +160,18 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
   $testRepo=$repositories[0].RepoPath
   $prebuiltRepositories=@{}; $prebuiltRepositories[$testRepo]=(& git -C $testRepo rev-parse HEAD).Trim()
   $composeUpCommand='docker compose up -d --build'; $runtimePhases=[Collections.ArrayList]::new(); $script:startupCommands=@()
+  $workbenchRepo=$testRepo; $CanonicalEvidenceDirectory=''
+  $defaultRoot=$ast.Find({param($node) $node -is [Management.Automation.Language.AssignmentStatementAst] -and
+    $node.Left -is [Management.Automation.Language.VariableExpressionAst] -and $node.Left.VariablePath.UserPath -eq 'canonicalEvidenceRoot'},$true)
+  . ([scriptblock]::Create($defaultRoot.Extent.Text))
+  $defaultOutput=Join-Path $fixture 'default-build-output'
+  New-Item -ItemType Directory -Path $defaultOutput | Out-Null
+  $defaultPlan=[pscustomobject]@{Name='a'; RepoPath=$testRepo; CommitSha=$prebuiltRepositories[$testRepo]; Environment=@{
+    LOTUS_BUILD_PROOF_FIXTURE=$fixture; LOTUS_BUILD_PROOF_OUTPUT=$defaultOutput; LOTUS_BUILD_PROOF_SCOPE='a'
+  }}
+  $defaultReceipt=Join-Path $canonicalEvidenceRoot 'build-plan-default-proof.json'
+  Invoke-CanonicalBuildPlan -Plan @($defaultPlan) -Concurrency 1 -PollMilliseconds 100 -AssertAdmission { if (-not $fence.CanRead) { throw 'Parent fence lost.' } } -EvidencePath $defaultReceipt
+  if (-not (Test-Path -LiteralPath $defaultReceipt)) { throw 'Default receipt was not written.' }
   Invoke-ComposeUp $testRepo
   if ($script:startupCommands.Count -ne 1 -or $script:startupCommands[0] -notmatch '--no-build') { throw 'Clean prebuilt startup was refused.' }
   [IO.File]::WriteAllText($untrackedPath, 'export default function Page() { return null; }')

@@ -13,6 +13,7 @@ playwright-report/
 .playwright-cli/
 output/playwright/
 output/observability-live/
+output/canonical-front-office/
 output/demo-rfc0108-live-evidence-*/
 output/*.pdf
 output/pr-monitor.json
