@@ -1,4 +1,22 @@
 # Independent image construction only. The caller retains its original runtime fence.
+function Complete-CanonicalBuildJob {
+  param([Parameter(Mandatory)]$Item)
+  $Item.Finished = $true
+  $Item.Record.ended_at_utc = [DateTime]::UtcNow.ToString('o')
+  $Item.Record.duration_ms = $Item.Timer.ElapsedMilliseconds
+  $Item.Record.status = 'failed'
+  if ($Item.Job.State -eq 'Completed') {
+    try {
+      Receive-Job -Job $Item.Job -ErrorAction Stop | Out-Host
+      $Item.Record.status = 'succeeded'
+    } catch {
+      # Preserve a failed child outcome without masking the caller's admission failure.
+    }
+  } elseif ($Item.Job.State -eq 'Stopped') {
+    $Item.Record.status = 'cancelled'
+  }
+}
+
 function Invoke-CanonicalBuildPlan {
   [CmdletBinding()]
   param(
@@ -38,16 +56,10 @@ function Invoke-CanonicalBuildPlan {
       & $AssertAdmission
       foreach ($item in @($jobs | Where-Object { -not $_.Finished })) {
         if ($item.Job.State -in @('Completed', 'Failed', 'Stopped')) {
-          $item.Finished = $true
-          $item.Record.ended_at_utc = [DateTime]::UtcNow.ToString('o')
-          $item.Record.duration_ms = $item.Timer.ElapsedMilliseconds
-          if ($item.Job.State -ne 'Completed') {
-            $item.Record.status = 'failed'
+          Complete-CanonicalBuildJob -Item $item
+          if ($item.Record.status -ne 'succeeded') {
             throw "Canonical image build failed: $($item.Record.repository)"
           }
-          $item.Record.status = 'failed'
-          Receive-Job -Job $item.Job -ErrorAction Stop | Out-Host
-          $item.Record.status = 'succeeded'
         }
       }
       while ($pending.Count -and @($jobs | Where-Object { -not $_.Finished }).Count -lt $Concurrency) {
@@ -106,11 +118,11 @@ function Invoke-CanonicalBuildPlan {
     # Stop and join children before the caller can publish an outcome or release its fence.
     foreach ($item in $jobs) {
       if (-not $item.Finished) {
-        Stop-Job -Job $item.Job
-        Wait-Job -Job $item.Job | Out-Null
-        $item.Record.status = 'cancelled'
-        $item.Record.ended_at_utc = [DateTime]::UtcNow.ToString('o')
-        $item.Record.duration_ms = $item.Timer.ElapsedMilliseconds
+        if ($item.Job.State -notin @('Completed', 'Failed', 'Stopped')) {
+          Stop-Job -Job $item.Job
+          Wait-Job -Job $item.Job | Out-Null
+        }
+        Complete-CanonicalBuildJob -Item $item
       }
       Remove-Job -Job $item.Job -Force
     }
