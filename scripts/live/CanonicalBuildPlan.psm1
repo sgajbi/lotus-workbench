@@ -87,8 +87,8 @@ function Invoke-CanonicalBuildPlan {
             $env:COMPOSE_PARALLEL_LIMIT = '1'
             $before = (& git rev-parse HEAD).Trim()
             if ($LASTEXITCODE -ne 0 -or $before -cne $Entry.CommitSha) { throw 'Build source changed before execution.' }
-            & git diff --quiet HEAD --
-            if ($LASTEXITCODE -ne 0) { throw 'Build source is not clean.' }
+            $changes = @(& git status --porcelain --untracked-files=all)
+            if ($LASTEXITCODE -ne 0 -or $changes.Count) { throw 'Build source is not clean.' }
             # Native progress uses stderr. Windows PowerShell 5 must not promote that
             # stream to a terminating error; the native exit code remains authoritative.
             $ErrorActionPreference = 'Continue'
@@ -100,8 +100,8 @@ function Invoke-CanonicalBuildPlan {
             if ($null -eq $buildExit -or $buildExit -ne 0) { throw 'Compose image construction failed.' }
             $after = (& git rev-parse HEAD).Trim()
             if ($LASTEXITCODE -ne 0 -or $after -cne $Entry.CommitSha) { throw 'Build source changed during execution.' }
-            & git diff --quiet HEAD --
-            if ($LASTEXITCODE -ne 0) { throw 'Build source changed during execution.' }
+            $changes = @(& git status --porcelain --untracked-files=all)
+            if ($LASTEXITCODE -ne 0 -or $changes.Count) { throw 'Build source changed during execution.' }
           }
         } catch {
           $record.status = 'failed'

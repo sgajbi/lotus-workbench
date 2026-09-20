@@ -41,9 +41,10 @@ gate remains required. Partial and local-app modes reject bounded construction.
 Each build runs in a separate process with its own environment and Compose parallel limit of one.
 The parent retains the original exclusive operation handle, rechecks source/lease admission while
 waiting, and stops/joins children on failure before publishing its outcome. No child acquires or
-releases the reservation. Source SHA drift or dirty tracked source refuses; prebuilt startup uses
-`--no-build` only after the complete build barrier and another source-identity and tracked-worktree
-cleanliness check. Completed child outcomes remain succeeded/failed even if sibling failure or
+releases the reservation. Source SHA drift, tracked edits or untracked source files refuse before
+and after construction; Git-ignored generated output is excluded. Prebuilt startup uses `--no-build`
+only after the complete build barrier and another source-identity and cleanliness check.
+Completed child outcomes remain succeeded/failed even if sibling failure or
 lost admission interrupts collection; only stopped children are reported as cancelled.
 
 From the `lotus-workbench` checkout after the reservation described below is acquired, on Windows

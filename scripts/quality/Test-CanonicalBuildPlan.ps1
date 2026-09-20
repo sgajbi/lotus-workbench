@@ -43,12 +43,15 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
     New-Item -ItemType Directory -Path $path | Out-Null
     & git -C $path init -q
     [IO.File]::WriteAllText((Join-Path $path 'compose.yaml'), 'services: {}')
-    & git -C $path add compose.yaml
+    [IO.File]::WriteAllText((Join-Path $path '.gitignore'), 'output/')
+    & git -C $path add compose.yaml .gitignore
     & git -C $path -c user.name=Fixture -c user.email=fixture@example.invalid -c commit.gpgsign=false commit -qm fixture
     if ($LASTEXITCODE -ne 0) { throw 'Fixture Git creation failed.' }
+    New-Item -ItemType Directory -Path (Join-Path $path 'output') | Out-Null
+    [IO.File]::WriteAllText((Join-Path $path 'output/ignored-log.txt'), 'Ignored evidence is not untracked source.')
     $repositories += @{Name=$name; RepoPath=$path; CommitSha=(& git -C $path rev-parse HEAD).Trim()}
   }
-  foreach ($scenario in @('serial','bounded','failure','completed-sibling','completed-before-refusal','expired','interrupted','source-drift','source-during')) {
+  foreach ($scenario in @('serial','bounded','failure','completed-sibling','completed-before-refusal','expired','interrupted','source-drift','untracked-before','untracked-during','source-during')) {
     $script:sourceMutationDone=$false
     $output = Join-Path $fixture $scenario
     New-Item -ItemType Directory -Path $output | Out-Null
@@ -65,9 +68,14 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
       if ($scenario -eq 'completed-sibling' -and $entry.Name -eq 'a') { $entry.Environment.LOTUS_BUILD_PROOF_EXIT='23' }
       if ($scenario -in @('expired','interrupted')) { $entry.Environment.LOTUS_BUILD_PROOF_SLEEP='30' }
       if ($scenario -eq 'bounded') { $entry.Environment.LOTUS_BUILD_PROOF_BARRIER='2' }
-      if ($scenario -eq 'source-during') { $entry.Environment.LOTUS_BUILD_PROOF_SLEEP=$(if ($entry.Name -eq 'a') {'3'} else {'30'}) }
+      if ($scenario -in @('source-during','untracked-during')) { $entry.Environment.LOTUS_BUILD_PROOF_SLEEP=$(if ($entry.Name -eq 'a') {'3'} else {'30'}) }
       if ($scenario -eq 'source-drift' -and $entry.Name -eq 'a') { $entry.CommitSha = '0' * 40 }
       [pscustomobject]$entry
+    }
+    $untrackedPath=Join-Path $repositories[0].RepoPath 'src/app/new-route/page.tsx'
+    if ($scenario -eq 'untracked-before') {
+      New-Item -ItemType Directory -Force -Path (Split-Path -Parent $untrackedPath) | Out-Null
+      [IO.File]::WriteAllText($untrackedPath, 'export default function Page() { return null; }')
     }
     $admission = {
       if (-not $fence.CanRead) { throw 'Parent fence was lost.' }
@@ -90,6 +98,11 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
         if ($LASTEXITCODE -ne 0) { throw 'Fixture source mutation failed.' }
         $script:sourceMutationDone=$true
       }
+      if ($scenario -eq 'untracked-during' -and -not $script:sourceMutationDone -and (Test-Path -LiteralPath (Join-Path $output 'a.json'))) {
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $untrackedPath) | Out-Null
+        [IO.File]::WriteAllText($untrackedPath, 'export default function Page() { return null; }')
+        $script:sourceMutationDone=$true
+      }
     }
     $receipt = Join-Path $output 'receipt.json'
     $failed = $false
@@ -106,7 +119,7 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
       }
       if ($_.Exception.Message -notmatch [regex]::Escape($expectedReason)) { throw }
     }
-    $expectedFailure = $scenario -in @('failure','completed-sibling','completed-before-refusal','expired','interrupted','source-drift','source-during')
+    $expectedFailure = $scenario -in @('failure','completed-sibling','completed-before-refusal','expired','interrupted','source-drift','untracked-before','untracked-during','source-during')
     if ($failed -ne $expectedFailure) { throw "Unexpected build verdict: $scenario" }
     $evidence = Get-Content -Raw -LiteralPath $receipt | ConvertFrom-Json
     if (($evidence.status -eq 'failed') -ne $expectedFailure) { throw 'False evidence verdict.' }
@@ -130,6 +143,8 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
       if ($peak -ne $concurrency -or $active -ne 0) { throw 'Concurrency bound or joining is false.' }
     } elseif ($observations.Count -gt 2) { throw 'Failure scheduled a dependent build.' }
     if ($env:LOTUS_BUILD_PROOF_SCOPE -ne 'parent-unchanged' -or -not $fence.CanRead) { throw 'Parent state changed.' }
+    if ($scenario -eq 'untracked-before' -and (Test-Path -LiteralPath (Join-Path $output 'a.json'))) { throw 'Untracked source reached native build.' }
+    if ($scenario -in @('untracked-before','untracked-during')) { [IO.File]::Delete($untrackedPath) }
     Write-Host "PASS canonical build scheduler: $scenario"
   }
   # Execute the shipped startup helper against a real Git checkout. A same-SHA
@@ -147,12 +162,18 @@ sys.exit(int(os.environ.get('LOTUS_BUILD_PROOF_EXIT', '0')))
   $composeUpCommand='docker compose up -d --build'; $runtimePhases=[Collections.ArrayList]::new(); $script:startupCommands=@()
   Invoke-ComposeUp $testRepo
   if ($script:startupCommands.Count -ne 1 -or $script:startupCommands[0] -notmatch '--no-build') { throw 'Clean prebuilt startup was refused.' }
+  [IO.File]::WriteAllText($untrackedPath, 'export default function Page() { return null; }')
+  $refused=$false
+  try { Invoke-ComposeUp $testRepo }
+  catch { if ($_.Exception.Message -ne 'Prebuilt canonical source is not clean before startup.') { throw }; $refused=$true }
+  if (-not $refused -or $script:startupCommands.Count -ne 1) { throw 'Untracked prebuilt source admitted at startup.' }
+  [IO.File]::Delete($untrackedPath)
   [IO.File]::WriteAllText((Join-Path $testRepo 'compose.yaml'), 'services: {changed: {image: unexpected}}')
   $refused=$false
   try { Invoke-ComposeUp $testRepo }
   catch { if ($_.Exception.Message -ne 'Prebuilt canonical source is not clean before startup.') { throw }; $refused=$true }
   if (-not $refused -or $script:startupCommands.Count -ne 1) { throw 'Dirty prebuilt source admitted at startup.' }
-  Write-Host 'PASS prebuilt startup: clean accepted, same-SHA tracked Compose mutation refused before execution'
+  Write-Host 'PASS prebuilt startup: ignored output accepted; untracked route and same-SHA tracked Compose mutation refused before execution'
   $phases = [Collections.ArrayList]::new()
   $value = Invoke-CanonicalRuntimePhase -Records $phases -Name 'valid' -Action { 'preserved-output' }
   if ($value -ne 'preserved-output') { throw 'Phase wrapper changed action output.' }
