@@ -44,11 +44,13 @@ waiting, and stops/joins children on failure before publishing its outcome. No c
 releases the reservation. Source SHA drift or dirty tracked source refuses; prebuilt startup uses
 `--no-build` only after the complete build barrier and another source-identity check.
 
-From the `lotus-workbench` checkout after the reservation described below is acquired (PowerShell
-on Windows; use `pwsh` instead of `powershell` on supported PowerShell Core hosts):
+From the `lotus-workbench` checkout after the reservation described below is acquired, on Windows
+PowerShell (use `pwsh` instead of `powershell` for PowerShell 7 on Windows; full canonical bring-up
+is not supported on Linux by the current Windows listener observer):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -BuildImages -BuildConcurrency 2 -RunValidation
+$workspaceRoot = Split-Path -Parent (Get-Location).Path
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -BuildImages -BuildConcurrency 2 -RunValidation
 ```
 
 The selected canonical evidence directory receives unique `build-plan-*.json` (bounded mode) and
