@@ -22,7 +22,12 @@ function loadEvidence() {
     schema: readJson(
       "docs/architecture/workbench-dependency-risk-inventory.v1.schema.json"
     ),
-    today: inventory.reviewedOn,
+    today: [
+      inventory.reviewedOn,
+      ...inventory.dependencies.map(
+        (entry: { review: { reviewedOn: string } }) => entry.review.reviewedOn,
+      ),
+    ].sort().at(-1),
   };
 }
 

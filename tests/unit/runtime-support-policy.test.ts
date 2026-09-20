@@ -882,6 +882,8 @@ describe("runtime support policy", () => {
     evidence.policy.browserPolicy.certificationStatus = "bank-certified";
     evidence.policy.scalingPolicy.certificationStatus = "production-certified";
     evidence.policy.explicitNonClaims = [];
+    evidence.policy.reviewedOn = "2026-09-04";
+    evidence.policy.nextReviewBy = "2026-09-15";
     evidence.today = "2026-09-16";
 
     expect(validateRuntimeSupportPolicy(evidence)).toEqual(

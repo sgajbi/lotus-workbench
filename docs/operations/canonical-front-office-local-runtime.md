@@ -29,6 +29,43 @@ Reference seeded portfolio:
 
 ## Canonical local prerequisites
 
+### Bounded image construction and timing
+
+The default remains serial (`-BuildConcurrency 1`). An explicitly selected full Docker-backed
+`-BuildImages` or `-RequireMainlineSources` run may use `-BuildConcurrency 2`. This overlaps only
+Performance, Risk, Advise, Report, Archive, Render, Gateway and Workbench image construction.
+Core, AI, Manage and Idea keep their existing guarded startup order; Idea still rebuilds with
+the fresh run identity. All builds must finish before dependent startup and every seed/readiness
+gate remains required. Partial and local-app modes reject bounded construction.
+
+Each build runs in a separate process with its own environment and Compose parallel limit of one.
+The parent retains the original exclusive operation handle, rechecks source/lease admission while
+waiting, and stops/joins children on failure before publishing its outcome. No child acquires or
+releases the reservation. Source SHA drift or dirty tracked source refuses; prebuilt startup uses
+`--no-build` only after the complete build barrier and another source-identity check.
+
+From the `lotus-workbench` checkout after the reservation described below is acquired (PowerShell
+on Windows; use `pwsh` instead of `powershell` on supported PowerShell Core hosts):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -BuildImages -BuildConcurrency 2 -RunValidation
+```
+
+The selected canonical evidence directory receives unique `build-plan-*.json` (bounded mode) and
+`runtime-phases-*.json` receipts on success and failure. These contain repository/source identity,
+stage UTC boundaries, elapsed milliseconds and actual outcomes, never environment values or
+customer payloads. Build/start, Core seed materialization, DPM seed, Idea seed and final validation
+are separate stages. A Compose stage includes its native build/start work, not isolated CPU time;
+Core seed duration includes its existing ingestion/readiness/queue waits. No per-query or per-pull
+timing is inferred from these aggregate boundaries.
+
+Two builds is a conservative opt-in ceiling, not a measured capacity certification. Keep serial
+as the default until same-machine/source serial and bounded cold runs plus a warm run record
+wall time, peak resources, full API/calculation/browser acceptance and teardown. A faster partial
+run, historical source receipt or passing scheduler fixture cannot establish that comparison.
+Neither mode implicitly clears caches or grants authority over retained resources. Always complete
+the normal `live:stack:down` flow and account for retained resources under the same reservation.
+
 Acquire the single machine reservation from the canonical sibling `lotus-platform` checkout
 before `live:stack:up`, `live:stack:preflight` or `live:stack:down`. Follow the
 [Platform reservation control](https://github.com/sgajbi/lotus-platform/blob/main/docs/operations/canonical-runtime-reservation.md)

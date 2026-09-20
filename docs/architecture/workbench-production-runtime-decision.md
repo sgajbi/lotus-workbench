@@ -5,8 +5,8 @@
 - Status: accepted baseline; technology-risk certification remains incomplete
 - Owner: `lotus-workbench`
 - Governed issue: [#612](https://github.com/sgajbi/lotus-workbench/issues/612)
-- Reviewed: 2026-08-10
-- Next review: 2026-09-15
+- Reviewed: 2026-09-16
+- Next review: 2026-09-30
 - Machine-readable policy:
   [`workbench-runtime-support-policy.v1.json`](workbench-runtime-support-policy.v1.json)
 
@@ -24,7 +24,7 @@ runtime, a minimal immutable production container, and a Gateway-first product b
 2. Developers may use the governed Node 22/npm 10 compatibility range; protected CI proves the
    exact release used to produce deployable evidence.
 3. Next.js `15.5.25` remains temporarily accepted while it is in Maintenance LTS. Its support
-   posture must be reviewed by 2026-09-15; a major upgrade requires its own compatibility evidence.
+   posture must be reviewed by 2026-09-30; a major upgrade requires its own compatibility evidence.
 4. React `19.1.0` and TypeScript `5.9.3` remain exact-version application foundations.
 5. The production image uses the digest-pinned official Debian Bookworm slim Node image, Next
    standalone output, the unprivileged `node` user, and no runtime package-manager toolchain.
@@ -35,6 +35,12 @@ runtime, a minimal immutable production container, and a Gateway-first product b
    assistive-technology matrix.
 
 ## Why this stack is retained
+
+The 2026-09-16 bounded review rechecked the primary [Node release schedule](https://nodejs.org/en/about/previous-releases)
+and [Next support policy](https://nextjs.org/support-policy). Node 22 and Next 15 remain supported
+lines; no dependency or image was changed by this review. Full-graph and production moderate npm
+audits passed with zero reported vulnerabilities. This renews the support review only, not the
+independent browser, capacity, identity or bank certification claims below.
 
 The current foundation is composed of mature, documented technologies with large engineering
 ecosystems and supported release channels. Retaining it avoids novelty risk and an unnecessary

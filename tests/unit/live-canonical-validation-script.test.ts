@@ -537,8 +537,9 @@ describe("canonical live validation script", () => {
       "$workbenchEnvironment = $canonicalDpmCommandCenterEnvironment.Clone()",
     );
     expect(script).toContain(
-      "$dockerWorkbenchEnvironment = $canonicalDpmCommandCenterEnvironment.Clone()",
+      "$environment = $canonicalDpmCommandCenterEnvironment.Clone()",
     );
+    expect(script).toContain("$dockerWorkbenchEnvironment = Get-DockerWorkbenchEnvironment");
     expect(script).toContain("[switch]$Build");
     expect(script).toContain(
       '$composeCommand -notmatch "(?:^|\\s)--build(?:\\s|$)"',
