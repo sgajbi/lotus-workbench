@@ -52,13 +52,19 @@ Completed child outcomes remain succeeded/failed even if sibling failure or
 lost admission interrupts collection; only stopped children are reported as cancelled.
 
 From the `lotus-workbench` checkout after the reservation described below is acquired, on Windows
-PowerShell (use `pwsh` instead of `powershell` for PowerShell 7 on Windows; full canonical bring-up
-is not supported on Linux by the current Windows listener observer):
+with PowerShell 7 (`pwsh`) or Windows PowerShell:
 
 ```powershell
-$workspaceRoot = Split-Path -Parent (Get-Location).Path
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -BuildImages -BuildConcurrency 2 -RunValidation
+pwsh -NoProfile -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -BuildImages -BuildConcurrency 2 -RunValidation
 ```
+
+The `npm run live:*` aliases use a Windows-only Node launcher and built-in Windows PowerShell;
+PowerShell 7 can invoke the scripts directly as shown above. The runner resolves the sibling
+workspace from the executing Workbench checkout, or accepts
+`LOTUS_WORKSPACE_ROOT`/explicit `-ProjectsRoot`. It requires the selected Workbench checkout and
+Platform sibling to match that root before Docker or host mutation. A root outside this sibling
+layout is unsupported until the Platform repository
+map contract is implemented; do not point the runner at a different checkout with a familiar name.
 
 The selected canonical evidence directory receives unique `build-plan-*.json` (bounded mode) and
 `runtime-phases-*.json` receipts on success and failure. These contain repository/source identity,
@@ -341,9 +347,9 @@ Workbench-focused development can also use:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -LocalApps workbench
 ```
 
-The `npm run live:stack:up:workbench-local` convenience alias is retained for the current default
-checkout location. It does not forward `-ProjectsRoot`; use the explicit command above for a
-portable sibling-checkout layout.
+The `npm run live:stack:up:workbench-local` alias uses the same sibling-root resolution as the
+direct script. Use explicit `-ProjectsRoot` only when `LOTUS_WORKSPACE_ROOT` is not the intended
+parent checkout directory.
 
 Core/manage RFC proof can use a narrower governed bring-up path:
 
@@ -351,8 +357,10 @@ Core/manage RFC proof can use a narrower governed bring-up path:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -CoreManageOnly
 ```
 
-The matching `npm run live:stack:up:core-manage` convenience alias has the same default-location
-constraint. It is not the portable operator command.
+The matching `npm run live:stack:up:core-manage` alias uses the same workspace resolution as the
+full and Workbench-local aliases: explicit `-ProjectsRoot` in the direct script, then
+`LOTUS_WORKSPACE_ROOT`, then the executing checkout's parent. It still requires an admitted
+`core-manage` reservation and proves only the narrower Core/Manage API scope below.
 
 This mode still uses the canonical hosts block, starts Docker-backed `lotus-core`, starts
 `lotus-manage` on the canonical coexistence port `8001`, restarts direct ingress, and runs the
@@ -479,9 +487,10 @@ powershell -ExecutionPolicy Bypass -File scripts/live/Validate-LotusFrontOfficeC
   -ScreenshotDirectory $screenshotDirectory
 ```
 
-Canonical orchestration is currently supported only from Windows PowerShell. A top-level `pwsh`
-invocation on Unix is not a supported alternative because startup still contains Windows workspace
-defaults and nested `powershell` calls; #1020 owns that implementation gap. Set
+Canonical orchestration is currently supported only on Windows, with Windows PowerShell 5 or
+PowerShell 7. A top-level `pwsh` invocation on macOS/Linux is not equivalent runtime proof because
+the listener observer and ingress-host handling remain Windows-specific; #1020 tracks that
+remaining platform boundary. Set
 `$screenshotDirectory` to another caller-owned path when evidence must be retained elsewhere.
 
 Validation layers:

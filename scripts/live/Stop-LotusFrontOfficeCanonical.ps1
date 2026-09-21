@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$ProjectsRoot = "C:\Users\Sandeep\projects",
+  [string]$ProjectsRoot = "",
   [string]$RuntimeHolder = $env:LOTUS_CANONICAL_RUNTIME_HOLDER,
   [string]$WorkbenchRepoPath,
   [switch]$KeepReservation,
@@ -14,6 +14,8 @@ if ($WorkbenchRepoPath -and [System.IO.Path]::GetFullPath($WorkbenchRepoPath) -n
   throw 'Selected Workbench checkout does not match the executing script.'
 }
 $WorkbenchRepoPath = $selectedWorkbench
+Import-Module (Join-Path $PSScriptRoot 'CanonicalWorkspace.psm1') -Force
+$ProjectsRoot = Resolve-CanonicalWorkspaceRoot -ProjectsRoot $ProjectsRoot -WorkbenchRepoPath $selectedWorkbench
 
 $coreRepo = Join-Path $ProjectsRoot "lotus-core"
 $performanceRepo = Join-Path $ProjectsRoot "lotus-performance"

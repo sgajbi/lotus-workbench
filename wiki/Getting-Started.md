@@ -49,22 +49,24 @@ This local-development default does not apply to production builds or promoted d
 
 ## Canonical local runtime
 
-Run the canonical lifecycle from Windows PowerShell:
+From the `lotus-workbench` checkout on Windows, first acquire the
+[Platform machine reservation](https://github.com/sgajbi/lotus-platform/blob/main/docs/operations/canonical-runtime-reservation.md)
+and set its holder. Windows PowerShell is included with Windows; run:
 
 ```powershell
-$workspaceRoot = (Resolve-Path (Join-Path $PWD '..')).Path
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot
+npm run live:stack:up
 npm run live:validate
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot
+npm run live:stack:down
 ```
 
 When Workbench UI changes need hot reload while the rest of the canonical app set remains
-Docker-backed, add `-LocalApps workbench` to the `Start-LotusFrontOfficeCanonical.ps1` command.
+Docker-backed, use `npm run live:stack:up:workbench-local`.
 
-The canonical runner is not currently supported from Bash or Unix PowerShell because its workspace
-discovery and nested commands remain Windows-specific. Workbench
-[#1020](https://github.com/sgajbi/lotus-workbench/issues/1020) owns that portability gap; do not
-translate these commands to `pwsh` and claim equivalent runtime proof.
+The runner infers the sibling checkout root or accepts `LOTUS_WORKSPACE_ROOT`; explicit
+`-ProjectsRoot` on the `.ps1` scripts takes precedence. A missing or mismatched root refuses before
+Docker mutation. PowerShell 7 can also invoke the scripts directly. Full macOS/Linux runtime
+support is not certified because Windows listener and ingress-host handling remains; see
+[Workbench #1020](https://github.com/sgajbi/lotus-workbench/issues/1020).
 
 Canonical identities:
 

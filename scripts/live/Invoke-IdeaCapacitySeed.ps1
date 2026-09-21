@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$ProjectsRoot = "C:\Users\Sandeep\projects",
+  [string]$ProjectsRoot = "",
   [string]$IdeaBaseUrl = "http://127.0.0.1:8330",
   [Parameter(Mandatory = $true)][string]$AsOfDate,
   [Parameter(Mandatory = $true)][string]$SeededAtUtc,
@@ -11,6 +11,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$selectedWorkbench = (Resolve-Path (Join-Path $PSScriptRoot '../..')).ProviderPath
+Import-Module (Join-Path $PSScriptRoot 'CanonicalWorkspace.psm1') -Force
+$ProjectsRoot = Resolve-CanonicalWorkspaceRoot -ProjectsRoot $ProjectsRoot -WorkbenchRepoPath $selectedWorkbench
 $ideaRepo = Join-Path $ProjectsRoot "lotus-idea"
 $workbenchRepo = Join-Path $ProjectsRoot "lotus-workbench"
 $python = Join-Path $ideaRepo ".venv\Scripts\python.exe"

@@ -5,9 +5,15 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $fixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) "lotus-reservation-$([guid]::NewGuid().ToString('N'))"
 $adapterDirectory = Join-Path $fixtureRoot 'lotus-platform/automation'
 New-Item -ItemType Directory -Force -Path $adapterDirectory | Out-Null
-foreach ($repo in @('core','performance','risk','ai','advise','manage','report','archive','render','idea','gateway','workbench')) {
+foreach ($repo in @('core','performance','risk','ai','advise','manage','report','archive','render','idea','gateway')) {
   New-Item -ItemType Directory -Path (Join-Path $fixtureRoot "lotus-$repo") | Out-Null
 }
+$fixtureWorkbench = Join-Path $fixtureRoot 'lotus-workbench'
+$linkType = if ($PSVersionTable.PSEdition -eq 'Desktop') { 'Junction' } else { 'SymbolicLink' }
+New-Item -ItemType $linkType -Path $fixtureWorkbench -Target $repoRoot | Out-Null
+# The shipped runner invokes the Platform preview in the current PowerShell engine.
+# This controlled fixture has no host mutation and exists only under the generated root.
+Set-Content -LiteralPath (Join-Path $adapterDirectory 'Sync-Dev-Ingress-Hosts.ps1') -Value '$global:LASTEXITCODE = $global:proofHostsPreviewStatus; Write-Output "Controlled ingress-host preview"'
 # A controlled supplier interface, not consumer conformance or production IAM evidence.
 $adapter = @'
 function Invoke-CanonicalReservation {
@@ -93,6 +99,7 @@ $global:proofAdmittedBindings = @(); $global:proofComposeContainers = @()
 $global:proofOperationDepth = 0; $global:proofBegins = 0
 $global:proofCoreInspections = 0; $global:proofReplaceAfterInitial = $false
 $global:proofAiContainers=@(); $global:proofExpectedAiEnv=''
+$global:proofHostsPreviewStatus=0
 try {
   foreach ($scriptName in @('Start-LotusFrontOfficeCanonical.ps1','Stop-LotusFrontOfficeCanonical.ps1','Validate-LotusFrontOfficeCanonical.ps1')) {
     foreach ($holder in @('', 'foreign')) {
@@ -116,6 +123,24 @@ try {
     }
     if (-not $refused -or $global:proofMutations.Count -ne 0) { throw 'Mismatched checkout performed I/O' }
     $cases += "$scriptName / different executing checkout refuses before I/O"
+  }
+  $previousWorkspaceRoot = $env:LOTUS_WORKSPACE_ROOT
+  try {
+    $env:LOTUS_WORKSPACE_ROOT = $fixtureRoot
+    $global:proofMutations = @(); $global:proofOutcomes = @(); $refused = $false
+    try {
+      & (Join-Path $repoRoot 'scripts/live/Validate-LotusFrontOfficeCanonical.ps1') `
+        -RuntimeHolder 'foreign'
+    } catch {
+      if ($_.Exception.Message -notmatch 'RESERVATION_REFUSED') { throw }
+      $refused = $true
+    }
+    if (-not $refused -or $global:proofMutations.Count -ne 0) {
+      throw 'Environment-selected workspace did not fence validation before I/O'
+    }
+    $cases += 'shipped validation resolves displaced checkout through LOTUS_WORKSPACE_ROOT'
+  } finally {
+    $env:LOTUS_WORKSPACE_ROOT = $previousWorkspaceRoot
   }
   $global:proofMutations = @(); $global:proofOutcomes = @()
   & (Join-Path $repoRoot 'scripts/live/Start-LotusFrontOfficeCanonical.ps1') `
@@ -345,6 +370,19 @@ exit $global:proofDpmStatus
   }
   $global:proofAiContainers=@(); $global:proofExpectedAiEnv=''; $global:proofOperationDepth=0
   $global:proofAdmittedBindings=@(); $global:proofComposeContainers=@()
+  $global:proofHostsPreviewStatus=23; $global:proofMutations=@(); $global:proofOutcomes=@()
+  $hostsRefused=$false
+  try {
+    & (Join-Path $repoRoot 'scripts/live/Start-LotusFrontOfficeCanonical.ps1') -ProjectsRoot $fixtureRoot -RuntimeHolder 'fixture-owner' -CoreManageOnly
+  } catch {
+    if ($_.Exception.Message -notmatch 'ingress hosts preview failed with exit code 23') { throw }
+    $hostsRefused=$true
+  }
+  if (-not $hostsRefused -or $global:proofMutations.Count -ne 0 -or $global:proofOutcomes[0] -ne 'failure') {
+    throw 'Failed hosts preview continued into runtime mutation'
+  }
+  $cases += 'hosts preview native failure refuses before Compose mutation'
+  $global:proofHostsPreviewStatus=0
   foreach ($status in @(23,0)) {
     $global:proofIngressStatus=$status; $global:proofIngressRuns=0; $global:proofSeedCalls=0
     $global:proofMutations=@(); $global:proofOutcomes=@(); $refused=$false
@@ -460,5 +498,12 @@ exit $global:proofDpmStatus
   $resolved = (Resolve-Path -LiteralPath $fixtureRoot).Path
   $temporary = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
   if (-not $resolved.StartsWith($temporary, [System.StringComparison]::OrdinalIgnoreCase)) { throw 'Invalid fixture cleanup target' }
+  $fixtureLink = Get-Item -LiteralPath $fixtureWorkbench -ErrorAction SilentlyContinue
+  if ($fixtureLink) {
+    if (-not $fixtureLink.LinkType -or (Resolve-Path -LiteralPath $fixtureLink.Target).ProviderPath -ne $repoRoot) {
+      throw 'Refusing to remove a non-fixture Workbench path'
+    }
+    [IO.Directory]::Delete($fixtureWorkbench)
+  }
   Remove-Item -LiteralPath $resolved -Recurse -Force
 }

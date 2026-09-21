@@ -84,19 +84,22 @@ live IdP, grant-store, key-custody, and deployment certification remain tracked 
 [Workbench #436](https://github.com/sgajbi/lotus-workbench/issues/436) and
 [lotus-platform #775](https://github.com/sgajbi/lotus-platform/issues/775).
 
-For a populated integrated run, use the governed front-office flow and canonical portfolio
-`PB_SG_GLOBAL_BAL_001` from Windows PowerShell:
+For a populated integrated run on Windows, use the governed front-office flow and canonical
+portfolio `PB_SG_GLOBAL_BAL_001`. Acquire the [machine reservation](https://github.com/sgajbi/lotus-platform/blob/main/docs/operations/canonical-runtime-reservation.md)
+first. The Windows-only `npm` launcher uses built-in Windows PowerShell and infers the workspace
+from this checkout or `LOTUS_WORKSPACE_ROOT`:
 
 ```powershell
-$workspaceRoot = (Resolve-Path (Join-Path $PWD '..')).Path
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot
+npm run live:stack:up
 npm run live:validate
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot
+npm run live:stack:down
 ```
 
-The canonical runner is not currently supported from Bash or Unix PowerShell because its workspace
-discovery and nested commands remain Windows-specific. Workbench
-[#1020](https://github.com/sgajbi/lotus-workbench/issues/1020) owns that portability gap.
+The runner refuses a missing or mismatched workspace before Docker mutation. PowerShell 7 can
+also invoke the `.ps1` scripts directly with `-ProjectsRoot`.
+Full canonical orchestration on macOS/Linux is not certified: Windows listener and ingress-host
+handling remains in the path. Track that boundary under
+[Workbench #1020](https://github.com/sgajbi/lotus-workbench/issues/1020).
 
 The complete configuration inventory, preflight behavior, failure recovery, and evidence locations
 are owned by the

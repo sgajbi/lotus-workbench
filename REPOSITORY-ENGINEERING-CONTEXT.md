@@ -354,6 +354,14 @@ concise; route detail to its purpose-owned document and execution state to GitHu
 
 ## Canonical Runtime Practice
 
+Canonical `npm run live:*` entrypoints use the Windows-only Node launcher and built-in Windows
+PowerShell; PowerShell 7 remains available for direct script invocation. Start, stop, and the Idea
+capacity producer resolve the workspace from the executing Workbench checkout, with
+`LOTUS_WORKSPACE_ROOT` or explicit `-ProjectsRoot` taking precedence; a missing Platform sibling
+or mismatched selected Workbench checkout refuses before runtime mutation. Both Windows PowerShell 5
+and PowerShell 7 direct script invocation are tested. Full macOS/Linux orchestration is not certified while
+Windows listener and ingress-host controls remain in the path.
+
 Canonical runtime practice: `scripts/live/Start-LotusFrontOfficeCanonical.ps1` and
 `Stop-LotusFrontOfficeCanonical.ps1` consume the Platform-owned reservation adapter from the one
 canonical sibling checkout. An explicit acquired `LOTUS_CANONICAL_RUNTIME_HOLDER` is required for

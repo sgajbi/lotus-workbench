@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$ProjectsRoot = "C:\Users\Sandeep\projects",
+  [string]$ProjectsRoot = "",
   [string]$RuntimeHolder = $env:LOTUS_CANONICAL_RUNTIME_HOLDER,
   [string]$WorkbenchRepoPath,
   [string]$PortfolioId = "PB_SG_GLOBAL_BAL_001",
@@ -26,6 +26,8 @@ if ($WorkbenchRepoPath -and [System.IO.Path]::GetFullPath($WorkbenchRepoPath) -n
   throw 'Selected Workbench checkout does not match the executing script.'
 }
 $WorkbenchRepoPath = $selectedWorkbench
+Import-Module (Join-Path $PSScriptRoot 'CanonicalWorkspace.psm1') -Force
+$ProjectsRoot = Resolve-CanonicalWorkspaceRoot -ProjectsRoot $ProjectsRoot -WorkbenchRepoPath $selectedWorkbench
 Import-Module (Join-Path $PSScriptRoot "CanonicalPortOwnership.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot 'CanonicalComposeAdmission.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'CanonicalBuildPlan.psm1') -Force
@@ -926,7 +928,15 @@ if ($RequireMainlineSources) {
 }
 
 Write-Host "Previewing managed canonical hosts block from lotus-platform ..."
-Invoke-RepoCommand $platformRepo "powershell -ExecutionPolicy Bypass -File automation\\Sync-Dev-Ingress-Hosts.ps1"
+Push-Location $platformRepo
+try {
+  & (Join-Path $platformRepo 'automation/Sync-Dev-Ingress-Hosts.ps1')
+  if ($LASTEXITCODE -ne 0) {
+    throw "Canonical ingress hosts preview failed with exit code $LASTEXITCODE."
+  }
+} finally {
+  Pop-Location
+}
 $canonicalDpmCommandCenterEnvironment = Get-CanonicalDpmCommandCenterEnvironment
 
 if ($CleanCoreState) {
