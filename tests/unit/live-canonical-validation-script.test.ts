@@ -581,8 +581,8 @@ describe("canonical live validation script", () => {
     expect(script).toContain("function Get-CanonicalRequiredPortPlan");
     expect(script).toContain("function Get-DockerPublishedPortOwners");
     expect(script).toContain("function Test-CanonicalPortOwnership");
-    expect(script).toContain('C:\\Users\\Sandeep\\projects",');
-    expect(script).not.toContain('C:\\\\Users\\\\Sandeep\\\\projects",');
+    expect(script).not.toContain('C:\\Users\\Sandeep\\projects",');
+    expect(script).toContain("Resolve-CanonicalWorkspaceRoot -ProjectsRoot $ProjectsRoot");
     expect(script).toContain(
       'Import-Module (Join-Path $PSScriptRoot "CanonicalPortOwnership.psm1") -Force',
     );
@@ -972,7 +972,7 @@ describe("canonical live validation script", () => {
     expect(packageJson).toContain('"live:stack:up:workbench-local"');
     expect(packageJson).toContain('"live:stack:up:core-manage"');
     expect(packageJson).toContain(
-      '"live:stack:up:validate": "powershell -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -RunValidation -BuildImages"',
+      '"live:stack:up:validate": "node scripts/live/run-canonical-powershell.mjs scripts/live/Start-LotusFrontOfficeCanonical.ps1 -RunValidation -BuildImages"',
     );
     expect(startScript).toContain("[switch]$RequireMainlineSources");
     expect(startScript).toContain("mainline-source-provenance.mjs");

@@ -24,7 +24,8 @@ if ($WorkbenchRepoPath -and [System.IO.Path]::GetFullPath($WorkbenchRepoPath) -n
   throw 'Selected Workbench checkout does not match the executing script.'
 }
 $WorkbenchRepoPath = $repoRoot
-if ([string]::IsNullOrWhiteSpace($ProjectsRoot)) { $ProjectsRoot = Split-Path -Parent $repoRoot }
+Import-Module (Join-Path $PSScriptRoot 'CanonicalWorkspace.psm1') -Force
+$ProjectsRoot = Resolve-CanonicalWorkspaceRoot -ProjectsRoot $ProjectsRoot -WorkbenchRepoPath $repoRoot
 Import-Module (Join-Path $ProjectsRoot 'lotus-platform/automation/CanonicalRuntimeReservation.psm1')
 $validationOperation = $null
 $validationOutcome = 'failure'
