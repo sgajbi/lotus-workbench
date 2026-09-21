@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const BANKED_FUNCTION_FLOOR = 93.29;
+const BOUNDED_COVERAGE_COMMAND =
+  "npm run test:runtime-state-inventory && vitest run --coverage --exclude tests/unit/runtime-state-inventory.test.ts --maxWorkers=4";
 const APPROVED_COVERAGE_EXCLUSIONS = [
   "tests/**",
   "**/*.d.ts",
@@ -37,7 +39,32 @@ function readStringArray(source: string, name: string): string[] {
   return literals.map(({ groups }) => JSON.parse(`"${groups?.value ?? ""}"`) as string);
 }
 
+function assertBoundedCoverageCommand(command: string): void {
+  if (command !== BOUNDED_COVERAGE_COMMAND) {
+    throw new Error(
+      "Coverage command must retain the full suite, V8 coverage, and four-worker bound.",
+    );
+  }
+}
+
 describe("advisor-surface coverage ratchet", () => {
+  it("keeps the full coverage command bounded without weakening tests or thresholds", () => {
+    const packageJson = JSON.parse(readFileSync(resolve("package.json"), "utf8")) as {
+      scripts: Record<string, string>;
+    };
+    const command = packageJson.scripts["test:coverage"];
+
+    expect(() => assertBoundedCoverageCommand(command)).not.toThrow();
+    expect(() =>
+      assertBoundedCoverageCommand(command.replace("--maxWorkers=4", "--maxWorkers=16")),
+    ).toThrow();
+    expect(() =>
+      assertBoundedCoverageCommand(
+        command.replace("vitest run --coverage", "vitest run --passWithNoTests"),
+      ),
+    ).toThrow();
+  });
+
   it("keeps every global threshold at or above its banked exact-main floor", () => {
     const config = readFileSync(resolve("vitest.config.ts"), "utf8");
 

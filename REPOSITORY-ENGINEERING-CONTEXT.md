@@ -37,7 +37,9 @@ facts; it must not invent reassuring defaults, thresholds, authority, or success
   support policy. Vitest, its V8 coverage provider, and the required Vite peer are pinned together
   by `package.json` and `package-lock.json` and exercised by CI; they are not represented in either
   of those inventories.
-  Vitest 4 retains the existing environment, worker policy, source inclusion and coverage floors.
+  Vitest 4 retains the existing environment, source inclusion and coverage floors. The complete
+  coverage command caps Vitest at four workers to avoid load-sensitive 5-second test timeouts;
+  the separate feature/unit command and Docker parity worker policy are unchanged.
   Tests that spy on browser methods restore their spies locally after every test: repeated
   `vi.spyOn` calls reuse an existing spy, so success-only cleanup can leak call history.
   The protected `make security` gate rejects moderate-or-higher advisories across the full resolved
