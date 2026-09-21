@@ -1,7 +1,22 @@
 import { readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
 describe("canonical observability evidence capture", () => {
+  it("discovers the governed Core derived-state service and refuses missing or foreign containers", () => {
+    const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+    const contractPath = join(process.cwd(), "scripts", "quality", "Test-CoreDerivedStateEvidence.ps1");
+    const result = spawnSync(
+      powershell,
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", contractPath],
+      { cwd: process.cwd(), encoding: "utf8" },
+    );
+
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain('"contract":"core-derived-state-evidence-discovery"');
+    expect(result.stdout).toContain('"cases":10');
+  });
+
   it("exposes a repeatable npm command for post-validation evidence capture", () => {
     const packageJson = readFileSync(join(process.cwd(), "package.json"), "utf8");
 
@@ -16,6 +31,10 @@ describe("canonical observability evidence capture", () => {
     );
     const screenshotScript = readFileSync(
       join(process.cwd(), "scripts", "live", "capture-observability-screenshots.mjs"),
+      "utf8"
+    );
+    const derivedStateLogScript = readFileSync(
+      join(process.cwd(), "scripts", "live", "Capture-CoreDerivedStateLog.ps1"),
       "utf8"
     );
 
@@ -38,6 +57,12 @@ describe("canonical observability evidence capture", () => {
     expect(script).toContain("$metricChecks = @()");
     expect(script).toContain("metricChecks = $metricChecks");
     expect(script).toContain("docker logs --since");
+    expect(script).toContain("Resolve-CoreDerivedStateContainer.ps1");
+    expect(script).toContain("Capture-CoreDerivedStateLog.ps1");
+    expect(derivedStateLogScript).toContain("position-timeseries materialization");
+    expect(derivedStateLogScript).toContain("portfolio-timeseries aggregation");
+    expect(script).not.toContain("lotus-core-app-local-portfolio_aggregation_service-1");
+    expect(script).not.toContain("timeseries_generator_service");
     expect(script).toContain("$captureStartedAt");
     expect(script).toContain("ForbiddenEvidencePatterns");
     expect(script).toContain("Assert-EvidenceDoesNotContainForbiddenPatterns");
