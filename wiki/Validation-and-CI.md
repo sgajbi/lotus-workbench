@@ -69,7 +69,9 @@ CODEOWNERS when a second accepted reviewer exists.
 - Vitest and its V8 coverage provider use the compatible patched 4.1.11 release, with Vite 7.3.6.
   This is the first patched stable line for the [redirect-mock advisory](https://github.com/advisories/GHSA-82fw-gwwq-j7x9).
   Source inclusion and coverage floors remain intact. Browser-method spies are restored in the
-  owning test suite; host parallelism is unchanged, and Docker parity retains its two-worker limit.
+  owning test suite. The complete coverage command uses a measured four-worker cap to avoid
+  load-sensitive five-second test timeouts without changing assertions or coverage floors; the
+  separate feature/unit command is unchanged, and Docker parity retains its two-worker limit.
 - `make security`
   fails on any moderate-or-higher advisory in the complete runtime and engineering toolchain,
   including the browser-delivered production dependency graph. The gate runs in the Feature, PR
@@ -102,8 +104,9 @@ CODEOWNERS when a second accepted reviewer exists.
   each surface proves at least two distinct source identities and two distinct source states.
 - `npm run test:coverage`
   runs the complete V8-backed application suite. The function threshold is a monotonic exact-measurement
-  ratchet at 93.29% (3,115 of 3,339 functions on 2026-08-30), replacing the former 70% floor without
-  weakening line, statement, or branch thresholds. Improve meaningful failure, partial-data,
+  policy floor at 93.29% (3,115 of 3,339 functions on 2026-08-30); the current configured
+  threshold is 93.47%. Neither is reduced by the worker cap, nor are line, statement, or branch
+  thresholds. Improve meaningful failure, partial-data,
   recovery, and source-mismatch tests before raising the floor; never add exclusions or shallow
   line-exercise tests to make this gate green.
 - `npm run quality:dependency-risk`

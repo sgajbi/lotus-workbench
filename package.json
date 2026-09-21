@@ -45,7 +45,7 @@
     "security:audit": "npm audit --audit-level=moderate && npm audit --omit=dev --audit-level=moderate",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:coverage": "npm run test:runtime-state-inventory && vitest run --coverage --exclude tests/unit/runtime-state-inventory.test.ts",
+    "test:coverage": "npm run test:runtime-state-inventory && vitest run --coverage --exclude tests/unit/runtime-state-inventory.test.ts --maxWorkers=4",
     "test:runtime-state-inventory": "vitest run tests/unit/runtime-state-inventory.test.ts",
     "test:runtime-ownership": "node scripts/quality/run-canonical-port-ownership-contract.mjs",
     "test:next-artifact-isolation": "node scripts/testing/verify-next-artifact-isolation.mjs",
