@@ -562,6 +562,7 @@ describe("canonical live validation script", () => {
     expect(script).toContain(
       "$canonicalCoreEnvironment = New-CanonicalCoreBuildEnvironment",
     );
+    expect(script).toContain("if ($BuildImages -or $RequireMainlineSources) {");
     expect(
       readNormalizedSource("scripts", "live", "CanonicalCoreImageProvenance.psm1"),
     ).toContain("DEMO_DATA_PACK_ENABLED = 'false'");

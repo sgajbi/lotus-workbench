@@ -31,6 +31,9 @@ describe("canonical Core image provenance", () => {
     expect(source).toContain("New-CanonicalCoreBuildEnvironment");
     expect(source).toContain("Assert-CanonicalCoreImageProvenance");
     expect(
+      source.match(/Get-GitRepositoryIdentity -RepoPath \$coreRepo -RequireCleanPrebuiltSource/g),
+    ).toHaveLength(2);
+    expect(
       source.indexOf("Assert-CanonicalCoreImageProvenance -RepoPath $coreRepo"),
     ).toBeLessThan(
       source.indexOf("Invoke-CanonicalCoreSeed -IngestOnly"),

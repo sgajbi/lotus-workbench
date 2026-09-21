@@ -197,7 +197,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFron
 For RFC/mainline certification, add `-RequireMainlineSources`. It fetches each canonical sibling
 without changing its worktree and fails before Docker, seeding, or screenshots unless every
 participant is clean and exactly at `origin/main`. Certification startup forces Docker image builds
-and container recreation. The Core build receives that checkout's exact commit, branch, UTC build
+and container recreation. The Core checkout must remain clean with one unchanged SHA/branch before
+and after its build. The build receives that checkout's exact commit, branch, UTC build
 time, source URL and image version; startup verifies the running query service's `/version` values
 against the built image's OCI labels before any seed. Missing or mismatched image identity refuses
 the run rather than treating a clean source checkout as proof of the image. Startup then regenerates
