@@ -316,7 +316,10 @@ persist credentials in evidence. This is deterministic seed and integration-read
 it is not load or soak evidence, capacity certification, or supported-feature promotion.
 
 The capacity seed is still exercised through Lotus Idea's public API policy. Canonical startup
-creates one per-run local trusted-caller marker, passes it to the Idea runtime as
+keeps the governed business as-of date separate from the lifecycle control clock: after Idea and
+Advise readiness, it captures one fresh UTC observation time for the capacity seed. A fixed
+demo-data generation timestamp is not valid evidence of a current lifecycle action.
+It creates one per-run local trusted-caller marker, passes it to the Idea runtime as
 `LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN`, and forwards the same marker to the seed process as
 `LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT`. The Idea seed process must also send complete
 synthetic tenant, book, portfolio, client, role, and capability scope headers for each governed

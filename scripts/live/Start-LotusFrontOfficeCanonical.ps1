@@ -428,7 +428,6 @@ function Get-CanonicalFrontOfficeDatePolicy {
 
   return [ordered]@{
     AsOfDate = $asOfDate
-    GeneratedAtUtc = "$($asOfDate)T10:00:00Z"
   }
 }
 
@@ -875,6 +874,7 @@ function Invoke-CanonicalIdeaCapacitySeed {
   $datePolicy = Get-CanonicalFrontOfficeDatePolicy
   Wait-HttpReady -Url "http://127.0.0.1:8330/health/ready" -Description "lotus-idea"
   Wait-HttpReady -Url "http://127.0.0.1:8000/health/ready" -Description "lotus-advise"
+  $capacityObservedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
 
   Write-Host "Seeding isolated Lotus Idea downstream-capacity evidence ..."
   Invoke-WithProcessEnvironment `
@@ -884,7 +884,7 @@ function Invoke-CanonicalIdeaCapacitySeed {
         -ProjectsRoot $ProjectsRoot `
         -IdeaBaseUrl "http://127.0.0.1:8330" `
         -AsOfDate $datePolicy.AsOfDate `
-        -SeededAtUtc $datePolicy.GeneratedAtUtc `
+        -SeededAtUtc $capacityObservedAtUtc `
         -RunId $ideaCanonicalRunId `
         -ExpectedCommitSha $ideaSourceIdentity.CommitSha `
         -ExpectedBranch $ideaSourceIdentity.Branch `
