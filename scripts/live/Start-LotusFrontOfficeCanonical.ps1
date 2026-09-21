@@ -939,12 +939,20 @@ if ($localAppSet.Count -gt 0) {
 }
 
 Write-Host "Starting Docker-backed canonical services..."
-$coreSourceIdentity = Get-GitRepositoryIdentity -RepoPath $coreRepo
-$canonicalCoreEnvironment = New-CanonicalCoreBuildEnvironment `
-  -CommitSha $coreSourceIdentity.CommitSha -Branch $coreSourceIdentity.Branch
+$canonicalCoreEnvironment = @{ DEMO_DATA_PACK_ENABLED = 'false' }
+if ($BuildImages -or $RequireMainlineSources) {
+  $coreSourceIdentity = Get-GitRepositoryIdentity -RepoPath $coreRepo -RequireCleanPrebuiltSource
+  $canonicalCoreEnvironment = New-CanonicalCoreBuildEnvironment `
+    -CommitSha $coreSourceIdentity.CommitSha -Branch $coreSourceIdentity.Branch
+}
 Write-Host "Starting lotus-core with auxiliary demo data pack disabled for canonical PB seed isolation."
 Invoke-ComposeUp $coreRepo $canonicalCoreEnvironment
 if ($BuildImages -or $RequireMainlineSources) {
+  $builtCoreSourceIdentity = Get-GitRepositoryIdentity -RepoPath $coreRepo -RequireCleanPrebuiltSource
+  if ($builtCoreSourceIdentity.CommitSha -cne $coreSourceIdentity.CommitSha -or
+      $builtCoreSourceIdentity.Branch -cne $coreSourceIdentity.Branch) {
+    throw 'Canonical Core source changed during image construction.'
+  }
   Wait-HttpReady -Url 'http://127.0.0.1:8201/health/ready' -Description 'lotus-core query'
   Assert-CanonicalCoreImageProvenance -RepoPath $coreRepo -Expected $canonicalCoreEnvironment
 }

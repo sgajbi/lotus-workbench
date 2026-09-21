@@ -1,6 +1,57 @@
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot '../live/CanonicalCoreImageProvenance.psm1') -Force
 
+# The launcher reads this shipped helper before and after a built Core image.
+$startScript = Join-Path $PSScriptRoot '../live/Start-LotusFrontOfficeCanonical.ps1'
+$tokens = $null; $parseErrors = $null
+$startAst = [Management.Automation.Language.Parser]::ParseFile($startScript, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors.Count) { throw 'Canonical launcher did not parse.' }
+$identityHelper = $startAst.Find({
+  param($node)
+  $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+  $node.Name -eq 'Get-GitRepositoryIdentity'
+}, $true)
+if (-not $identityHelper) { throw 'Canonical source identity guard is missing.' }
+. ([scriptblock]::Create($identityHelper.Extent.Text))
+$fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('lotus-core-provenance-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $fixtureRoot | Out-Null
+try {
+  & git -C $fixtureRoot init -q
+  if ($LASTEXITCODE -ne 0) { throw 'Source fixture Git init failed.' }
+  & git -C $fixtureRoot config user.name 'Lotus Source Fixture'
+  & git -C $fixtureRoot config user.email 'fixture@example.invalid'
+  $trackedFile = Join-Path $fixtureRoot 'source.txt'
+  'accepted source' | Set-Content -LiteralPath $trackedFile
+  & git -C $fixtureRoot add source.txt
+  & git -C $fixtureRoot -c commit.gpgsign=false commit -qm 'seed source fixture'
+  if ($LASTEXITCODE -ne 0) { throw 'Source fixture Git commit failed.' }
+  $cleanIdentity = Get-GitRepositoryIdentity -RepoPath $fixtureRoot -RequireCleanPrebuiltSource
+  if ($cleanIdentity.CommitSha -cnotmatch '\A[0-9a-f]{40}\z') { throw 'Clean source identity was not accepted.' }
+  'untracked mutation' | Set-Content -LiteralPath (Join-Path $fixtureRoot 'new-source.txt')
+  try {
+    Get-GitRepositoryIdentity -RepoPath $fixtureRoot -RequireCleanPrebuiltSource | Out-Null
+    throw 'Untracked source mutation was accepted.'
+  } catch {
+    if ($_.Exception.Message -notlike '*not clean before startup*') { throw }
+  }
+  Remove-Item -LiteralPath (Join-Path $fixtureRoot 'new-source.txt')
+  'tracked mutation' | Set-Content -LiteralPath $trackedFile
+  try {
+    Get-GitRepositoryIdentity -RepoPath $fixtureRoot -RequireCleanPrebuiltSource | Out-Null
+    throw 'Tracked source mutation was accepted.'
+  } catch {
+    if ($_.Exception.Message -notlike '*not clean before startup*') { throw }
+  }
+} finally {
+  $resolvedFixture = [IO.Path]::GetFullPath($fixtureRoot)
+  $resolvedTemp = [IO.Path]::GetFullPath([IO.Path]::GetTempPath())
+  if (-not $resolvedFixture.StartsWith($resolvedTemp, [StringComparison]::OrdinalIgnoreCase) -or
+      -not (Split-Path -Leaf $resolvedFixture).StartsWith('lotus-core-provenance-')) {
+    throw 'Refusing to remove an unexpected source fixture path.'
+  }
+  Remove-Item -LiteralPath $resolvedFixture -Recurse -Force
+}
+
 $commit = '0123456789abcdef0123456789abcdef01234567'
 $expected = New-CanonicalCoreBuildEnvironment -CommitSha $commit -Branch 'main' `
   -BuiltAtUtc ([datetime]'2026-09-21T12:30:00Z')
