@@ -220,11 +220,12 @@ $containers = @(
   "performance-analytics",
   "lotus-ai-lotus-ai-1",
   "lotus-core-app-local-query_control_plane_service-1",
-  "lotus-core-app-local-portfolio_aggregation_service-1",
   "lotus-core-app-local-valuation_orchestrator_service-1",
   "lotus-core-app-local-prometheus-1",
   "lotus-core-app-local-grafana-1"
 )
+$coreRepoPath = Join-Path (Split-Path -Parent $repoRoot) "lotus-core"
+$derivedStateIdentity = & (Join-Path $PSScriptRoot "Resolve-CoreDerivedStateContainer.ps1") -CoreRepoPath $coreRepoPath
 
 $screenshotManifest = $null
 if (-not $SkipScreenshots) {
@@ -242,6 +243,10 @@ if (-not $SkipScreenshots) {
 $logArtifacts = foreach ($container in $containers) {
   Write-ContainerLogArtifact -ContainerName $container -Tail $LogTail -Since $captureStartedAt
 }
+$derivedStateLog = & (Join-Path $PSScriptRoot "Capture-CoreDerivedStateLog.ps1") `
+  -CoreRepoPath $coreRepoPath -LogDirectory $logDirectory `
+  -ExpectedContainerId $derivedStateIdentity.ContainerId -Since $captureStartedAt -Tail $LogTail
+$logArtifacts = @($logArtifacts) + @($derivedStateLog)
 
 $manifest = [ordered]@{
   generatedAt = (Get-Date).ToString("o")

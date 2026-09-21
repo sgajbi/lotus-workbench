@@ -691,6 +691,10 @@ offline demo preparation and operational investigation documentation. It complem
 records the validation summary path and whether it existed at capture time, and it separates
 application API checks from metrics and dashboard HTTP samples so reviewers can audit the evidence
 without guessing the directory layout.
+Core position materialization and portfolio aggregation share `portfolio_derived_state_service`.
+Evidence capture discovers its live container from the Core Compose service and verifies checkout
+ownership. It revalidates the immutable container ID immediately before reading logs; replacement,
+missing, foreign, or empty post-capture-start required logs fail capture visibly.
 
 Before presenting a pack, review `observability-evidence-manifest.json` and the captured Gateway
 overview for warnings or partial failures. Manage supportability must return HTTP `200`; a freshly

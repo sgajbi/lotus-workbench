@@ -56,6 +56,12 @@ The output directory is intentionally local evidence and should not be committed
 - `api/`: readiness, capability, and representative Gateway API outputs
 - `metrics/`: Workbench Prometheus text metrics plus Prometheus and Grafana API samples
 - `logs/`: bounded container log tails for investigation walkthroughs
+- `logs/<current Core derived-state container>.log`: one bounded log tail for both position-timeseries
+  materialization and portfolio-timeseries aggregation. The capture resolves
+  `portfolio_derived_state_service` from the Core Compose service and verifies the labelled
+  checkout. It revalidates the immutable container ID before the log read; replacement, missing,
+  foreign, or empty post-capture-start required logs fail the capture instead of producing a
+  demo-ready pack with a retired container name. Historical pre-start lines do not satisfy it.
 - `screenshots/`: Workbench evidence/risk views plus Prometheus and Grafana screenshots
 
 ## Demonstrating Functional Capabilities
