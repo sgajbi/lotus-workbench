@@ -1179,6 +1179,27 @@ describe("canonical live validation script", () => {
     expect(startScript).toContain("LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN");
     expect(startScript).toContain("LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT");
     expect(startScript).toContain("Invoke-WithProcessEnvironment");
+    const capacitySeed = startScript.slice(
+      startScript.indexOf("function Invoke-CanonicalIdeaCapacitySeed"),
+      startScript.indexOf(
+        "Import-Module (Join-Path $platformRepo",
+        startScript.indexOf("function Invoke-CanonicalIdeaCapacitySeed"),
+      ),
+    );
+    expect(capacitySeed).toContain("-AsOfDate $datePolicy.AsOfDate");
+    expect(capacitySeed).toContain("-SeededAtUtc $capacityObservedAtUtc");
+    expect(capacitySeed).not.toContain("-SeededAtUtc $datePolicy.GeneratedAtUtc");
+    expect(startScript).not.toContain('GeneratedAtUtc = "$($asOfDate)T10:00:00Z"');
+    const readyIndex = capacitySeed.indexOf(
+      'Wait-HttpReady -Url "http://127.0.0.1:8000/health/ready"',
+    );
+    const clockIndex = capacitySeed.indexOf(
+      "$capacityObservedAtUtc = (Get-Date).ToUniversalTime()",
+    );
+    const seedIndex = capacitySeed.indexOf("-SeededAtUtc $capacityObservedAtUtc");
+    expect(readyIndex).toBeGreaterThanOrEqual(0);
+    expect(clockIndex).toBeGreaterThan(readyIndex);
+    expect(seedIndex).toBeGreaterThan(clockIndex);
   });
 
   it("asserts canonical performance and risk calculation sanity", () => {

@@ -376,6 +376,8 @@ CODEOWNERS when a second accepted reviewer exists.
   and fresh canonical run identity. Canonical startup therefore rebuilds only the Idea Compose
   project before this proof; a prior reusable Idea image is never relabelled or accepted as the
   current run, and unrelated services are not rebuilt solely for Idea provenance. The proof
+  keeps the contract's business as-of date distinct from a fresh UTC capacity-lifecycle observation
+  captured after both services are ready; a fixed demo timestamp is not trusted control time. It
   requires the isolated `CAPACITY_SYNTHETIC_PORTFOLIO_001` namespace and accepts exactly one
   report-only downstream-submission probe. Workbench evidence retains artifact paths, SHA-256
   digests, and provenance but excludes conversion-intent identifiers, downstream paths, and
