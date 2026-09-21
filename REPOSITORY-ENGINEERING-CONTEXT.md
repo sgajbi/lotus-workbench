@@ -380,7 +380,9 @@ are collected during failure cleanup too; completed work must not be relabelled 
 Overall timing success is finalized only after reservation outcome publication succeeds; phase
 success cannot override a failed producing command, and failure remains if receipt finalization fails.
 Dependency-sensitive startup, fresh Idea build identity, seed order and financial readiness stay
-unchanged. Unique phase/build receipts distinguish
+unchanged. Built Core startup now passes exact checkout identity into its image and verifies the
+running query `/version` against OCI labels before seeding; source preflight alone is not image
+proof. Unique phase/build receipts distinguish
 construction/startup from data materialization and validation; no speedup or capacity claim follows
 without same-source measured full-stack comparison. See the runbook for the exact bounded set.
 The default canonical evidence directory is Git-ignored and excluded from Docker inputs. Runtime

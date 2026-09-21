@@ -29,6 +29,7 @@ $WorkbenchRepoPath = $selectedWorkbench
 Import-Module (Join-Path $PSScriptRoot "CanonicalPortOwnership.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot 'CanonicalComposeAdmission.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'CanonicalBuildPlan.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'CanonicalCoreImageProvenance.psm1') -Force
 $prebuiltRepositories = @{}
 $runtimePhases = [System.Collections.ArrayList]::new()
 $runtimeTimingId = [guid]::NewGuid().ToString('N')
@@ -938,11 +939,15 @@ if ($localAppSet.Count -gt 0) {
 }
 
 Write-Host "Starting Docker-backed canonical services..."
-$canonicalCoreEnvironment = @{
-  DEMO_DATA_PACK_ENABLED = "false"
-}
+$coreSourceIdentity = Get-GitRepositoryIdentity -RepoPath $coreRepo
+$canonicalCoreEnvironment = New-CanonicalCoreBuildEnvironment `
+  -CommitSha $coreSourceIdentity.CommitSha -Branch $coreSourceIdentity.Branch
 Write-Host "Starting lotus-core with auxiliary demo data pack disabled for canonical PB seed isolation."
 Invoke-ComposeUp $coreRepo $canonicalCoreEnvironment
+if ($BuildImages -or $RequireMainlineSources) {
+  Wait-HttpReady -Url 'http://127.0.0.1:8201/health/ready' -Description 'lotus-core query'
+  Assert-CanonicalCoreImageProvenance -RepoPath $coreRepo -Expected $canonicalCoreEnvironment
+}
 
 if ($CoreManageOnly) {
   Write-Host "Core/manage proof mode enabled; skipping non-essential front-office services."

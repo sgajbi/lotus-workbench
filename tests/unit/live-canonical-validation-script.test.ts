@@ -559,8 +559,12 @@ describe("canonical live validation script", () => {
     expect(script).toContain("[switch]$CoreManageOnly");
     expect(script).toContain("[switch]$PortOwnershipPreflightOnly");
     expect(script).toContain("Core/manage proof mode enabled");
-    expect(script).toContain("$canonicalCoreEnvironment = @{");
-    expect(script).toContain('DEMO_DATA_PACK_ENABLED = "false"');
+    expect(script).toContain(
+      "$canonicalCoreEnvironment = New-CanonicalCoreBuildEnvironment",
+    );
+    expect(
+      readNormalizedSource("scripts", "live", "CanonicalCoreImageProvenance.psm1"),
+    ).toContain("DEMO_DATA_PACK_ENABLED = 'false'");
     expect(script).toContain(
       "Starting lotus-core with auxiliary demo data pack disabled for canonical PB seed isolation.",
     );

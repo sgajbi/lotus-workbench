@@ -197,7 +197,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFron
 For RFC/mainline certification, add `-RequireMainlineSources`. It fetches each canonical sibling
 without changing its worktree and fails before Docker, seeding, or screenshots unless every
 participant is clean and exactly at `origin/main`. Certification startup forces Docker image builds
-and container recreation, then regenerates source provenance after startup and fails if it changed.
+and container recreation. The Core build receives that checkout's exact commit, branch, UTC build
+time, source URL and image version; startup verifies the running query service's `/version` values
+against the built image's OCI labels before any seed. Missing or mismatched image identity refuses
+the run rather than treating a clean source checkout as proof of the image. Startup then regenerates
+source provenance after startup and fails if it changed.
 The live validator also binds Lotus Idea's `/version` commit and branch to that manifest before it
 records mainline-source certification posture. It writes source-safe preflight and runtime
 provenance and Idea capacity-seed artifacts to a per-run Local AppData directory outside every
@@ -213,7 +217,8 @@ That script performs:
 
 1. preflight every host port required by the selected canonical mode
 2. preview the canonical hosts block from `lotus-platform`
-3. `docker compose up -d` for `lotus-core` with `DEMO_DATA_PACK_ENABLED=false`
+3. `docker compose up -d` for `lotus-core` with `DEMO_DATA_PACK_ENABLED=false` and exact-source
+   build metadata; built-image mode verifies Core query `/version` and OCI identity before seeding
 4. `docker compose up -d` for `lotus-performance`, `lotus-risk`, `lotus-ai`, `lotus-advise`, `lotus-manage`, `lotus-report`, and `lotus-idea`
 5. seed the governed Lotus Idea advisor queue through `lotus-idea` using a deterministic canonical high-cash candidate for `PB_SG_GLOBAL_BAL_001`, then progress that exact candidate through Idea's public lifecycle API to source-confirmed review readiness
 6. start `lotus-archive` and `lotus-render`
