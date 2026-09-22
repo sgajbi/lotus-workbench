@@ -9,6 +9,7 @@ export function createValidationSummary({
   panelRegistry,
   workbenchBaseUrl,
   gatewayBaseUrl,
+  validationProfile = "full",
 }) {
   return {
     generatedAt,
@@ -24,6 +25,13 @@ export function createValidationSummary({
     },
     workbenchBaseUrl,
     gatewayBaseUrl,
+    validationProfile,
+    excludedProofs: validationProfile === "client-demo" ? [{
+      proofScope: "idea.synthetic_downstream_capacity_workload",
+      reasonCode: "NON_CERTIFYING_CAPACITY_PROBE_EXCLUDED",
+      owningIssue: "sgajbi/lotus-idea#1345",
+      claimBoundary: "No Idea downstream-capacity acceptance or full-profile certification",
+    }] : [],
     dns: [],
     apiChecks: [],
     advisorBookChecks: [],
@@ -64,6 +72,10 @@ export async function writeShotIndex(shotIndexPath, summary, validationSummaryPa
     `- Governed by: ${summary.canonicalContract.governedByRfc}`,
     `- Portfolio: ${summary.portfolioId}`,
     `- Benchmark: ${summary.benchmarkCode}`,
+    `- Validation profile: ${summary.validationProfile ?? "full"}`,
+    ...(summary.excludedProofs ?? []).map(
+      (proof) => `- Excluded proof: ${proof.proofScope} (${proof.reasonCode}; ${proof.claimBoundary})`,
+    ),
     `- As of: ${summary.screenshots[0]?.asOfDate ?? summary.canonicalContract.canonicalAsOfDate ?? "unknown"}`,
     `- Validation summary: ${validationSummaryPath}`,
     "",

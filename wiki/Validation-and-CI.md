@@ -19,6 +19,17 @@ while integrated product support requires canonical runtime evidence and green r
 | Merge readiness | Feature Lane and PR Merge Gate | Mainline is not proven until Main Releasability passes |
 | Demo evidence | Passing canonical validation plus same-run evidence pack | Diagnostic captures stay separate |
 
+The single [canonical runner](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md)
+defaults to `full`: Idea's synthetic downstream-capacity probe and its evidence are required. The
+explicit `client-demo` profile excludes only that non-certifying workload; the run records the
+exclusion and still requires Idea readiness, a current-run candidate/queue, real API/calculation
+and browser-panel proof, and governed teardown. Select it with
+`npm run live:stack:up -- -ValidationProfile client-demo` and
+`npm run live:validate -- -ValidationProfile client-demo`. A client-demo pass is not full-profile
+or downstream-capacity acceptance; [Idea #1345](https://github.com/sgajbi/lotus-idea/issues/1345)
+tracks the blocked producer probe. The Platform QA wrapper needs its coordinated profile-forwarding
+update before source-pinned wrapper evidence can use this selection.
+
 ## Lane model
 
 `lotus-workbench` uses:

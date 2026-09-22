@@ -1174,6 +1174,15 @@ describe("canonical live validation script", () => {
       "utf8",
     );
     expect(startScript).toContain(
+      "$followUpValidationCommand = if ($ValidationProfile -eq 'client-demo') {",
+    );
+    expect(startScript).toContain(
+      "'npm run live:validate -- -ValidationProfile client-demo'",
+    );
+    expect(startScript).toContain(
+      'Write-Host "Run \'$followUpValidationCommand\' from lotus-workbench when you want end-to-end validation."',
+    );
+    expect(startScript).toContain(
       '$ideaCapacityTrustedCallerContext = "canonical-local-idea-capacity-seed-$([guid]::NewGuid().ToString(\'N\'))"',
     );
     expect(startScript).toContain("LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN");

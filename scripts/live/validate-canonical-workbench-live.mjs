@@ -86,6 +86,7 @@ const {
   canonicalAsOfDate,
   ideaCandidateId,
   ideaCapacitySeedEvidencePath,
+  validationProfile,
   mainlineSourceProvenancePath,
 } = resolveValidationConfig(process.argv.slice(2));
 const { summaryPath, shotIndexPath } = buildSummaryPaths(outputDir);
@@ -122,6 +123,7 @@ const summary = createValidationSummary({
   workbenchBaseUrl,
   gatewayBaseUrl,
   panelRegistry,
+  validationProfile,
 });
 const mainlineSourceProvenance = mainlineSourceProvenancePath
   ? loadValidatedMainlineSourceManifest(mainlineSourceProvenancePath)
@@ -152,14 +154,17 @@ if (mainlineSourceProvenance) {
     runtimeBindings: [ideaRuntimeBinding],
   };
 }
-summary.ideaCapacitySeed = await loadIdeaCapacitySeedEvidence(
-  ideaCapacitySeedEvidencePath,
-  {
-    commitSha: ideaVersion?.build?.gitCommitSha,
-    branch: ideaVersion?.build?.gitBranch,
-    runId: ideaVersion?.build?.ciRunId,
-  },
-);
+summary.ideaCapacitySeed = validationProfile === "full"
+  ? await loadIdeaCapacitySeedEvidence(ideaCapacitySeedEvidencePath, {
+      commitSha: ideaVersion?.build?.gitCommitSha,
+      branch: ideaVersion?.build?.gitBranch,
+      runId: ideaVersion?.build?.ciRunId,
+    })
+  : {
+      status: "excluded",
+      ...summary.excludedProofs[0],
+      productionCapacityCertified: false,
+    };
 const panelGovernance = createPanelGovernance(summary, panelRegistry);
 
 const advisorBookAsOfDate =

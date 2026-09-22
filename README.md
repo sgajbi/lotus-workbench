@@ -95,6 +95,12 @@ npm run live:validate
 npm run live:stack:down
 ```
 
+The default `full` profile requires Idea's separate synthetic downstream-capacity probe, currently
+blocked by [Idea #1345](https://github.com/sgajbi/lotus-idea/issues/1345). For a
+bounded client walkthrough, pass `-- -ValidationProfile client-demo` to both `live:stack:up` and
+`live:validate`; this records that the non-certifying capacity probe was excluded while retaining
+Idea readiness, candidate, API and Workbench UI proof. It is not full-profile or capacity evidence.
+
 The runner refuses a missing or mismatched workspace before Docker mutation. PowerShell 7 can
 also invoke the `.ps1` scripts directly with `-ProjectsRoot`.
 Full canonical orchestration on macOS/Linux is not certified: Windows listener and ingress-host

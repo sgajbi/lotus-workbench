@@ -378,6 +378,10 @@ acceptance additionally records the immutable actual Platform revision. Source/C
 Level A receipts, Level B readiness and production IAM are independent. Explicit `core-manage`
 diagnostic acquisition/startup carries its bounded source/configuration scope; skipped products
 are not consulted and teardown uses acquired scope rather than manufacturing full authority.
+The canonical runtime defaults to the `full` validation profile. Its explicit `client-demo`
+profile excludes only the non-certifying Idea synthetic downstream-capacity workload and records
+that exclusion; it never relaxes Idea readiness, current-run candidate/queue, API, browser, panel
+or teardown proof. Platform's QA wrapper owns forwarding of the selected profile.
 
 Canonical image scheduling defaults to serial. Full Docker-backed builds may explicitly select
 `-BuildConcurrency 2`; only independent image construction overlaps in process-isolated children.
