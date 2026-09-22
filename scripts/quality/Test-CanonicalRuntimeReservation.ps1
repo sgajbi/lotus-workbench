@@ -229,7 +229,8 @@ try {
   $contractDirectory = Join-Path $fixtureRoot 'lotus-platform/context/contracts'
   New-Item -ItemType Directory -Force -Path $contractDirectory | Out-Null
   # Explicit controlled runtime configuration, not a live/mutable sibling or IAM grant.
-  @{dpm_command_center=@{workbench_caller_tenant_id='fixture-tenant'; tenant_id='fixture-tenant';
+  @{portfolio=@{source_tenant_id='fixture-source-tenant'};
+    dpm_command_center=@{workbench_caller_tenant_id='fixture-tenant'; tenant_id='fixture-tenant';
     portfolio_manager_id='fixture-pm'; book_id='fixture-book'; command_center_as_of_date='2026-04-10'}
   } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $contractDirectory 'canonical-front-office-demo-data-contract.json')
   function global:powershell { $global:LASTEXITCODE=0 }
@@ -256,6 +257,10 @@ try {
   $global:proofFailConfigProject='lotus-ai'; $global:proofIngressStatus=0
   if (Test-Path (Join-Path $adapterDirectory 'Invoke-DpmCommandCenterSeed.ps1')) { throw 'Partial startup must prove DPM is absent and not invoked' }
   foreach ($narrow in @($true,$false)) {
+    $controlledContractPath=Join-Path $contractDirectory 'canonical-front-office-demo-data-contract.json'
+    $controlledContract=Get-Content -Raw -LiteralPath $controlledContractPath | ConvertFrom-Json
+    $controlledContract.portfolio.source_tenant_id=if ($narrow) { $null } else { 'fixture-source-tenant' }
+    $controlledContract | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $controlledContractPath
     $global:proofMutations=@(); $global:proofOutcomes=@(); $global:proofSeedCalls=0; $refused=$false
     try {
       & (Join-Path $repoRoot 'scripts/live/Start-LotusFrontOfficeCanonical.ps1') `
@@ -302,6 +307,7 @@ exit $global:proofDpmStatus
     $global:proofNestedParentFence=$parentFence; $global:proofOperationDepth=1
     $BuildConcurrency=2; $canonicalEvidenceRoot=Join-Path $fixtureRoot 'build-receipts'
     $canonicalDpmCommandCenterEnvironment=@{WORKBENCH_BFF_TENANT_ID='controlled-caller'; WORKBENCH_DPM_COMMAND_CENTER_TENANT_ID='controlled-command'}
+    $canonicalAdviseEnvironment=@{LOTUS_ADVISE_TENANT_ID='fixture-source-tenant'}
     foreach ($name in @('performance','risk','advise','report','archive','render','gateway')) {
       Set-Variable -Name ($name+'Repo') -Value (Join-Path $fixtureRoot ('lotus-'+$name))
     }
@@ -313,9 +319,12 @@ exit $global:proofDpmStatus
       if ($Concurrency -ne 2 -or $Plan.Count -ne 8 -or
           @($Plan | Where-Object { $_.Name -in @('lotus-core','lotus-manage','lotus-ai','lotus-idea') }).Count) { throw 'UNBOUNDED_SHIPPED_BUILD_PLAN' }
       $wb=@($Plan | Where-Object Name -eq 'lotus-workbench')[0]
+      $advise=@($Plan | Where-Object Name -eq 'lotus-advise')[0]
       if ($wb.Environment.WORKBENCH_BFF_TENANT_ID -ne 'controlled-caller' -or
           $wb.Environment.WORKBENCH_DPM_COMMAND_CENTER_TENANT_ID -ne 'controlled-command' -or
-          @($Plan | Where-Object { $_.Name -ne 'lotus-workbench' -and $_.Environment.Count }).Count) { throw 'SHIPPED_BUILD_AUTHORITY_CHANGED' }
+          $advise.Environment.Count -ne 1 -or
+          $advise.Environment.LOTUS_ADVISE_TENANT_ID -ne 'fixture-source-tenant' -or
+          @($Plan | Where-Object { $_.Name -notin @('lotus-workbench','lotus-advise') -and $_.Environment.Count }).Count) { throw 'SHIPPED_BUILD_AUTHORITY_CHANGED' }
       if ($script:proofBuildFailure) { throw 'CONTROLLED_BUILD_BARRIER_FAILURE' }
     }
     $composeUpCommand='docker compose up -d --build --force-recreate'

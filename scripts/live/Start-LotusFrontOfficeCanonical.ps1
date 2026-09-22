@@ -33,6 +33,7 @@ Import-Module (Join-Path $PSScriptRoot "CanonicalPortOwnership.psm1") -Force
 Import-Module (Join-Path $PSScriptRoot 'CanonicalComposeAdmission.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'CanonicalBuildPlan.psm1') -Force
 Import-Module (Join-Path $PSScriptRoot 'CanonicalCoreImageProvenance.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'CanonicalAdviseSourceTenant.psm1') -Force
 $prebuiltRepositories = @{}
 $runtimePhases = [System.Collections.ArrayList]::new()
 $runtimeTimingId = [guid]::NewGuid().ToString('N')
@@ -505,7 +506,13 @@ function Invoke-IndependentImageBuilds {
   if ($BuildConcurrency -eq 1) { return } # Preserve the measured serial fallback by default.
   $plan = @()
   foreach ($repo in @($performanceRepo,$riskRepo,$adviseRepo,$reportRepo,$archiveRepo,$renderRepo,$gatewayRepo,$workbenchRepo)) {
-    $environment = if ($repo -eq $workbenchRepo) { Get-DockerWorkbenchEnvironment } else { @{} }
+    $environment = if ($repo -eq $workbenchRepo) {
+      Get-DockerWorkbenchEnvironment
+    } elseif ($repo -eq $adviseRepo) {
+      $canonicalAdviseEnvironment
+    } else {
+      @{}
+    }
     $identity = Get-GitRepositoryIdentity -RepoPath $repo
     $fingerprint=Get-CanonicalComposeFingerprint -RepoPath $repo -Environment $environment
     $plan += [pscustomobject]@{Name=(Split-Path -Leaf $repo); RepoPath=$repo; CommitSha=$identity.CommitSha; ComposeFingerprint=$fingerprint; Environment=$environment}
@@ -942,6 +949,11 @@ try {
   Pop-Location
 }
 $canonicalDpmCommandCenterEnvironment = Get-CanonicalDpmCommandCenterEnvironment
+$canonicalAdviseEnvironment = if ($CoreManageOnly) {
+  @{} # Advise is outside this acquired diagnostic runtime scope.
+} else {
+  Get-CanonicalAdviseEnvironment -ContractPath $canonicalContractPath
+}
 
 if ($CleanCoreState) {
   Write-Host "Resetting lotus-core Docker state before canonical reseed ..."
@@ -1009,7 +1021,7 @@ Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'independent-image-bu
 Invoke-ComposeUp $performanceRepo
 Invoke-ComposeUp $riskRepo
 Start-CanonicalAi -EnvFile $resolvedLotusAiEnvFile
-Invoke-ComposeUp $adviseRepo
+Invoke-ComposeUp $adviseRepo $canonicalAdviseEnvironment
 
 Start-CanonicalManage
 

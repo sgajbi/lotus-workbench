@@ -302,6 +302,17 @@ Workbench caller tenant. Command-centre reads retain their separate platform-con
 portfolio-manager book, and command-centre date. A missing value fails startup; the validator must
 not create caller-scoped evidence in one tenant while the screen reads another.
 
+Canonical Advise Compose startup and its independent image-build fingerprint use the governed
+`portfolio.source_tenant_id` from that same Platform contract. This is the Core-owned tenant of
+the seeded portfolio, not `dpm_command_center.workbench_caller_tenant_id` or the generic Advise
+Compose fallback. Full startup rejects a missing source tenant before starting Docker services;
+the scoped Core/Manage diagnostic mode does not consult the skipped Advise configuration. If
+proposal creation returns `PROPOSAL_STATEFUL_CONTEXT_RESOLUTION_UNAVAILABLE`, inspect the Advise
+container's `LOTUS_ADVISE_TENANT_ID` and Core query-control-plane correlation under the same
+reservation; a ready hostname alone does not prove the proposal workflow. After changing the
+contract or startup source, tear down the old reservation scope and rebuild under a fresh one
+before asserting live proposal acceptance.
+
 ### Lotus Idea capacity evidence
 
 The default `full` profile requires this evidence. The explicit `client-demo` profile excludes
