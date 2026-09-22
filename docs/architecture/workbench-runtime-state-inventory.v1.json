@@ -2,7 +2,7 @@
   "contract": "workbench-runtime-state-inventory.v1",
   "owner": "lotus-workbench",
   "governedByIssue": 619,
-  "reviewedOn": "2026-09-09",
+  "reviewedOn": "2026-09-22",
   "nextReviewBy": "2026-09-30",
   "architecturePosture": "engineering-scale-proof-passed",
   "durableBusinessStateOwner": "upstream-source-services",
@@ -143,17 +143,6 @@
       "purpose": "Unique local row keys inside an unsaved browser draft.",
       "bounds": "One numeric counter for the browser realm lifetime.",
       "replicaBehavior": "Never used as persisted identity or source authority.",
-      "businessAuthority": false,
-      "sessionAuthority": false
-    },
-    {
-      "id": "platform-capability-browser-snapshot",
-      "file": "src/features/platform-capabilities/use-platform-capabilities.ts",
-      "symbols": ["cachedSnapshot", "cachedAtMs", "inflightSnapshotRequest"],
-      "classification": "browser_ephemeral",
-      "purpose": "One browser capability snapshot plus one in-flight request.",
-      "bounds": "Single snapshot with a five-minute TTL and session-storage persistence.",
-      "replicaBehavior": "Browser-owned; source calls still flow through the Workbench BFF and Gateway.",
       "businessAuthority": false,
       "sessionAuthority": false
     },

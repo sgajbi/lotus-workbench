@@ -301,6 +301,11 @@ Canonical startup binds the server-owned BFF header and PM Operating Quality see
 Workbench caller tenant. Command-centre reads retain their separate platform-contract query tenant,
 portfolio-manager book, and command-centre date. A missing value fails startup; the validator must
 not create caller-scoped evidence in one tenant while the screen reads another.
+The browser capability bootstrap sends `consumerSystem=UI` without a tenant query selector;
+the BFF supplies its admitted `X-Tenant-Id` to Gateway. A conflicting browser query is rejected
+by Gateway. Workbench does not persist or globally reuse capability snapshots across mounts;
+each mount requests admitted source state, and legacy unpartitioned session snapshots are removed. Check
+this BFF route when canonical pages load but workspace navigation falls back.
 
 Canonical Advise Compose startup and its independent image-build fingerprint use the governed
 `portfolio.source_tenant_id` from that same Platform contract. This is the Core-owned tenant of

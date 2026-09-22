@@ -15,7 +15,7 @@ describe("platform capabilities api", () => {
           JSON.stringify({
             data: {
               consumerSystem: "UI",
-              tenantId: "default",
+              tenantId: "tenant-sg",
               contractVersion: "v1",
               sources: {},
               partialFailure: false,
@@ -76,10 +76,10 @@ describe("platform capabilities api", () => {
       )
     );
 
-    await getPlatformCapabilities("UI", "default");
+    await getPlatformCapabilities("UI");
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/bff/api/v1/platform/capabilities?consumerSystem=UI&tenantId=default",
+      "/api/bff/api/v1/platform/capabilities?consumerSystem=UI",
       expect.objectContaining({
         cache: "no-store",
         signal: expect.any(AbortSignal),
@@ -93,7 +93,7 @@ describe("platform capabilities api", () => {
       vi.fn(async () => new Response("service unavailable", { status: 503 }))
     );
 
-    await expect(getPlatformCapabilities("UI", "default")).rejects.toThrow(
+    await expect(getPlatformCapabilities("UI")).rejects.toThrow(
       "Platform capabilities fetch failed (503): service unavailable"
     );
   });

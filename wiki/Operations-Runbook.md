@@ -8,6 +8,7 @@ replace source-service recovery procedures or turn diagnostic screenshots into r
 | Situation | First Action | Evidence Before Escalation |
 | --- | --- | --- |
 | Product surface unavailable | Run canonical validation and inspect the failed API/panel check | Validation summary, readiness response, and bounded logs |
+| Pages load but workspace navigation is incomplete | Inspect the BFF capabilities request for an unwanted browser `tenantId` selector and confirm Gateway receives the admitted caller tenant | Source-published shell state at the canonical URL; a static fallback is not navigation acceptance |
 | Data appears partial or stale | Inspect Gateway source-supportability and owning-service posture | Correlation-safe API evidence and source freshness state |
 | Metrics or dashboards missing | Check Workbench metrics, Prometheus targets, and Grafana health | Same-run evidence pack with target and query results |
 | Demo preparation | Validate `PB_SG_GLOBAL_BAL_001` before capture | Passing validation and same-run screenshots/manifest |

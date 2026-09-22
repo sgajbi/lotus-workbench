@@ -2776,4 +2776,23 @@ describe("BFF proxy route", () => {
       /^00-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}$/,
     );
   });
+
+  it("sends platform capability reads under the BFF-admitted tenant without a browser tenant selector", async () => {
+    process.env.WORKBENCH_BFF_TENANT_ID = "tenant-sg";
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValue(new Response('{"data":{"normalized":{"shellBootstrap":{"workspaces":[]}}}}', { status: 200 }));
+
+    const request = new NextRequest(
+      "http://localhost:3000/api/bff/api/v1/platform/capabilities?consumerSystem=UI",
+      { headers: { "X-Tenant-Id": "browser-spoof" } },
+    );
+    const response = await GET(request, {
+      params: Promise.resolve({ path: ["api", "v1", "platform", "capabilities"] }),
+    });
+
+    expect(response.status).toBe(200);
+    const [upstreamUrl, upstreamInit] = fetchMock.mock.calls[0];
+    expect(new URL(String(upstreamUrl)).searchParams.has("tenantId")).toBe(false);
+    expect((upstreamInit?.headers as Headers).get("X-Tenant-Id")).toBe("tenant-sg");
+  });
 });
