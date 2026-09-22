@@ -192,6 +192,11 @@ test("uses the exact source-reviewed Advisor Brief without manual authority", as
   ).toHaveCount(0);
 
   await page.getByText("Review report contents", { exact: true }).click();
+  const requiredProfile = page.getByRole("checkbox", {
+    name: /Client and mandate profile/,
+  });
+  await expect(requiredProfile).toBeChecked();
+  await expect(requiredProfile).toBeDisabled();
   const commentary = page.getByRole("checkbox", { name: /Advisor commentary/ });
   await expect(commentary).toBeEnabled();
   await expect(page.getByText("Accepted brief ready", { exact: true })).toBeVisible();

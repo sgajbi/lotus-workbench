@@ -770,7 +770,7 @@ function toSectionAvailability(
   section: ReportSection,
   evidence: ReportSectionAvailabilityEvidence,
 ) {
-  if (section.availability === undefined) {
+  if (section.availability == null) {
     if (isAdvisorCommentarySection(section)) {
       return {
         selectable: false,

@@ -181,6 +181,40 @@ describe("report ordering contracts", () => {
     expect(parsed.reportFamilies[0].sections[1].availability).toBeUndefined();
   });
 
+  it("accepts provider null availability for sections without section-specific evidence", () => {
+    const response = buildReportOrderingResponse();
+    response.catalogueAvailability.state = "ready";
+    for (const section of response.reportFamilies[0].sections) {
+      if (section.sectionId !== "ADVISOR_COMMENTARY") {
+        (section as Record<string, unknown>).availability = null;
+      }
+    }
+
+    const parsed = parseReportOrderingResponse(response);
+
+    expect(parsed.catalogueAvailability.state).toBe("ready");
+    expect(parsed.reportFamilies[0].sections[0].availability).toBeNull();
+    expect(parsed.reportFamilies[0].sections[2].availability?.state).toBe("ready");
+  });
+
+  it("rejects invented section-specific availability on unrelated sections", () => {
+    const response = buildReportOrderingResponse();
+    (response.reportFamilies[0].sections[1] as Record<string, unknown>).availability = {
+      state: "ready",
+      reasonCode: "advisor_brief_accepted",
+      message: "Unrelated section cannot claim brief evidence.",
+      acceptedBrief: {
+        runId: "abr_accepted_1",
+        reviewedBy: "advisor.sg.301",
+        reviewedAt: "2026-04-22T08:30:00Z",
+      },
+    };
+
+    expect(() => parseReportOrderingResponse(response)).toThrow(
+      "Section availability must use the implemented Advisor Commentary binding",
+    );
+  });
+
   it.each([
     "sections",
     "as_of_date",
