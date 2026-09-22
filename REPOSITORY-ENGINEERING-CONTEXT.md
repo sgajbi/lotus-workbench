@@ -393,6 +393,12 @@ also retain a digest of effective Compose configuration: planning, child pre/pos
 must agree under the same explicit environment, including ignored `.env`/`env_file` inputs.
 Resolved values must not enter receipts or failure diagnostics. Terminal child results
 are collected during failure cleanup too; completed work must not be relabelled cancelled.
+Canonical Advise Compose and its independent-build fingerprint take `LOTUS_ADVISE_TENANT_ID`
+only from the Platform contract's `portfolio.source_tenant_id`; caller-admission tenant fields
+are distinct and the generic Advise Compose fallback is not canonical portfolio ownership.
+Missing source ownership fails before full-runtime Docker mutation; Core/Manage-only mode does
+not consult Advise configuration outside its acquired scope. The executable fixture regression is
+`tests/unit/canonical-advise-source-tenant.test.ts`.
 Overall timing success is finalized only after reservation outcome publication succeeds; phase
 success cannot override a failed producing command, and failure remains if receipt finalization fails.
 Dependency-sensitive startup, fresh Idea build identity, seed order and financial readiness stay

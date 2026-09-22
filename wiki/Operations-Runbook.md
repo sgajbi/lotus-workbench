@@ -13,6 +13,7 @@ replace source-service recovery procedures or turn diagnostic screenshots into r
 | Demo preparation | Validate `PB_SG_GLOBAL_BAL_001` before capture | Passing validation and same-run screenshots/manifest |
 | Slow canonical bring-up | Compare unique `runtime-phases-*.json` and `build-plan-*.json` receipts using the [bounded-build runbook](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md#bounded-image-construction-and-timing) | Separate build/start, Core materialization, DPM/Idea seed and validation; default remains serial until full measured comparison |
 | Core `/version` or OCI revision says `unknown` after a canonical rebuild | Inspect the [exact-source Core build and image check](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md#canonical-local-prerequisites) and rerun under the same governed reservation after source repair | A clean Git checkout alone does not qualify the built image; the launcher fails before seeding on metadata mismatch |
+| Proposal creation reports `PROPOSAL_STATEFUL_CONTEXT_RESOLUTION_UNAVAILABLE` | Compare Advise's `LOTUS_ADVISE_TENANT_ID` with the Platform contract's `portfolio.source_tenant_id`; rebuild under a fresh reservation after source repair | Advise and Core correlation plus a successful supported proposal request and Workbench presentation; hostname readiness is insufficient |
 
 ## Important operational checks
 
