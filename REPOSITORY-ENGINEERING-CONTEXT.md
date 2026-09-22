@@ -47,6 +47,9 @@ facts; it must not invent reassuring defaults, thresholds, authority, or success
 - Adviser Book, Portfolio, Performance summary/detail, and Performance Risk source reads use
   root-owned TanStack Query state with complete business-context keys, explicit source admission,
   and bounded freshness policy.
+- Platform capability bootstrap sends no browser tenant selector; the BFF owns admitted caller
+  tenant context. Workbench does not persist or globally reuse capability snapshots across
+  mounts; each hook mount reads fresh source state and retires legacy unpartitioned data.
 - Product reads and commands call same-origin `/api/bff/**` routes. Those routes strip
   browser-supplied authority. Static server-owned caller context is added only in an explicit
   development environment. Specialized Idea, Adviser Book, Adviser Cockpit, Advisory Copilot, and

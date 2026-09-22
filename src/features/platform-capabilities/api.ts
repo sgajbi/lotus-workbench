@@ -10,12 +10,9 @@ const BFF_PROXY_BASE = "/api/bff/api/v1";
 
 export async function getPlatformCapabilities(
   consumerSystem = "UI",
-  tenantId = "default"
 ): Promise<PlatformCapabilitiesEnvelope["data"]> {
-  const params = new URLSearchParams({
-    consumerSystem,
-    tenantId,
-  });
+  // Tenant admission belongs to the BFF caller context, never the browser query.
+  const params = new URLSearchParams({ consumerSystem });
   const response = await fetch(`${BFF_PROXY_BASE}/platform/capabilities?${params.toString()}`, {
     cache: "no-store",
     signal: createGatewayRequestSignal(),

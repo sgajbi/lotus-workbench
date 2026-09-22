@@ -2,10 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fallbackNormalizedCapabilities } from "../../src/features/platform-capabilities/api";
-import {
-  resetPlatformCapabilitiesHookCache,
-  usePlatformCapabilities,
-} from "../../src/features/platform-capabilities/use-platform-capabilities";
+import { usePlatformCapabilities } from "../../src/features/platform-capabilities/use-platform-capabilities";
 
 const getPlatformCapabilitiesMock = vi.fn();
 
@@ -20,13 +17,11 @@ vi.mock("../../src/features/platform-capabilities/api", async () => {
 describe("usePlatformCapabilities", () => {
   beforeEach(() => {
     getPlatformCapabilitiesMock.mockReset();
-    resetPlatformCapabilitiesHookCache();
     window.sessionStorage.clear();
   });
 
   afterEach(() => {
     getPlatformCapabilitiesMock.mockReset();
-    resetPlatformCapabilitiesHookCache();
     window.sessionStorage.clear();
   });
 
@@ -60,7 +55,7 @@ describe("usePlatformCapabilities", () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(getPlatformCapabilitiesMock).toHaveBeenCalledWith("UI", "default");
+    expect(getPlatformCapabilitiesMock).toHaveBeenCalledWith("UI");
     expect(result.current.normalized.navigation.portfolio_intake).toBe(false);
     expect(result.current.partialFailure).toBe(true);
     expect(result.current.shellBootstrapSource).toBe("contract");
@@ -90,29 +85,82 @@ describe("usePlatformCapabilities", () => {
     ]);
   });
 
-  it("deduplicates concurrent hook mounts behind one capabilities request", async () => {
-    const pendingRequest: { resolve: ((value: unknown) => void) | null } = { resolve: null };
-    getPlatformCapabilitiesMock.mockReturnValue(
-      new Promise((resolve) => {
-        pendingRequest.resolve = resolve;
-      })
+  it("retries a failed bootstrap on the next mount instead of caching the fallback", async () => {
+    getPlatformCapabilitiesMock
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce({
+        normalized: fallbackNormalizedCapabilities(),
+        partialFailure: false,
+        errors: [],
+      });
+
+    const first = renderHook(() => usePlatformCapabilities());
+    await waitFor(() => expect(first.result.current.shellBootstrapSource).toBe("fallback"));
+    first.unmount();
+
+    const second = renderHook(() => usePlatformCapabilities());
+    await waitFor(() => expect(second.result.current.shellBootstrapSource).toBe("contract"));
+    expect(getPlatformCapabilitiesMock).toHaveBeenCalledTimes(2);
+    expect(window.sessionStorage.getItem("lotus.platformCapabilities.snapshot.v1")).toBeNull();
+  });
+
+  it("discards a legacy persisted source snapshot before requesting admitted capabilities", async () => {
+    window.sessionStorage.setItem(
+      "lotus.platformCapabilities.snapshot.v1",
+      JSON.stringify({
+        cachedAtMs: Date.now(),
+        snapshot: {
+          normalized: fallbackNormalizedCapabilities(),
+          partialFailure: false,
+          errors: [],
+          shellBootstrapSource: "contract",
+        },
+      }),
+    );
+    getPlatformCapabilitiesMock.mockResolvedValue({
+      normalized: {
+        ...fallbackNormalizedCapabilities(),
+        navigation: { ...fallbackNormalizedCapabilities().navigation, portfolio_intake: false },
+      },
+      partialFailure: false,
+      errors: [],
+    });
+
+    const result = renderHook(() => usePlatformCapabilities());
+    await waitFor(() => expect(result.result.current.shellBootstrapSource).toBe("contract"));
+    expect(getPlatformCapabilitiesMock).toHaveBeenCalledTimes(1);
+    expect(result.result.current.normalized.navigation.portfolio_intake).toBe(false);
+    expect(window.sessionStorage.getItem("lotus.platformCapabilities.snapshot.v1")).toBeNull();
+  });
+
+  it("does not share concurrent snapshots across potentially different callers", async () => {
+    const pendingRequests: Array<(value: unknown) => void> = [];
+    getPlatformCapabilitiesMock.mockImplementation(
+      () => new Promise((resolve) => pendingRequests.push(resolve))
     );
 
     const first = renderHook(() => usePlatformCapabilities());
     const second = renderHook(() => usePlatformCapabilities());
 
     await waitFor(() => {
-      expect(getPlatformCapabilitiesMock).toHaveBeenCalledTimes(1);
+      expect(getPlatformCapabilitiesMock).toHaveBeenCalledTimes(2);
     });
     expect(first.result.current.loading).toBe(true);
     expect(second.result.current.loading).toBe(true);
 
-    if (!pendingRequest.resolve) {
-      throw new Error("expected pending capabilities request");
-    }
-
-    pendingRequest.resolve({
-      normalized: fallbackNormalizedCapabilities(),
+    pendingRequests[0]({
+      normalized: {
+        ...fallbackNormalizedCapabilities(),
+        navigation: { ...fallbackNormalizedCapabilities().navigation, portfolio_intake: true },
+      },
+      partialFailure: false,
+      errors: [],
+    });
+    pendingRequests[1]({
+      normalized: {
+        ...fallbackNormalizedCapabilities(),
+        navigation: { ...fallbackNormalizedCapabilities().navigation, portfolio_intake: false },
+      },
       partialFailure: false,
       errors: [],
     });
@@ -121,11 +169,20 @@ describe("usePlatformCapabilities", () => {
       expect(first.result.current.loading).toBe(false);
       expect(second.result.current.loading).toBe(false);
     });
+    expect(first.result.current.normalized.navigation.portfolio_intake).toBe(true);
+    expect(second.result.current.normalized.navigation.portfolio_intake).toBe(false);
   });
 
-  it("reuses the cached snapshot for later hook mounts without refetching", async () => {
-    getPlatformCapabilitiesMock.mockResolvedValue({
+  it("re-fetches after a successful mount instead of sharing stale caller scope", async () => {
+    getPlatformCapabilitiesMock.mockResolvedValueOnce({
       normalized: fallbackNormalizedCapabilities(),
+      partialFailure: false,
+      errors: [],
+    }).mockResolvedValueOnce({
+      normalized: {
+        ...fallbackNormalizedCapabilities(),
+        navigation: { ...fallbackNormalizedCapabilities().navigation, portfolio_intake: false },
+      },
       partialFailure: false,
       errors: [],
     });
@@ -147,35 +204,7 @@ describe("usePlatformCapabilities", () => {
     await waitFor(() => {
       expect(second.result.current.loading).toBe(false);
     });
-    expect(getPlatformCapabilitiesMock).toHaveBeenCalledTimes(1);
-  });
-
-  it("reuses the session-scoped snapshot after the in-memory cache resets", async () => {
-    getPlatformCapabilitiesMock.mockResolvedValue({
-      normalized: fallbackNormalizedCapabilities(),
-      partialFailure: false,
-      errors: [],
-    });
-
-    const first = renderHook(() => usePlatformCapabilities());
-
-    await waitFor(() => {
-      expect(first.result.current.loading).toBe(false);
-    });
-
-    await waitFor(() => {
-      expect(getPlatformCapabilitiesMock).toHaveBeenCalledTimes(1);
-    });
-
-    resetPlatformCapabilitiesHookCache({ clearPersistedSnapshot: false });
-
-    const second = renderHook(() => usePlatformCapabilities());
-
-    expect(second.result.current.loading).toBe(true);
-    expect(second.result.current.shellBootstrapSource).toBe("loading");
-    await waitFor(() => {
-      expect(second.result.current.loading).toBe(false);
-    });
-    expect(getPlatformCapabilitiesMock).toHaveBeenCalledTimes(1);
+    expect(getPlatformCapabilitiesMock).toHaveBeenCalledTimes(2);
+    expect(second.result.current.normalized.navigation.portfolio_intake).toBe(false);
   });
 });
