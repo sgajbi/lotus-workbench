@@ -89,6 +89,11 @@ export async function startReportCentreFixtureGateway({
       }
 
       const catalogue = buildReportOrderingResponse();
+      for (const section of catalogue.reportFamilies[0].sections) {
+        if (section.sectionId !== "ADVISOR_COMMENTARY") {
+          (section as Record<string, unknown>).availability = null;
+        }
+      }
       sendJson(response, {
         ...catalogue,
         scopeSelection: { scopeType: "portfolio", scopeId: portfolioId },

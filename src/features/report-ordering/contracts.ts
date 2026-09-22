@@ -280,13 +280,14 @@ const reportFamilySchema = z
           });
         }
       }
+      const isAdvisorCommentary = section.sectionId === "ADVISOR_COMMENTARY";
+      const hasSectionAvailability = section.availability != null;
       if (
-        (section.sectionId === "ADVISOR_COMMENTARY" ||
-          section.availability !== undefined) &&
-        (section.sectionId !== "ADVISOR_COMMENTARY" ||
-          section.dependencyFieldIds.length !== 1 ||
-          section.dependencyFieldIds[0] !== "advisor_brief_run_id" ||
-          !section.availability)
+        (isAdvisorCommentary &&
+          (section.dependencyFieldIds.length !== 1 ||
+            section.dependencyFieldIds[0] !== "advisor_brief_run_id" ||
+            !hasSectionAvailability)) ||
+        (!isAdvisorCommentary && hasSectionAvailability)
       ) {
         context.addIssue({
           code: z.ZodIssueCode.custom,

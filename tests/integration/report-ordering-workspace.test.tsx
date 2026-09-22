@@ -308,6 +308,30 @@ describe("ReportOrderingWorkspace", () => {
     ).not.toBeChecked();
   });
 
+  it("renders the approved report when the provider sends null availability for ordinary sections", async () => {
+    const payload = buildReportOrderingResponse();
+    payload.catalogueAvailability.state = "ready";
+    for (const section of payload.reportFamilies[0].sections) {
+      if (section.sectionId !== "ADVISOR_COMMENTARY") {
+        (section as Record<string, unknown>).availability = null;
+      }
+    }
+    optionsMock.mockResolvedValue(parseReportOrderingResponse(payload));
+
+    render(<ReportOrderingWorkspace portfolio={portfolio} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Approved report" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Approved reports are unavailable"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("Review report contents"));
+    expect(
+      screen.getByRole("checkbox", { name: /Client and mandate profile/ }),
+    ).toBeChecked();
+  });
+
   it("uses the exact accepted brief without asking the advisor for a run identifier", async () => {
     render(<ReportOrderingWorkspace portfolio={portfolio} />);
     await screen.findByRole("heading", { name: "Approved report" });
