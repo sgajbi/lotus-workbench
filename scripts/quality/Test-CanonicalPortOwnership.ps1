@@ -84,6 +84,16 @@ $results = @(
     -Actual (Test-Owner -WorkingDirectories @($malformedPath))
 )
 
+# Startup imports this module before Compose admission. Reloading the latter must not
+# remove the exported ownership command when a prior canonical container owns a port.
+Import-Module (Join-Path $repoRoot "scripts\live\CanonicalComposeAdmission.psm1") -Force
+if (-not (Get-Command Assert-CanonicalComposeAdmission -ErrorAction SilentlyContinue)) {
+  throw "Compose admission command was not exported after startup module imports."
+}
+$results += Assert-OwnershipDecision -Case "canonical path after Compose admission import" -Expected $true -Actual (Test-Owner)
+$results += Assert-OwnershipDecision -Case "foreign path after Compose admission import" -Expected $false -Actual (Test-Owner -WorkingDirectory $foreignPath)
+$results += Assert-OwnershipDecision -Case "wrong project after Compose admission import" -Expected $false -Actual (Test-Owner -Project "foreign-project")
+
 [ordered]@{
   contract = "canonical-compose-port-ownership"
   implementation = $modulePath

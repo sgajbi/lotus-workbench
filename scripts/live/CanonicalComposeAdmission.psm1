@@ -1,5 +1,7 @@
 # Container metadata describes inventory, never runtime or financial authority.
-Import-Module (Join-Path $PSScriptRoot 'CanonicalPortOwnership.psm1') -Force
+# Startup already exports this module for its host-port preflight. Reloading it with
+# -Force from this nested module removes that public command in PowerShell 5/7.
+Import-Module (Join-Path $PSScriptRoot 'CanonicalPortOwnership.psm1')
 
 function Assert-CanonicalComposeAdmission {
   param(

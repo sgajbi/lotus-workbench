@@ -250,6 +250,12 @@ separators. The reusable predicate uses [.NET `Path.GetFullPath`](https://learn.
 and PowerShell's explicit case-insensitive comparison semantics. Invalid or missing project/path
 evidence never matches an allowlist entry, and relative labels are rejected instead of being
 resolved against the launcher's mutable current directory.
+If an image build fails after some admitted containers start, keep the failed receipt and inspect
+the reservation before retrying the same source/holder. The repeated port preflight checks those
+existing containers against the same exact project and checkout ownership predicates; it must not
+lose the predicate during PowerShell module loading or treat a foreign container as reusable.
+Teardown under that holder is the safe alternative when a fresh source lease is needed; retained
+volumes are not authority to bypass the reservation.
 
 Audit the current port owners without changing hosts, builds, containers, processes, seeds, or
 validation state:

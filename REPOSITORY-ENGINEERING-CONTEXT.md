@@ -381,6 +381,10 @@ acceptance additionally records the immutable actual Platform revision. Source/C
 Level A receipts, Level B readiness and production IAM are independent. Explicit `core-manage`
 diagnostic acquisition/startup carries its bounded source/configuration scope; skipped products
 are not consulted and teardown uses acquired scope rather than manufacturing full authority.
+Startup imports port ownership before Compose admission; the latter must not force-reload the
+shared PowerShell module and erase the caller's exported predicate. Exercise that exact import
+sequence in Windows PowerShell 5 and PowerShell 7 with both owned and foreign project/path cases;
+a first start with empty ports does not exercise the existing-container preflight.
 The canonical runtime defaults to the `full` validation profile. Its explicit `client-demo`
 profile excludes only the non-certifying Idea synthetic downstream-capacity workload and records
 that exclusion; it never relaxes Idea readiness, current-run candidate/queue, API, browser, panel
