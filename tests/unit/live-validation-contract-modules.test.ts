@@ -38,12 +38,52 @@ describe("live validation contract modules", () => {
     expect(config.ideaBaseUrl).toBe("http://127.0.0.1:8330");
     expect(config.timeoutMs).toBe(45000);
     expect(config.ideaCandidateId).toBe("idea_high_cash_ef02ad8793485081");
+    expect(config.validationProfile).toBe("full");
     expect(config.outputDir).toContain("output");
     expect(config.outputDir).toContain("live-canonical");
     expect(config.ideaCapacitySeedEvidencePath).toContain(
       "idea-capacity-seed-evidence.json",
     );
     expect(config.mainlineSourceProvenancePath).toBeNull();
+  });
+
+  it("requires an explicit supported demo profile and records its non-proof boundary", async () => {
+    const config = resolveValidationConfig(["--validation-profile", "client-demo"]);
+    expect(config.validationProfile).toBe("client-demo");
+    expect(() => resolveValidationConfig(["--validation-profile", "skip-idea"])).toThrow(
+      "Unsupported canonical validation profile",
+    );
+    const summary = createValidationSummary({
+      portfolioId: "PB_SG_GLOBAL_BAL_001",
+      benchmarkCode: "BMK_PB_GLOBAL_BALANCED_60_40",
+      canonicalContract: DEFAULT_CANONICAL_CONTRACT,
+      panelRegistry: DEFAULT_PANEL_REGISTRY,
+      workbenchBaseUrl: "http://workbench.dev.lotus",
+      gatewayBaseUrl: "http://gateway.dev.lotus",
+      validationProfile: config.validationProfile,
+    });
+    expect(summary.validationProfile).toBe("client-demo");
+    expect(summary.excludedProofs).toEqual([expect.objectContaining({
+      proofScope: "idea.synthetic_downstream_capacity_workload",
+      owningIssue: "sgajbi/lotus-idea#1345",
+    })]);
+    expect(summary.excludedProofs[0].claimBoundary).toContain("No Idea downstream-capacity acceptance");
+    const tempDir = mkdtempSync(join(tmpdir(), "lotus-client-demo-profile-"));
+    try {
+      const { shotIndexPath, summaryPath } = buildSummaryPaths(tempDir);
+      await writeValidationSummary(summaryPath, summary);
+      await writeShotIndex(shotIndexPath, summary, summaryPath);
+      const persisted = JSON.parse(readFileSync(summaryPath, "utf8"));
+      expect(persisted.excludedProofs).toHaveLength(1);
+      expect(readFileSync(shotIndexPath, "utf8")).toContain(
+        "Excluded proof: idea.synthetic_downstream_capacity_workload",
+      );
+      expect(readFileSync(shotIndexPath, "utf8")).toContain(
+        "No Idea downstream-capacity acceptance or full-profile certification",
+      );
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 
   it("builds governed summary evidence with registry metadata and writable artifacts", async () => {

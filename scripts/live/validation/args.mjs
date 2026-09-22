@@ -19,9 +19,14 @@ export function parseArgs(argv) {
 
 export function resolveValidationConfig(argv, cwd = process.cwd()) {
   const args = parseArgs(argv);
+  const validationProfile = args.get("validation-profile") ?? "full";
+  if (validationProfile !== "full" && validationProfile !== "client-demo") {
+    throw new Error(`Unsupported canonical validation profile: ${validationProfile}`);
+  }
 
   return {
     args,
+    validationProfile,
     portfolioId: args.get("portfolio-id") ?? "PB_SG_GLOBAL_BAL_001",
     benchmarkCode: args.get("benchmark-code") ?? "BMK_PB_GLOBAL_BALANCED_60_40",
     workbenchBaseUrl: (args.get("workbench-base-url") ?? "http://workbench.dev.lotus").replace(

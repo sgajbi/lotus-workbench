@@ -14,6 +14,8 @@ export type InitializedValidationSummary = ValidationSummary & {
   supportabilityMatrix: Record<string, unknown> | null;
   supportabilityChecks: Array<Record<string, unknown>>;
   screenshots: Array<Record<string, unknown>>;
+  validationProfile: "full" | "client-demo";
+  excludedProofs: NonNullable<ValidationSummary["excludedProofs"]>;
 };
 
 export function createValidationSummary(input: {
@@ -24,6 +26,7 @@ export function createValidationSummary(input: {
   panelRegistry: PanelRegistryMetadata;
   workbenchBaseUrl: string;
   gatewayBaseUrl: string;
+  validationProfile?: "full" | "client-demo";
 }): InitializedValidationSummary;
 
 export function ensureDirectory(target: string): Promise<void>;

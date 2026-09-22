@@ -17,6 +17,7 @@ param(
   [switch]$CoreManageOnly,
   [switch]$PortOwnershipPreflightOnly,
   [switch]$RequireMainlineSources,
+  [ValidateSet('full', 'client-demo')][string]$ValidationProfile = 'full',
   [switch]$RunValidation
 )
 
@@ -67,6 +68,9 @@ if ($RequireMainlineSources) {
   $composeUpCommand = "docker compose up -d --build"
 } else {
   $composeUpCommand = "docker compose up -d"
+}
+if ($CoreManageOnly -and $ValidationProfile -ne 'full') {
+  throw 'The client-demo validation profile requires the full canonical product runtime.'
 }
 $localAppSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 foreach ($item in $LocalApps) {
@@ -1049,7 +1053,11 @@ if (Test-LocalApp "gateway") {
 
 Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'core-seed-materialization' -Action { Invoke-CanonicalCoreSeed }
 Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'dpm-seed' -Action { Invoke-DpmCommandCenterSeed }
-Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'idea-capacity-seed' -Action { Invoke-CanonicalIdeaCapacitySeed }
+if ($ValidationProfile -eq 'full') {
+  Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'idea-capacity-seed' -Action { Invoke-CanonicalIdeaCapacitySeed }
+} else {
+  Write-Host 'Client-demo profile: excluding only the non-certifying Idea downstream-capacity workload (lotus-idea#1345).'
+}
 
 if (Test-LocalApp "workbench") {
   Invoke-CanonicalComposeCommand $workbenchRepo "docker compose down --remove-orphans"
@@ -1074,7 +1082,12 @@ if (-not $RunValidation) {
   Write-Host "  Archive:   http://archive.dev.lotus"
   Write-Host "  Render:    http://render.dev.lotus"
   Write-Host ""
-  Write-Host "Run 'npm run live:validate' from lotus-workbench when you want end-to-end validation."
+  $followUpValidationCommand = if ($ValidationProfile -eq 'client-demo') {
+    'npm run live:validate -- -ValidationProfile client-demo'
+  } else {
+    'npm run live:validate'
+  }
+  Write-Host "Run '$followUpValidationCommand' from lotus-workbench when you want end-to-end validation."
   $runtimeOutcome = 'success'
   return
 }
@@ -1101,13 +1114,16 @@ $validationArguments = @{
   PortfolioId = $PortfolioId
   BenchmarkCode = $BenchmarkCode
   CanonicalEvidenceDirectory = $canonicalEvidenceRoot
+  ValidationProfile = $ValidationProfile
 }
 if (-not [string]::IsNullOrWhiteSpace($ScreenshotDirectory)) {
   $validationArguments.ScreenshotDirectory = $ScreenshotDirectory
 }
 if ($RequireMainlineSources) {
   $validationArguments.MainlineSourceProvenancePath = $mainlineSourceRuntimePath
-  $validationArguments.IdeaCapacitySeedEvidencePath = Join-Path $ideaCapacityEvidenceRoot "idea-capacity-seed-evidence.json"
+  if ($ValidationProfile -eq 'full') {
+    $validationArguments.IdeaCapacitySeedEvidencePath = Join-Path $ideaCapacityEvidenceRoot "idea-capacity-seed-evidence.json"
+  }
 }
 Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'api-calculation-browser-validation' -Action {
   & (Join-Path $workbenchRepo "scripts\\live\\Validate-LotusFrontOfficeCanonical.ps1") @validationArguments
@@ -1116,7 +1132,18 @@ Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'api-calculation-brow
 $runtimeOutcome = 'success'
 } finally {
   $timingPath=Join-Path $canonicalEvidenceRoot "runtime-phases-$runtimeTimingId.json"
-  $timingReceipt=@{schema='lotus-workbench.canonical-runtime-phases.v1'; status='failure'; build_concurrency=$BuildConcurrency; phases=$runtimePhases}
+  $excludedProofs = @()
+  if ($ValidationProfile -eq 'client-demo') {
+    $excludedProofs = @('idea.synthetic_downstream_capacity_workload')
+  }
+  $timingReceipt = @{
+    schema = 'lotus-workbench.canonical-runtime-phases.v1'
+    status = 'failure'
+    build_concurrency = $BuildConcurrency
+    validation_profile = $ValidationProfile
+    excluded_proofs = $excludedProofs
+    phases = $runtimePhases
+  }
   try {
     New-Item -ItemType Directory -Force -Path $canonicalEvidenceRoot | Out-Null
     # Fail closed until operation publication has actually succeeded. A failed

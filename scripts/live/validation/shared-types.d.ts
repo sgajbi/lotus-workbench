@@ -19,6 +19,7 @@ export interface ValidationConfig {
   canonicalAsOfDate: string;
   ideaCandidateId: string | null;
   ideaCapacitySeedEvidencePath: string;
+  validationProfile: "full" | "client-demo";
   mainlineSourceProvenancePath: string | null;
 }
 
@@ -68,6 +69,13 @@ export interface ValidationSummary {
   };
   workbenchBaseUrl?: string;
   gatewayBaseUrl?: string;
+  validationProfile?: "full" | "client-demo";
+  excludedProofs?: Array<{
+    proofScope: string;
+    reasonCode: string;
+    owningIssue: string;
+    claimBoundary: string;
+  }>;
   dns?: Array<Record<string, unknown>>;
   apiChecks?: Array<Record<string, unknown>>;
   workflowPackChecks?: Array<Record<string, unknown>>;

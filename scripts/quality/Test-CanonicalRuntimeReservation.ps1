@@ -445,11 +445,15 @@ exit $global:proofDpmStatus
     return @{evaluatedAtUtc='2026-09-15T00:00:00.000Z'; items=@(@{candidate=@{candidateId='idea_high_cash_0123456789abcdef'}})}
   }
   function global:node { Assert-ProofValidationFence; $global:LASTEXITCODE=$global:proofBrowserStatus }
-  foreach ($mode in @('standalone','nested','browser-failure')) {
+  foreach ($mode in @('standalone','nested','browser-failure','client-demo')) {
     $global:proofOperationDepth = if ($mode -eq 'nested') { 1 } else { 0 }
     $global:proofBegins = 0; $global:proofOutcomes = @(); $global:proofObservations = 0
     $global:proofBrowserStatus = if ($mode -eq 'browser-failure') { 23 } else { 0 }
     $validationArgs = @{ProjectsRoot=$fixtureRoot; RuntimeHolder='fixture-owner'; CanonicalEvidenceDirectory=$evidence}
+    if ($mode -eq 'client-demo') {
+      $validationArgs.ValidationProfile='client-demo'
+      $validationArgs.IdeaCapacitySeedEvidencePath=Join-Path $evidence 'absent-capacity.json'
+    }
     $global:proofNestedParentFence=$null
     if ($mode -eq 'nested') {
       $global:proofNestedParentFence=[IO.File]::Open((Join-Path $fixtureRoot 'nested-validation.lock'),'OpenOrCreate','ReadWrite','None')
@@ -476,6 +480,22 @@ exit $global:proofDpmStatus
       if (-not $global:proofNestedParentFence.CanRead) { throw 'Nested validation closed its parent fence' }
       $global:proofNestedParentFence.Dispose()
     }
+  }
+  foreach ($refusalCase in @('full-missing-capacity','client-missing-candidate')) {
+    $global:proofOperationDepth=0; $global:proofBegins=0; $global:proofOutcomes=@(); $global:proofObservations=0
+    $validationArgs=@{ProjectsRoot=$fixtureRoot; RuntimeHolder='fixture-owner'; CanonicalEvidenceDirectory=$evidence}
+    $expected=if ($refusalCase -eq 'full-missing-capacity') { 'capacity seed evidence is missing' } else { 'candidate seed evidence' }
+    if ($refusalCase -eq 'full-missing-capacity') {
+      $validationArgs.IdeaCapacitySeedEvidencePath=Join-Path $evidence 'absent-capacity.json'
+    } else {
+      $validationArgs.ValidationProfile='client-demo'
+      $validationArgs.IdeaCandidateSeedEvidencePath=Join-Path $evidence 'absent-candidate.json'
+    }
+    $refused=$false
+    try { & (Join-Path $repoRoot 'scripts/live/Validate-LotusFrontOfficeCanonical.ps1') @validationArgs }
+    catch { if ($_.Exception.Message -notmatch $expected) { throw }; $refused=$true }
+    if (-not $refused -or $global:proofOutcomes[0] -ne 'failure') { throw "Profile proof falsely accepted $refusalCase" }
+    $cases += "$refusalCase fails under the admitted validation fence"
   }
   foreach ($mode in @('absent','disposed','foreign')) {
     $global:proofOperationDepth=1; $global:proofObservations=0; $global:proofBegins=0; $global:proofOutcomes=@()

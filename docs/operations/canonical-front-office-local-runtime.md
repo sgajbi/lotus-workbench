@@ -211,7 +211,7 @@ the run rather than treating a clean source checkout as proof of the image. Star
 source provenance after startup and fails if it changed.
 The live validator also binds Lotus Idea's `/version` commit and branch to that manifest before it
 records mainline-source certification posture. It writes source-safe preflight and runtime
-provenance and Idea capacity-seed artifacts to a per-run Local AppData directory outside every
+provenance and, in the default `full` profile, Idea capacity-seed artifacts to a per-run Local AppData directory outside every
 checked source worktree, so the second preflight cannot reject its own generated files. Normal and `-LocalApps` runs remain
 development evidence and must never be presented as mainline certification.
 
@@ -233,7 +233,7 @@ That script performs:
 8. canonical `lotus-gateway` exposure on port `8100`
 9. governed `lotus-core` seed for `PB_SG_GLOBAL_BAL_001`
 10. governed DPM command-center seed through `lotus-platform`
-11. create an isolated Lotus Idea downstream-capacity resource and run one report-only downstream-submission probe
+11. in the default `full` profile, create an isolated Lotus Idea downstream-capacity resource and run one report-only downstream-submission probe
 12. `docker compose up -d` for `lotus-workbench` on port `3000`
 
 Docker is the default for every canonical front-office app. The startup flow replaces stale local
@@ -304,7 +304,14 @@ not create caller-scoped evidence in one tenant while the screen reads another.
 
 ### Lotus Idea capacity evidence
 
-Canonical startup delegates capacity-resource construction and workload execution to
+The default `full` profile requires this evidence. The explicit `client-demo` profile excludes
+only this non-certifying synthetic workload, records the exclusion in runtime timing, validation
+summary and screenshot index, and leaves Idea readiness, current-run candidate/queue, API,
+calculation, browser, panel and teardown checks in force. An excluded proof is not a pass:
+`client-demo` cannot certify Idea downstream capacity or the complete `full` profile. See
+[Idea #1345](https://github.com/sgajbi/lotus-idea/issues/1345) for the blocked source-owned probe.
+
+In `full`, canonical startup delegates capacity-resource construction and workload execution to
 `lotus-idea`. Workbench only coordinates readiness and verifies the returned evidence. The flow:
 
 1. rebuilds only the Idea Compose project with the checked-out commit, branch, and fresh canonical
@@ -452,6 +459,21 @@ This runs the same bring-up flow and then executes the end-to-end validation lan
 is live. The npm entrypoint passes `-BuildImages` so one-command validation proves the current
 checked-out Docker-backed service sources rather than a previously built Gateway, Advise, Manage,
 or Workbench image.
+
+One runner has two explicit proof profiles. `full` is the default and fails if its Idea capacity
+artifact is absent. For a bounded client walkthrough, select `client-demo` on both startup and
+standalone validation; it excludes only the non-certifying synthetic capacity probe and still
+validates Idea's actual candidate and visible Workbench journey:
+
+```powershell
+npm run live:stack:up -- -ValidationProfile client-demo
+npm run live:validate -- -ValidationProfile client-demo
+npm run live:stack:down
+```
+
+The Platform QA wrapper must forward this profile in its own coordinated update before its
+source-pinned `-RequireMainlineSources` route can certify this client-demo selection. Do not call
+a `client-demo` receipt complete full-profile or capacity proof.
 
 ## One-command teardown
 

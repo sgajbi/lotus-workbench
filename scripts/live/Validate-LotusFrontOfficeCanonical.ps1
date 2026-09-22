@@ -15,6 +15,7 @@ param(
   [string]$CanonicalEvidenceDirectory = "",
   [string]$IdeaCandidateSeedEvidencePath = "",
   [string]$IdeaCapacitySeedEvidencePath = "",
+  [ValidateSet('full', 'client-demo')][string]$ValidationProfile = 'full',
   [string]$MainlineSourceProvenancePath = ""
 )
 
@@ -159,7 +160,7 @@ Assert-IdeaQueueSeed `
   -ExpectedCandidateId $ideaCandidateSeedEvidence.candidateId `
   -EvaluatedAtUtc $ideaCandidateSeedEvidence.queueEvaluatedAtUtc `
   -AccessScope $ideaCandidateSeedEvidence.accessScope
-if (-not (Test-Path $ideaCapacitySeedEvidencePath)) {
+if ($ValidationProfile -eq 'full' -and -not (Test-Path $ideaCapacitySeedEvidencePath)) {
   throw "Canonical Lotus Idea capacity seed evidence is missing: $ideaCapacitySeedEvidencePath"
 }
 
@@ -179,11 +180,14 @@ try {
     $WorkbenchBaseUrl,
     "--gateway-base-url",
     $GatewayBaseUrl,
-    "--idea-capacity-seed-evidence",
-    $ideaCapacitySeedEvidencePath,
+    "--validation-profile",
+    $ValidationProfile,
     "--idea-candidate-id",
     $ideaCandidateSeedEvidence.candidateId
   )
+  if ($ValidationProfile -eq 'full') {
+    $validatorArguments += @("--idea-capacity-seed-evidence", $ideaCapacitySeedEvidencePath)
+  }
   if (-not [string]::IsNullOrWhiteSpace($ScreenshotDirectory)) {
     $validatorArguments += @("--output-dir", $ScreenshotDirectory)
   }
