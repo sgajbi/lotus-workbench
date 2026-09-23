@@ -20,9 +20,7 @@ const SOURCE = {
   as_of_date: "2026-02-24",
   benchmark_code: "BMK_GLOBAL_BALANCED_60_40",
   payload: {
-    periods: [
-      { key: "YTD", start_date: "2026-01-01", end_date: "2026-02-24" },
-    ],
+    periods: [{ key: "YTD", start_date: "2026-01-01", end_date: "2026-02-24" }],
   },
 } as const;
 
@@ -112,6 +110,74 @@ describe("performance risk source identity", () => {
     ).toBe(false);
   });
 
+  it("admits a source-clamped observation window only with exact requested-window identity", () => {
+    const identity = {
+      ...IDENTITY,
+      period: "EXPLICIT",
+      asOfDate: "2026-04-10",
+      reportStartDate: "2025-03-31",
+      reportEndDate: "2026-04-10",
+    };
+    const source = {
+      ...SOURCE,
+      period: "EXPLICIT",
+      as_of_date: "2026-04-10",
+      requested_report_start_date: "2025-03-31",
+      requested_report_end_date: "2026-04-10",
+      payload: {
+        periods: [
+          {
+            key: "EXPLICIT",
+            start_date: "2025-04-01",
+            end_date: "2026-04-10",
+          },
+        ],
+      },
+    };
+
+    expect(isPerformanceRiskSourceCurrent(source, identity)).toBe(true);
+    expect(
+      isPerformanceRiskSourceCurrent(
+        { ...source, requested_report_start_date: "2025-04-01" },
+        identity,
+      ),
+    ).toBe(false);
+    expect(
+      isPerformanceRiskSourceCurrent(
+        {
+          ...source,
+          payload: {
+            periods: [
+              {
+                key: "EXPLICIT",
+                start_date: "2025-03-30",
+                end_date: "2026-04-10",
+              },
+            ],
+          },
+        },
+        identity,
+      ),
+    ).toBe(false);
+    expect(
+      isPerformanceRiskSourceCurrent(
+        {
+          ...source,
+          payload: {
+            periods: [
+              {
+                key: "EXPLICIT",
+                start_date: "2025-99-99",
+                end_date: "2026-04-10",
+              },
+            ],
+          },
+        },
+        identity,
+      ),
+    ).toBe(false);
+  });
+
   it("admits point-in-time concentration for an explicit review using execution context", () => {
     const identity = {
       ...IDENTITY,
@@ -179,14 +245,14 @@ describe("performance risk source identity", () => {
     ["missing", undefined],
     ["empty", { periods: [] }],
     ["malformed", { periods: [{ key: "YTD", start_date: "2026-01-01" }] }],
-  ])("rejects a ready preset payload with %s period evidence", (_label, payload) => {
-    expect(
-      isPerformanceRiskSourceCurrent(
-        { ...SOURCE, payload },
-        IDENTITY,
-      ),
-    ).toBe(false);
-  });
+  ])(
+    "rejects a ready preset payload with %s period evidence",
+    (_label, payload) => {
+      expect(
+        isPerformanceRiskSourceCurrent({ ...SOURCE, payload }, IDENTITY),
+      ).toBe(false);
+    },
+  );
 
   it.each([
     [
@@ -212,26 +278,29 @@ describe("performance risk source identity", () => {
         ],
       },
     ],
-  ])("rejects %s observations outside their enclosing source period", (_label, detail) => {
-    expect(
-      isPerformanceRiskSourceCurrent(
-        {
-          ...SOURCE,
-          payload: {
-            periods: [
-              {
-                key: "YTD",
-                start_date: "2026-01-01",
-                end_date: "2026-02-24",
-                ...detail,
-              },
-            ],
+  ])(
+    "rejects %s observations outside their enclosing source period",
+    (_label, detail) => {
+      expect(
+        isPerformanceRiskSourceCurrent(
+          {
+            ...SOURCE,
+            payload: {
+              periods: [
+                {
+                  key: "YTD",
+                  start_date: "2026-01-01",
+                  end_date: "2026-02-24",
+                  ...detail,
+                },
+              ],
+            },
           },
-        },
-        IDENTITY,
-      ),
-    ).toBe(false);
-  });
+          IDENTITY,
+        ),
+      ).toBe(false);
+    },
+  );
 
   it("rejects non-chronological nested Risk observations", () => {
     expect(
@@ -297,7 +366,10 @@ describe("performance risk source identity", () => {
                   {
                     window_length: 21,
                     metric_series: [
-                      { date: "2026-01-21", metric_values: { volatility: 0.08 } },
+                      {
+                        date: "2026-01-21",
+                        metric_values: { volatility: 0.08 },
+                      },
                     ],
                   },
                 ],

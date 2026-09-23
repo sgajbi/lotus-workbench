@@ -4,12 +4,17 @@ type PerformanceRiskSource = Readonly<{
   detail_basis?: string;
   as_of_date: string;
   benchmark_code?: string | null;
+  requested_report_start_date?: string | null;
+  requested_report_end_date?: string | null;
   state?: string;
   payload?: unknown;
 }>;
 
 type RiskPeriod = Readonly<
-  { key: string; start_date: string; end_date: string } & Record<string, unknown>
+  { key: string; start_date: string; end_date: string } & Record<
+    string,
+    unknown
+  >
 >;
 
 export type PerformanceRiskSourceIdentity = Readonly<{
@@ -34,10 +39,14 @@ export function isPerformanceRiskSourceCurrent(
   const sourceIdentityMatches =
     source.portfolio_id === identity.portfolioId &&
     source.period === identity.period &&
-    (identity.detailBasis === undefined || source.detail_basis === identity.detailBasis) &&
+    (identity.detailBasis === undefined ||
+      source.detail_basis === identity.detailBasis) &&
     source.as_of_date === identity.asOfDate &&
     (source.benchmark_code ?? null) === identity.benchmark;
   if (!sourceIdentityMatches) {
+    return false;
+  }
+  if (!hasMatchingRequestedRiskWindowIdentity(source, identity)) {
     return false;
   }
   if (isSourceDeclaredFailureWithoutResults(source)) {
@@ -105,9 +114,9 @@ function hasRequestedBoolean(
   const context = payload[contextKey as keyof typeof payload];
   return Boolean(
     context &&
-      typeof context === "object" &&
-      valueKey in context &&
-      context[valueKey as keyof typeof context] === requested,
+    typeof context === "object" &&
+    valueKey in context &&
+    context[valueKey as keyof typeof context] === requested,
   );
 }
 
@@ -122,36 +131,78 @@ function hasRequestedRiskWindow(
     const periods = readRiskPeriods(source.payload);
     return Boolean(
       periods?.length &&
-        periods.every(
-          (period) =>
-            period.key === identity.period &&
-            period.end_date === identity.asOfDate &&
-            hasRiskSeriesWithinPeriod(period),
-        ),
+      periods.every(
+        (period) =>
+          period.key === identity.period &&
+          period.end_date === identity.asOfDate &&
+          hasRiskSeriesWithinPeriod(period),
+      ),
     );
   }
 
   const periods = readRiskPeriods(source.payload);
+  const hasGovernedRequestedWindow = hasRequestedRiskWindowFields(source);
   return Boolean(
     periods?.length &&
-      periods.every(
-        (period) =>
-          period.key === identity.period &&
-          (!identity.reportStartDate || period.start_date === identity.reportStartDate) &&
-          (!identity.reportEndDate || period.end_date === identity.reportEndDate) &&
-          hasRiskSeriesWithinPeriod(period),
-      ),
+    periods.every(
+      (period) =>
+        period.key === identity.period &&
+        (!identity.reportStartDate ||
+          (hasGovernedRequestedWindow
+            ? period.start_date >= identity.reportStartDate
+            : period.start_date === identity.reportStartDate)) &&
+        (!identity.reportEndDate ||
+          period.end_date === identity.reportEndDate) &&
+        hasRiskSeriesWithinPeriod(period),
+    ),
   );
 }
 
-function hasRiskSeriesWithinPeriod(
-  period: RiskPeriod,
+function hasMatchingRequestedRiskWindowIdentity(
+  source: PerformanceRiskSource,
+  identity: PerformanceRiskSourceIdentity,
 ): boolean {
+  if (!hasRequestedRiskWindowFields(source)) {
+    return true;
+  }
+  return (
+    (source.requested_report_start_date ?? null) ===
+      (identity.reportStartDate ?? null) &&
+    (source.requested_report_end_date ?? null) ===
+      (identity.reportEndDate ?? null)
+  );
+}
+
+function hasRequestedRiskWindowFields(source: PerformanceRiskSource): boolean {
+  return (
+    Object.prototype.hasOwnProperty.call(
+      source,
+      "requested_report_start_date",
+    ) ||
+    Object.prototype.hasOwnProperty.call(source, "requested_report_end_date")
+  );
+}
+
+function hasRiskSeriesWithinPeriod(period: RiskPeriod): boolean {
   return (
     period.start_date <= period.end_date &&
     hasDatedSeriesWithinPeriod(period.underwater_series, period) &&
     hasRollingSeriesWithinPeriod(period.window_results, period) &&
     hasDrawdownEventsWithinPeriod(period)
+  );
+}
+
+function isStrictIsoDate(value: string): boolean {
+  const match = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})$/.exec(value);
+  if (!match?.groups) return false;
+  const year = Number(match.groups.year);
+  const month = Number(match.groups.month);
+  const day = Number(match.groups.day);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
   );
 }
 
@@ -176,10 +227,7 @@ function hasDrawdownEpisodesWithinPeriod(
   );
 }
 
-function hasDrawdownDateRecord(
-  value: unknown,
-  period: RiskPeriod,
-): boolean {
+function hasDrawdownDateRecord(value: unknown, period: RiskPeriod): boolean {
   if (value == null) {
     return true;
   }
@@ -222,6 +270,7 @@ function isDateWithinRiskPeriod(
 ): value is string {
   return (
     typeof value === "string" &&
+    isStrictIsoDate(value) &&
     value >= period.start_date &&
     value <= period.end_date
   );
@@ -244,6 +293,7 @@ function hasDatedSeriesWithinPeriod(
       typeof point !== "object" ||
       !("date" in point) ||
       typeof point.date !== "string" ||
+      !isStrictIsoDate(point.date) ||
       point.date < period.start_date ||
       point.date > period.end_date ||
       (previousDate !== null && point.date <= previousDate)
@@ -280,7 +330,11 @@ function hasMatchingPointInTimeExecutionContext(
   payload: unknown,
   identity: PerformanceRiskSourceIdentity,
 ): boolean {
-  if (!payload || typeof payload !== "object" || !("execution_context" in payload)) {
+  if (
+    !payload ||
+    typeof payload !== "object" ||
+    !("execution_context" in payload)
+  ) {
     return true;
   }
   const executionContext = payload.execution_context;
@@ -346,9 +400,7 @@ function hasRequestedRiskAttribution(
   );
 }
 
-function readRiskPeriods(
-  payload: unknown,
-): ReadonlyArray<RiskPeriod> | null {
+function readRiskPeriods(payload: unknown): ReadonlyArray<RiskPeriod> | null {
   if (!payload || typeof payload !== "object" || !("periods" in payload)) {
     return null;
   }
@@ -362,10 +414,12 @@ function readRiskPeriods(
       typeof period === "object" &&
       "start_date" in period &&
       typeof period.start_date === "string" &&
+      isStrictIsoDate(period.start_date) &&
       "key" in period &&
       typeof period.key === "string" &&
       "end_date" in period &&
-      typeof period.end_date === "string",
+      typeof period.end_date === "string" &&
+      isStrictIsoDate(period.end_date),
   )
     ? periods
     : null;
