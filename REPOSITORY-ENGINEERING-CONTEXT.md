@@ -198,6 +198,11 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   drawer, and export must not duplicate or reinterpret the projection.
 - Risk Review renders exact Gateway/Risk measures and Gateway-composed Manage mandate comparison.
   Workbench never calculates thresholds, headroom, breaches, all-clear states, or fallback policy.
+- Historical Risk modules admit Gateway's exact `requested_report_start_date` and
+  `requested_report_end_date` independently from Risk-owned effective period dates. An effective
+  return period may start after a requested valuation baseline, but it must remain inside the
+  requested bounds. Workbench must fail closed on a mismatched requested echo or an effective
+  period outside those bounds and must never relabel the source period.
 - Risk attribution renders magnitude tracks only for exact Gateway `ready` evidence. A `partial`
   response may retain exact contributor facts, but it must remain visibly qualified and must not
   regain a ready visual through query-error recovery; unknown runtime states fail closed.

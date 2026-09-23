@@ -489,24 +489,25 @@ export type PerformanceAttributionTrendRow = {
   supportability_evidence?: AttributionSupportabilityEvidenceView | null;
 };
 
-export type WorkbenchPerformanceAttributionTrend = WorkbenchPerformanceReviewContextEvidence & {
-  correlation_id: string;
-  contract_version: string;
-  portfolio_id: string;
-  as_of_date: string;
-  period: string;
-  report_start_date: string;
-  report_end_date: string;
-  chart_frequency: string;
-  detail_basis: string;
-  attribution_dimension: string;
-  requested_chart_frequency_supported?: boolean;
-  requested_attribution_dimension_supported?: boolean;
-  benchmark_code: string | null;
-  rows: PerformanceAttributionTrendRow[];
-  warnings: string[];
-  partial_failures: WorkbenchOverview["partial_failures"];
-};
+export type WorkbenchPerformanceAttributionTrend =
+  WorkbenchPerformanceReviewContextEvidence & {
+    correlation_id: string;
+    contract_version: string;
+    portfolio_id: string;
+    as_of_date: string;
+    period: string;
+    report_start_date: string;
+    report_end_date: string;
+    chart_frequency: string;
+    detail_basis: string;
+    attribution_dimension: string;
+    requested_chart_frequency_supported?: boolean;
+    requested_attribution_dimension_supported?: boolean;
+    benchmark_code: string | null;
+    rows: PerformanceAttributionTrendRow[];
+    warnings: string[];
+    partial_failures: WorkbenchOverview["partial_failures"];
+  };
 
 export type AttributionSummaryView = {
   status?: string;
@@ -525,38 +526,39 @@ export type AttributionSummaryView = {
   levels: AttributionLevelView[];
 };
 
-export type WorkbenchPerformanceWorkspace = WorkbenchPerformanceReviewContextEvidence & {
-  correlation_id: string;
-  contract_version: string;
-  portfolio_id: string;
-  as_of_date: string;
-  period: string;
-  report_start_date: string;
-  report_end_date: string;
-  chart_frequency: string;
-  contribution_dimension: string;
-  attribution_dimension: string;
-  detail_basis: string;
-  requested_chart_frequency_supported?: boolean;
-  requested_contribution_dimension_supported?: boolean;
-  requested_attribution_dimension_supported?: boolean;
-  segment?: string;
-  benchmark_code: string | null;
-  benchmark_options?: PerformanceBenchmarkOptionView[];
-  capabilities?: WorkbenchPerformanceCapabilities;
-  evidence_view?: PerformanceEvidenceView | null;
-  portfolio: WorkbenchOverview["portfolio"];
-  overview: WorkbenchOverview["overview"];
-  net_performance: PerformanceComparativeSummary;
-  gross_performance: PerformanceComparativeSummary;
-  money_weighted_return: MoneyWeightedReturnSummary | null;
-  net_chart: PerformanceChartPoint[];
-  gross_chart: PerformanceChartPoint[];
-  contribution: ContributionSummaryView | null;
-  attribution: AttributionSummaryView | null;
-  warnings: string[];
-  partial_failures: WorkbenchOverview["partial_failures"];
-};
+export type WorkbenchPerformanceWorkspace =
+  WorkbenchPerformanceReviewContextEvidence & {
+    correlation_id: string;
+    contract_version: string;
+    portfolio_id: string;
+    as_of_date: string;
+    period: string;
+    report_start_date: string;
+    report_end_date: string;
+    chart_frequency: string;
+    contribution_dimension: string;
+    attribution_dimension: string;
+    detail_basis: string;
+    requested_chart_frequency_supported?: boolean;
+    requested_contribution_dimension_supported?: boolean;
+    requested_attribution_dimension_supported?: boolean;
+    segment?: string;
+    benchmark_code: string | null;
+    benchmark_options?: PerformanceBenchmarkOptionView[];
+    capabilities?: WorkbenchPerformanceCapabilities;
+    evidence_view?: PerformanceEvidenceView | null;
+    portfolio: WorkbenchOverview["portfolio"];
+    overview: WorkbenchOverview["overview"];
+    net_performance: PerformanceComparativeSummary;
+    gross_performance: PerformanceComparativeSummary;
+    money_weighted_return: MoneyWeightedReturnSummary | null;
+    net_chart: PerformanceChartPoint[];
+    gross_chart: PerformanceChartPoint[];
+    contribution: ContributionSummaryView | null;
+    attribution: AttributionSummaryView | null;
+    warnings: string[];
+    partial_failures: WorkbenchOverview["partial_failures"];
+  };
 
 export type WorkbenchPerformanceWorkspaceSummary = Pick<
   WorkbenchPerformanceWorkspace,
@@ -766,51 +768,53 @@ export type WorkbenchAdvisorBriefWorkflowPackTaskFlow = {
   updated_at: string;
 };
 
-export type WorkbenchPerformanceAdvisorBrief = WorkbenchPerformanceReviewContextEvidence & {
-  correlation_id: string;
-  contract_version: string;
-  portfolio_id: string;
-  portfolio: WorkbenchOverview["portfolio"];
-  as_of_date: string;
-  period: string;
-  report_start_date: string;
-  report_end_date: string;
-  detail_basis: string;
-  chart_frequency: string;
-  contribution_dimension: string;
-  attribution_dimension: string;
-  benchmark_code: string | null;
-  status: WorkbenchAdvisorBriefStatus;
-  summary: string;
-  talking_points: WorkbenchAdvisorBriefNarrativeItem[];
-  recommended_actions: WorkbenchAdvisorBriefActionItem[];
-  risks_and_exceptions: WorkbenchAdvisorBriefNarrativeItem[];
-  source_metrics: WorkbenchAdvisorBriefSourceMetric[];
-  supportability: WorkbenchAdvisorBriefSupportabilityItem[];
-  ai_surface_supportability?: WorkbenchAdvisorBriefAiSurfaceSupportability | null;
-  advisory_supportability?: WorkbenchAdvisorBriefAdvisorySupportability | null;
-  workflow_pack_run?: WorkbenchAdvisorBriefWorkflowPackRun | null;
-  workflow_pack_task_flow?: WorkbenchAdvisorBriefWorkflowPackTaskFlow | null;
-  ai_audit: {
-    task_id?: string;
-    output_label?: string;
-    prompt_version?: string;
-    provider_mode?: string;
-    provider_id?: string | null;
-    adapter_kind?: string | null;
-    model_id?: string | null;
-    generated_at?: string;
-    stubbed?: boolean;
-    source_refs?: string[];
+export type WorkbenchPerformanceAdvisorBrief =
+  WorkbenchPerformanceReviewContextEvidence & {
+    correlation_id: string;
+    contract_version: string;
+    portfolio_id: string;
+    portfolio: WorkbenchOverview["portfolio"];
+    as_of_date: string;
+    period: string;
+    report_start_date: string;
+    report_end_date: string;
+    detail_basis: string;
+    chart_frequency: string;
+    contribution_dimension: string;
+    attribution_dimension: string;
+    benchmark_code: string | null;
+    status: WorkbenchAdvisorBriefStatus;
+    summary: string;
+    talking_points: WorkbenchAdvisorBriefNarrativeItem[];
+    recommended_actions: WorkbenchAdvisorBriefActionItem[];
+    risks_and_exceptions: WorkbenchAdvisorBriefNarrativeItem[];
+    source_metrics: WorkbenchAdvisorBriefSourceMetric[];
+    supportability: WorkbenchAdvisorBriefSupportabilityItem[];
+    ai_surface_supportability?: WorkbenchAdvisorBriefAiSurfaceSupportability | null;
+    advisory_supportability?: WorkbenchAdvisorBriefAdvisorySupportability | null;
+    workflow_pack_run?: WorkbenchAdvisorBriefWorkflowPackRun | null;
+    workflow_pack_task_flow?: WorkbenchAdvisorBriefWorkflowPackTaskFlow | null;
+    ai_audit: {
+      task_id?: string;
+      output_label?: string;
+      prompt_version?: string;
+      provider_mode?: string;
+      provider_id?: string | null;
+      adapter_kind?: string | null;
+      model_id?: string | null;
+      generated_at?: string;
+      stubbed?: boolean;
+      source_refs?: string[];
+    };
+    ai_evidence: {
+      source_refs?: string[];
+    };
+    warnings: string[];
+    partial_failures: WorkbenchOverview["partial_failures"];
   };
-  ai_evidence: {
-    source_refs?: string[];
-  };
-  warnings: string[];
-  partial_failures: WorkbenchOverview["partial_failures"];
-};
 
-export type WorkbenchRiskModuleState = "ready" | "partial" | "unavailable" | "blocked";
+export type WorkbenchRiskModuleState =
+  "ready" | "partial" | "unavailable" | "blocked";
 export type WorkbenchRiskSupportabilityState = WorkbenchRiskModuleState;
 
 export type WorkbenchRiskSupportabilityItem = {
@@ -893,6 +897,8 @@ export type WorkbenchRiskSummaryResponse = {
   detail_basis: "NET" | "GROSS";
   as_of_date: string;
   benchmark_code?: string | null;
+  requested_report_start_date?: string | null;
+  requested_report_end_date?: string | null;
   source_service: "lotus-risk";
   state: WorkbenchRiskModuleState;
   mandate_comparison?: WorkbenchMandateComparison | null;
@@ -934,6 +940,8 @@ export type WorkbenchRiskConcentrationResponse = {
   period: string;
   as_of_date: string;
   benchmark_code?: string | null;
+  requested_report_start_date?: string | null;
+  requested_report_end_date?: string | null;
   source_service: "lotus-risk";
   state: WorkbenchRiskModuleState;
   mandate_comparison?: WorkbenchMandateComparison | null;
@@ -1070,6 +1078,8 @@ export type WorkbenchRiskDrawdownResponse = {
   detail_basis: "NET" | "GROSS";
   as_of_date: string;
   benchmark_code?: string | null;
+  requested_report_start_date?: string | null;
+  requested_report_end_date?: string | null;
   source_service: "lotus-risk";
   state: WorkbenchRiskModuleState;
   payload: {
@@ -1157,6 +1167,8 @@ export type WorkbenchRiskRollingResponse = {
   detail_basis: "NET" | "GROSS";
   as_of_date: string;
   benchmark_code?: string | null;
+  requested_report_start_date?: string | null;
+  requested_report_end_date?: string | null;
   source_service: "lotus-risk";
   state: WorkbenchRiskModuleState;
   payload: {
@@ -1278,6 +1290,8 @@ export type WorkbenchRiskAttributionResponse = {
   detail_basis: "NET" | "GROSS";
   as_of_date: string;
   benchmark_code?: string | null;
+  requested_report_start_date?: string | null;
+  requested_report_end_date?: string | null;
   source_service: "lotus-risk";
   state: WorkbenchRiskModuleState;
   payload: {

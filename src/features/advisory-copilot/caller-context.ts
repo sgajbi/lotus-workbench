@@ -338,8 +338,6 @@ async function resolveAdvisoryCopilotScope({
     lookupHeaders.set("Authorization", `Bearer ${gatewayCredential}`);
   } else if (developmentContext && resourceScope) {
     applyReadHeaders(lookupHeaders, developmentContext);
-  }
-  if (resourceScope) {
     applyResourceScopeHeaders(lookupHeaders, resourceScope);
   }
   const payload = await fetchGatewayAuthorityScope(
@@ -448,7 +446,9 @@ function sanitizeCopilotBodyEnvelope(
   });
 }
 
-function readResourceScope(value: unknown): AdvisoryCopilotResourceScope | null {
+function readResourceScope(
+  value: unknown,
+): AdvisoryCopilotResourceScope | null {
   const scope = objectValue(value);
   const proposalId = readIdentifier(scope?.proposal_id);
   const portfolioId = readIdentifier(scope?.portfolio_id);

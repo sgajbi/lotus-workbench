@@ -124,6 +124,10 @@ promote dormant labels into product ownership just because historical route file
   not calculate limits, headroom, universal severity bands, breach, or all-clear posture. Review
   frequency is nullable source truth; Workbench renders absence as **Not reported**. Summary and
   concentration context alignment is checked on the raw source fields before display formatting.
+  Gateway's `requested_report_start_date` and `requested_report_end_date` identify the admitted
+  review request separately from Risk-owned effective period dates. Effective observations may
+  begin after a valuation baseline, but they must remain inside the requested window; mismatched
+  request identity or out-of-window source dates are withheld rather than relabelled.
 - Data Product Catalogue is served through `/data-products` and independently consumes Gateway
   `/api/v1/domain-products/catalog`, `/dependency-graph`, and `/trust-certification` through the
   internal `/api/bff/api/v1/domain-products/*` bridge only. Catalogue failure blocks discovery;

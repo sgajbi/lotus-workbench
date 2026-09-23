@@ -2830,15 +2830,14 @@ describe("BFF proxy route", () => {
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    for (const [index, call] of fetchMock.mock.calls.entries()) {
+    for (const call of fetchMock.mock.calls) {
       const callHeaders = call[1]?.headers as Headers;
       expect(callHeaders.get("Authorization")).toBe(
         "Bearer delegated.copilot.signature",
       );
       expect(callHeaders.get("X-Actor-Id")).toBeNull();
-      expect(callHeaders.get("X-Authorized-Portfolio-Id")).toBe(
-        index === 0 ? "PB_SG_GLOBAL_BAL_001" : null,
-      );
+      expect(callHeaders.get("X-Authorized-Proposal-Id")).toBeNull();
+      expect(callHeaders.get("X-Authorized-Portfolio-Id")).toBeNull();
       expect(callHeaders.get("X-Caller-Capabilities")).toBeNull();
     }
   });

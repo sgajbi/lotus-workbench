@@ -7,13 +7,13 @@ mode implemented under RFC-0022.
 
 The Risk workspace is backed only by Gateway BFF routes over canonical `lotus-risk` stateful APIs.
 
-| Module | Gateway route | First paint behavior | Detail behavior |
-| --- | --- | --- | --- |
-| Risk Snapshot | `GET /api/v1/workbench/{portfolioId}/risk/summary` | loaded on first paint | no secondary detail fetch |
-| Concentration | `GET /api/v1/workbench/{portfolioId}/risk/concentration` | loaded on first paint with portfolio HHI, issuer HHI, top-driver identities, current/proposed comparisons, and coverage controls | simulation deltas only with explicit `sessionId` |
-| Drawdown | `GET /api/v1/workbench/{portfolioId}/risk/drawdown` | summary and worst episodes on first paint | underwater series only when explicitly expanded |
-| Rolling Risk | `GET /api/v1/workbench/{portfolioId}/risk/rolling` | rolling summaries on first paint | time series only when explicitly expanded |
-| Historical Risk Attribution | `GET /api/v1/workbench/{portfolioId}/risk/attribution` | lazy-loaded after the shell renders | grouping and attribution selector changes refetch only the attribution module |
+| Module                      | Gateway route                                            | First paint behavior                                                                                                             | Detail behavior                                                               |
+| --------------------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Risk Snapshot               | `GET /api/v1/workbench/{portfolioId}/risk/summary`       | loaded on first paint                                                                                                            | no secondary detail fetch                                                     |
+| Concentration               | `GET /api/v1/workbench/{portfolioId}/risk/concentration` | loaded on first paint with portfolio HHI, issuer HHI, top-driver identities, current/proposed comparisons, and coverage controls | simulation deltas only with explicit `sessionId`                              |
+| Drawdown                    | `GET /api/v1/workbench/{portfolioId}/risk/drawdown`      | summary and worst episodes on first paint                                                                                        | underwater series only when explicitly expanded                               |
+| Rolling Risk                | `GET /api/v1/workbench/{portfolioId}/risk/rolling`       | rolling summaries on first paint                                                                                                 | time series only when explicitly expanded                                     |
+| Historical Risk Attribution | `GET /api/v1/workbench/{portfolioId}/risk/attribution`   | lazy-loaded after the shell renders                                                                                              | grouping and attribution selector changes refetch only the attribution module |
 
 ## Risk workspace reading order
 
@@ -161,20 +161,31 @@ Blocked behaviors:
 3. free-form return-series upload,
 4. browser-visible service hostnames outside Gateway.
 
+## Requested and effective windows
+
+Gateway preserves the exact requested report boundaries on every Risk envelope as
+`requested_report_start_date` and `requested_report_end_date`. Risk remains authoritative for the
+effective dates in each returned period. These can legitimately differ when the requested start is
+a valuation baseline and the first observable return is the next business day.
+
+Workbench displays a period only when the requested echo matches the active review context and the
+effective period stays inside those requested bounds. A stale requested echo or an effective date
+outside the admitted window is withheld. The UI does not rewrite Risk dates to make them match.
+
 ## Active-risk attribution support matrix
 
 The implemented active-risk support matrix is:
 
-| Attribution type | Grouping | State |
-| --- | --- | --- |
-| `TOTAL_RISK` | `POSITION` | ready |
-| `TOTAL_RISK` | `SECTOR` | ready |
-| `TOTAL_RISK` | `ASSET_CLASS` | ready |
-| `TOTAL_RISK` | `ISSUER` | ready |
-| `ACTIVE_RISK` | `POSITION` | ready |
-| `ACTIVE_RISK` | `SECTOR` | ready |
-| `ACTIVE_RISK` | `ASSET_CLASS` | ready |
-| `ACTIVE_RISK` | `ISSUER` | blocked |
+| Attribution type | Grouping      | State   |
+| ---------------- | ------------- | ------- |
+| `TOTAL_RISK`     | `POSITION`    | ready   |
+| `TOTAL_RISK`     | `SECTOR`      | ready   |
+| `TOTAL_RISK`     | `ASSET_CLASS` | ready   |
+| `TOTAL_RISK`     | `ISSUER`      | ready   |
+| `ACTIVE_RISK`    | `POSITION`    | ready   |
+| `ACTIVE_RISK`    | `SECTOR`      | ready   |
+| `ACTIVE_RISK`    | `ASSET_CLASS` | ready   |
+| `ACTIVE_RISK`    | `ISSUER`      | blocked |
 
 `ACTIVE_RISK + ISSUER` remains blocked until upstream benchmark issuer exposure semantics exist.
 
