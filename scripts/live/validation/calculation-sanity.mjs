@@ -26,6 +26,56 @@ function assertArrayHasLength(value, minimumLength, description) {
   return value;
 }
 
+const FLOATING_POINT_RECONCILIATION_ULPS = 8;
+
+export function assertRiskAttributionReconciliation(attributionSet) {
+  const totalValue = assertFiniteNumber(
+    attributionSet.total_value,
+    "Historical risk total value"
+  );
+  const reconciledSum = assertFiniteNumber(
+    attributionSet.reconciled_sum,
+    "Historical risk reconciled sum"
+  );
+  const residual = assertFiniteNumber(
+    attributionSet.residual,
+    "Historical risk residual"
+  );
+  if (!Array.isArray(attributionSet.quality_flags)) {
+    throw new Error("Historical risk quality flags expected an array.");
+  }
+
+  const expectedResidual = totalValue - reconciledSum;
+  const comparisonScale = Math.max(
+    1,
+    Math.abs(totalValue),
+    Math.abs(reconciledSum),
+    Math.abs(residual)
+  );
+  const comparisonTolerance =
+    Number.EPSILON * comparisonScale * FLOATING_POINT_RECONCILIATION_ULPS;
+  const reconciliationError = Math.abs(expectedResidual - residual);
+  if (reconciliationError > comparisonTolerance) {
+    throw new Error(
+      "Historical risk attribution is internally inconsistent: " +
+        `total ${totalValue} - reconciled ${reconciledSum} = ${expectedResidual}, ` +
+        `but source residual is ${residual}.`
+    );
+  }
+
+  return {
+    totalValue,
+    reconciledSum,
+    residual,
+    residualAbs: Math.abs(residual),
+    residualShareOfTotal:
+      totalValue === 0 ? (residual === 0 ? 0 : null) : Math.abs(residual / totalValue),
+    reconciliationError,
+    comparisonTolerance,
+    qualityFlags: [...attributionSet.quality_flags],
+  };
+}
+
 function recordCalculationCheck(summary, description, evidence) {
   summary.calculationChecks.push({ description, ...evidence });
 }
@@ -417,10 +467,7 @@ export function assertRiskCalculationSanity({
     5,
     "Historical risk attribution contributors"
   );
-  const residual = assertFiniteNumber(attributionSet.residual, "Historical risk residual");
-  if (Math.abs(residual) > 0.000001) {
-    throw new Error(`Historical risk attribution residual is too high: ${residual}.`);
-  }
+  const attributionReconciliation = assertRiskAttributionReconciliation(attributionSet);
 
   recordCalculationCheck(summary, "Risk calculation sanity", {
     readyMetricCount: readyMetrics.length,
@@ -430,6 +477,14 @@ export function assertRiskCalculationSanity({
     rollingWindowResultCount: rollingWindows.length,
     rollingWindowsWithLatestVolatility,
     attributionContributorCount: contributors.length,
+    attributionTotalValue: attributionReconciliation.totalValue,
+    attributionReconciledSum: attributionReconciliation.reconciledSum,
+    attributionResidual: attributionReconciliation.residual,
+    attributionResidualAbs: attributionReconciliation.residualAbs,
+    attributionResidualShareOfTotal: attributionReconciliation.residualShareOfTotal,
+    attributionReconciliationError: attributionReconciliation.reconciliationError,
+    attributionComparisonTolerance: attributionReconciliation.comparisonTolerance,
+    attributionQualityFlags: attributionReconciliation.qualityFlags,
   });
   const riskSupportability = recordSourceSupportabilityCheck(
     summary,
@@ -455,5 +510,8 @@ export function assertRiskCalculationSanity({
   });
   recordPanelClassification("performance.risk.historical_attribution", "ready", "lotus-risk", {
     contributorRows: contributors.length,
+    residual: attributionReconciliation.residual,
+    residualShareOfTotal: attributionReconciliation.residualShareOfTotal,
+    qualityFlags: attributionReconciliation.qualityFlags,
   });
 }

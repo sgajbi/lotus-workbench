@@ -952,7 +952,9 @@ For `PB_SG_GLOBAL_BAL_001`, the validator confirms:
   - concentration has issuer coverage and top-exposure evidence
   - drawdown has underwater-series evidence
   - rolling risk has all configured windows and enough computable windows for the current horizon
-  - historical attribution contributors reconcile with a negligible residual
+  - historical attribution publishes finite total, reconciled-sum, and residual values whose
+    arithmetic identity is internally consistent; the residual and quality flags remain visible
+    source evidence rather than a Workbench-owned materiality decision
   - rendered mandate-constraint identities and states exactly match the complete summary and
     concentration Gateway evidence without a browser-owned state list
 - Evidence:
