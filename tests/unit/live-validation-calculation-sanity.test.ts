@@ -1,5 +1,6 @@
 import {
   assertPerformanceCalculationSanity,
+  assertRiskAttributionReconciliation,
   assertRiskCalculationSanity,
 } from "../../scripts/live/validation/calculation-sanity.mjs";
 
@@ -337,7 +338,10 @@ describe("live validation calculation sanity helpers", () => {
               attribution_sets: [
                 {
                   contributors: [{}, {}, {}, {}, {}],
-                  residual: 0,
+                  total_value: 0.026056961137819173,
+                  reconciled_sum: 0.026077651902779688,
+                  residual: -0.000020690764960515362,
+                  quality_flags: [],
                 },
               ],
             },
@@ -347,6 +351,15 @@ describe("live validation calculation sanity helpers", () => {
     });
 
     expect(summary.calculationChecks).toHaveLength(1);
+    expect(summary.calculationChecks[0]).toEqual(
+      expect.objectContaining({
+        attributionTotalValue: 0.026056961137819173,
+        attributionReconciledSum: 0.026077651902779688,
+        attributionResidual: -0.000020690764960515362,
+        attributionResidualShareOfTotal: expect.any(Number),
+        attributionQualityFlags: [],
+      })
+    );
     expect(summary.panelClassifications).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ panel: "performance.risk.snapshot", state: "ready" }),
@@ -504,73 +517,68 @@ describe("live validation calculation sanity helpers", () => {
     expect(summary.panelClassifications).toHaveLength(0);
   });
 
-  it("fails risk attribution when the residual breaches the governed tolerance", () => {
-    const summary = createSummary();
+  it.each([
+    {
+      label: "the canonical live negative residual",
+      total_value: 0.026056961137819173,
+      reconciled_sum: 0.026077651902779688,
+      residual: -0.000020690764960515362,
+    },
+    {
+      label: "a positive residual",
+      total_value: 0.2,
+      reconciled_sum: 0.199,
+      residual: 0.0010000000000000009,
+    },
+    {
+      label: "a zero total and residual",
+      total_value: 0,
+      reconciled_sum: 0,
+      residual: 0,
+    },
+  ])("accepts $label when source reconciliation is internally consistent", (attributionSet) => {
+    const evidence = assertRiskAttributionReconciliation({
+      ...attributionSet,
+      quality_flags: [],
+    });
 
+    expect(evidence.residual).toBe(attributionSet.residual);
+    expect(evidence.reconciliationError).toBeLessThanOrEqual(evidence.comparisonTolerance);
+  });
+
+  it("rejects a source residual that does not equal total less reconciled sum", () => {
     expect(() =>
-      assertRiskCalculationSanity({
-        summary,
-        recordPanelClassification: createClassifier(summary),
-        riskSummary: {
-          payload: {
-            periods: [
-              {
-                metrics: Array.from({ length: 6 }, () => ({ state: "ready" })),
-                portfolio_observation_count: 120,
-                aligned_benchmark_observation_count: 120,
-                benchmark_context: { aligned: true },
-              },
-            ],
-          },
-        },
-        concentration: {
-          payload: {
-            portfolio_concentration: { hhi_current: 1356 },
-            issuer_concentration: { coverage_ratio_current: 0.99 },
-            single_position_concentration: { top_n_cumulative_weight_current: 0.992 },
-          },
-        },
-        drawdown: {
-          payload: {
-            periods: [
-              {
-                portfolio_observation_count: 120,
-                relative_to_benchmark: { time_under_water_days: 81 },
-                underwater_series: Array.from({ length: 60 }, () => ({})),
-              },
-            ],
-          },
-        },
-        rolling: {
-          payload: {
-            periods: [
-              {
-                window_count_emitted: 4,
-                window_results: [
-                  { window_length: 21, metric_summaries: { ROLLING_VOLATILITY: { latest: 0.02 } } },
-                  { window_length: 63, metric_summaries: { ROLLING_VOLATILITY: { latest: 0.04 } } },
-                  { window_length: 126, metric_summaries: { ROLLING_VOLATILITY: {} } },
-                  { window_length: 252, metric_summaries: { ROLLING_VOLATILITY: {} } },
-                ],
-              },
-            ],
-          },
-        },
-        attribution: {
-          payload: {
-            periods: [
-              {
-                attribution_sets: [
-                  {
-                    contributors: [{}, {}, {}, {}, {}],
-                    residual: 0.1,
-                  },
-                ],
-              },
-            ],
-          },
-        },
+      assertRiskAttributionReconciliation({
+        total_value: 0.2,
+        reconciled_sum: 0.199,
+        residual: 0.002,
+        quality_flags: [],
       })
-    ).toThrow("Historical risk attribution residual is too high: 0.1.");
+    ).toThrow(
+      "Historical risk attribution is internally inconsistent: total 0.2 - reconciled 0.199"
+    );
+  });
+
+  it.each([
+    ["total value", { total_value: Number.NaN, reconciled_sum: 0.1, residual: 0 }],
+    ["reconciled sum", { total_value: 0.1, reconciled_sum: Number.POSITIVE_INFINITY, residual: 0 }],
+    ["residual", { total_value: 0.1, reconciled_sum: 0.1, residual: undefined }],
+  ])("rejects a missing or non-finite historical risk %s", (_label, attributionSet) => {
+    expect(() =>
+      assertRiskAttributionReconciliation({
+        ...attributionSet,
+        quality_flags: [],
+      })
+    ).toThrow(/expected a finite number/);
+  });
+
+  it("rejects missing source quality flags instead of manufacturing an empty set", () => {
+    expect(() =>
+      assertRiskAttributionReconciliation({
+        total_value: 0.1,
+        reconciled_sum: 0.1,
+        residual: 0,
+      })
+    ).toThrow("Historical risk quality flags expected an array.");
   });
 });

@@ -1,5 +1,21 @@
 import type { ValidationPanelState, ValidationSummary } from "./shared-types";
 
+export function assertRiskAttributionReconciliation(attributionSet: {
+  total_value?: number;
+  reconciled_sum?: number;
+  residual?: number;
+  quality_flags?: unknown[];
+}): {
+  totalValue: number;
+  reconciledSum: number;
+  residual: number;
+  residualAbs: number;
+  residualShareOfTotal: number | null;
+  reconciliationError: number;
+  comparisonTolerance: number;
+  qualityFlags: unknown[];
+};
+
 export function assertPerformanceCalculationSanity(input: {
   summary: ValidationSummary;
   performanceSummary: Record<string, unknown>;
