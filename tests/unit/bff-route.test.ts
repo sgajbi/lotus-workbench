@@ -2466,6 +2466,10 @@ describe("BFF proxy route", () => {
         requested_outputs: ["rationale"],
         requested_by: "browser-spoofed-maker",
       },
+      resource_scope: {
+        proposal_id: "proposal_sg_structured_note_001",
+        portfolio_id: "PB_SG_GLOBAL_BAL_001",
+      },
     });
 
     const response = await POST(
@@ -2492,6 +2496,12 @@ describe("BFF proxy route", () => {
     expect(lookupHeaders.get("X-Caller-Capabilities")).toBe(
       "advisory.copilot.read",
     );
+    expect(lookupHeaders.get("X-Authorized-Proposal-Id")).toBe(
+      "proposal_sg_structured_note_001",
+    );
+    expect(lookupHeaders.get("X-Authorized-Portfolio-Id")).toBe(
+      "PB_SG_GLOBAL_BAL_001",
+    );
     const upstreamHeaders = fetchMock.mock.calls[1][1]?.headers as Headers;
     expect(upstreamHeaders.get("X-Actor-Id")).toBe("advisor_sg_001");
     expect(upstreamHeaders.get("X-Role")).toBe("ADVISOR");
@@ -2507,6 +2517,9 @@ describe("BFF proxy route", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
       body: { requested_by: "advisor_sg_001" },
     });
+    expect(String(fetchMock.mock.calls[1][1]?.body)).not.toContain(
+      "resource_scope",
+    );
   });
 
   it("rejects a Copilot action when the source packet identity drifts", async () => {
@@ -2538,6 +2551,10 @@ describe("BFF proxy route", () => {
               audience: "ADVISOR_INTERNAL",
               requested_outputs: ["rationale"],
               requested_by: "browser-spoofed-maker",
+            },
+            resource_scope: {
+              proposal_id: "proposal_sg_structured_note_001",
+              portfolio_id: "PB_SG_GLOBAL_BAL_001",
             },
           }),
         },
@@ -2582,6 +2599,10 @@ describe("BFF proxy route", () => {
           decision:
             "Reviewed against source evidence for internal advisor use.",
         },
+      },
+      resource_scope: {
+        proposal_id: "proposal_sg_structured_note_001",
+        portfolio_id: "PB_SG_GLOBAL_BAL_001",
       },
     });
     const request = new NextRequest(
@@ -2636,14 +2657,28 @@ describe("BFF proxy route", () => {
     expect(scopeLookupHeaders.get("X-Caller-Capabilities")).toBe(
       "advisory.copilot.read",
     );
-    expect(scopeLookupHeaders.get("X-Authorized-Proposal-Id")).toBeNull();
-    expect(scopeLookupHeaders.get("X-Authorized-Portfolio-Id")).toBeNull();
+    expect(scopeLookupHeaders.get("X-Authorized-Proposal-Id")).toBe(
+      "proposal_sg_structured_note_001",
+    );
+    expect(scopeLookupHeaders.get("X-Authorized-Portfolio-Id")).toBe(
+      "PB_SG_GLOBAL_BAL_001",
+    );
 
     const [upstreamUrl, upstreamInit] = fetchMock.mock.calls[1];
     expect(String(upstreamUrl)).toBe(
       "http://gateway.dev.lotus/api/v1/advisory-copilot/actions/copilot_run_1/reviews",
     );
-    expect(upstreamInit?.body).toBe(body);
+    expect(upstreamInit?.body).toBe(
+      JSON.stringify({
+        body: {
+          action: "APPROVE_FOR_INTERNAL_USE",
+          reason: {
+            decision:
+              "Reviewed against source evidence for internal advisor use.",
+          },
+        },
+      }),
+    );
     const upstreamHeaders = upstreamInit?.headers as Headers;
     expect(upstreamHeaders.get("X-Actor-Id")).toBe("desk_head_sg_001");
     expect(upstreamHeaders.get("X-Caller-Application")).toBe("lotus-workbench");
@@ -2693,6 +2728,10 @@ describe("BFF proxy route", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             body: { action: "APPROVE_FOR_INTERNAL_USE" },
+            resource_scope: {
+              proposal_id: "proposal_sg_structured_note_001",
+              portfolio_id: "PB_SG_GLOBAL_BAL_001",
+            },
           }),
         },
       ),
@@ -2768,6 +2807,10 @@ describe("BFF proxy route", () => {
           },
           body: JSON.stringify({
             body: { action: "APPROVE_FOR_INTERNAL_USE" },
+            resource_scope: {
+              proposal_id: "proposal_001",
+              portfolio_id: "PB_SG_GLOBAL_BAL_001",
+            },
           }),
         },
       ),
@@ -2787,13 +2830,15 @@ describe("BFF proxy route", () => {
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    for (const call of fetchMock.mock.calls) {
+    for (const [index, call] of fetchMock.mock.calls.entries()) {
       const callHeaders = call[1]?.headers as Headers;
       expect(callHeaders.get("Authorization")).toBe(
         "Bearer delegated.copilot.signature",
       );
       expect(callHeaders.get("X-Actor-Id")).toBeNull();
-      expect(callHeaders.get("X-Authorized-Portfolio-Id")).toBeNull();
+      expect(callHeaders.get("X-Authorized-Portfolio-Id")).toBe(
+        index === 0 ? "PB_SG_GLOBAL_BAL_001" : null,
+      );
       expect(callHeaders.get("X-Caller-Capabilities")).toBeNull();
     }
   });
@@ -2826,6 +2871,10 @@ describe("BFF proxy route", () => {
           body: {
             action: "APPROVE_FOR_INTERNAL_USE",
             reason: { decision: "Reviewed against source evidence." },
+          },
+          resource_scope: {
+            proposal_id: "proposal_sg_structured_note_001",
+            portfolio_id: "UNENTITLED_PORTFOLIO",
           },
         }),
       },
@@ -2878,6 +2927,10 @@ describe("BFF proxy route", () => {
           body: {
             action: "APPROVE_FOR_INTERNAL_USE",
             reason: { decision: "Reviewed against source evidence." },
+          },
+          resource_scope: {
+            proposal_id: "proposal_sg_structured_note_001",
+            portfolio_id: "PB_SG_GLOBAL_BAL_001",
           },
         }),
       },

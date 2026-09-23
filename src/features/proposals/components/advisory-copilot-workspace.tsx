@@ -88,8 +88,16 @@ export default function AdvisoryCopilotWorkspace({
         },
       });
       const evidencePacketId = packet.evidence_packet?.evidence_packet_id;
-      if (!evidencePacketId) {
-        throw new Error("Copilot evidence packet was not returned by Gateway.");
+      const packetProposalId = packet.evidence_packet?.proposal_id;
+      const packetPortfolioId = packet.evidence_packet?.portfolio_id;
+      if (
+        !evidencePacketId ||
+        packetProposalId !== proposal.proposal_id ||
+        packetPortfolioId !== portfolioId
+      ) {
+        throw new Error(
+          "Copilot evidence packet did not match the selected proposal and portfolio.",
+        );
       }
       const run = await runAdvisoryCopilotAction(
         {
@@ -104,6 +112,10 @@ export default function AdvisoryCopilotWorkspace({
           },
         },
         `ui-copilot-run-${option.family}-${proposal.proposal_id}-${proposal.current_version_no}-${evidencePacketId}`,
+        {
+          proposal_id: packetProposalId,
+          portfolio_id: packetPortfolioId,
+        },
       );
       return { packet, run };
     },
@@ -118,6 +130,13 @@ export default function AdvisoryCopilotWorkspace({
       if (!runId) {
         throw new Error("No copilot run is available for review.");
       }
+      const proposalId = latestPacket?.evidence_packet?.proposal_id;
+      const packetPortfolioId = latestPacket?.evidence_packet?.portfolio_id;
+      if (!proposalId || packetPortfolioId !== portfolioId) {
+        throw new Error(
+          "Copilot review scope did not match the selected portfolio.",
+        );
+      }
       return await reviewAdvisoryCopilotRun(
         runId,
         {
@@ -127,6 +146,7 @@ export default function AdvisoryCopilotWorkspace({
           },
         },
         `ui-copilot-review-${runId}`,
+        { proposal_id: proposalId, portfolio_id: packetPortfolioId },
       );
     },
     onSuccess: (review) => {

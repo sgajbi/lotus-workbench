@@ -1435,7 +1435,11 @@ describe("canonical live validation script", () => {
     expect(advisorCockpitProof).toContain("wb-advisor-cockpit-ack");
     expect(payloadUtils).toContain('import { createHash } from "node:crypto"');
     expect(payloadUtils).toContain("buildPayloadScopedIdempotencyKey");
+    expect(payloadUtils).toContain("buildRuntimeScopedIdempotencyKey");
     expect(script).toContain("buildPayloadScopedIdempotencyKey");
+    expect(script).toContain("buildRuntimeScopedIdempotencyKey");
+    expect(script).toContain("ideaVersion?.build?.imageBuildId");
+    expect(script).toContain("canonicalRuntimeGeneration");
     expect(script).toContain("proposalCreateIdempotencyKey");
     expect(advisoryPolicyProof).toContain("wb-policy-evaluation");
     expect(script).toContain("proofPackIdempotencyKey");
@@ -1459,6 +1463,9 @@ describe("canonical live validation script", () => {
       "Contribution total does not reconcile with net portfolio return",
     );
     expect(calculationModule).toContain(
+      "Historical risk attribution is internally inconsistent",
+    );
+    expect(calculationModule).not.toContain(
       "Historical risk attribution residual is too high",
     );
   });
@@ -2356,6 +2363,9 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).toContain("Request discussion material");
     expect(browserWorkflowModule).toContain("Request advisor commentary");
     expect(browserWorkflowModule).toContain("Evidence aligned");
+    expect(browserWorkflowModule).toContain(
+      "memoDetails.getByText(/^sha256:/).first()",
+    );
     expect(browserWorkflowModule).toContain("source-confirmed-advisor-use");
     expect(browserWorkflowModule).toContain("panel: panelId");
     expect(browserWorkflowModule).toContain(

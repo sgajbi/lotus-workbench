@@ -1497,6 +1497,10 @@ describe("proposal api", () => {
         requested_intents: ["explain_policy_posture"],
       },
       "idem-copilot-run",
+      {
+        proposal_id: "proposal_sg_structured_note_001",
+        portfolio_id: "PB_SG_GLOBAL_BAL_001",
+      },
     );
     await reviewAdvisoryCopilotRun(
       "copilot_run_1",
@@ -1505,6 +1509,10 @@ describe("proposal api", () => {
         reason: { decision: "Reviewed for internal advisor use." },
       },
       "idem-copilot-review",
+      {
+        proposal_id: "proposal_sg_structured_note_001",
+        portfolio_id: "PB_SG_GLOBAL_BAL_001",
+      },
     );
     await getAdvisoryCopilotSupportability();
 
@@ -1532,6 +1540,19 @@ describe("proposal api", () => {
         headers: expect.objectContaining({
           "Idempotency-Key": "idem-copilot-run",
         }),
+        body: JSON.stringify({
+          body: {
+            evidence_packet_id: "copilot_packet_1",
+            audience: "ADVISOR",
+            requested_outputs: ["advisor_review_summary"],
+            requested_by: "advisor_sg_001",
+            requested_intents: ["explain_policy_posture"],
+          },
+          resource_scope: {
+            proposal_id: "proposal_sg_structured_note_001",
+            portfolio_id: "PB_SG_GLOBAL_BAL_001",
+          },
+        }),
       }),
     );
     expect(fetchMock).toHaveBeenCalledWith(
@@ -1545,6 +1566,10 @@ describe("proposal api", () => {
           body: {
             action: "APPROVE_FOR_INTERNAL_USE",
             reason: { decision: "Reviewed for internal advisor use." },
+          },
+          resource_scope: {
+            proposal_id: "proposal_sg_structured_note_001",
+            portfolio_id: "PB_SG_GLOBAL_BAL_001",
           },
         }),
       }),

@@ -140,13 +140,17 @@ export async function applyAdvisoryCopilotCallerContextHeaders(
     headers.set("X-Authorized-Proposal-Id", scope.proposalId);
     headers.set("X-Authorized-Portfolio-Id", scope.portfolioId);
   }
-  const bodyText = operation.attributionField
-    ? replaceBodyAttribution(
-        request.bodyText,
-        operation.attributionField,
-        context ? context.makerActorId : request.verifiedPrincipal!.subject,
-      )
-    : request.bodyText;
+  const bodyText = sanitizeCopilotBodyEnvelope(
+    request.bodyText,
+    operation.attributionField
+      ? {
+          field: operation.attributionField,
+          actorId: context
+            ? context.makerActorId
+            : request.verifiedPrincipal!.subject,
+        }
+      : undefined,
+  );
   if (!bodyText) {
     return { status: "rejected", reason: "invalid_advisory_copilot_request" };
   }
@@ -288,6 +292,11 @@ type AdvisoryCopilotScope = {
   resourceId: string;
 };
 
+type AdvisoryCopilotResourceScope = Pick<
+  AdvisoryCopilotScope,
+  "proposalId" | "portfolioId"
+>;
+
 async function resolveAdvisoryCopilotScope({
   operation,
   bodyText,
@@ -301,7 +310,9 @@ async function resolveAdvisoryCopilotScope({
   gatewayCredential?: string;
   gatewayBaseUrl: string;
 }): Promise<AdvisoryCopilotScope | null> {
-  const body = objectValue(objectValue(parseJson(bodyText))?.body);
+  const envelope = objectValue(parseJson(bodyText));
+  const body = objectValue(envelope?.body);
+  const resourceScope = readResourceScope(envelope?.resource_scope);
   let path: string;
   let expectedResourceId: string;
   if (operation.scopeSource.kind === "proposal") {
@@ -311,10 +322,11 @@ async function resolveAdvisoryCopilotScope({
     path = `/api/v1/proposals/${encodeURIComponent(proposalId)}`;
   } else if (operation.scopeSource.kind === "evidence_packet") {
     const packetId = readIdentifier(body?.evidence_packet_id);
-    if (!packetId) return null;
+    if (!packetId || !resourceScope) return null;
     expectedResourceId = packetId;
     path = `/api/v1/advisory-copilot/evidence-packets/${encodeURIComponent(packetId)}`;
   } else {
+    if (!resourceScope) return null;
     expectedResourceId = operation.scopeSource.runId;
     path = `/api/v1/advisory-copilot/actions/${encodeURIComponent(
       operation.scopeSource.runId,
@@ -324,8 +336,11 @@ async function resolveAdvisoryCopilotScope({
   const lookupHeaders = new Headers({ Accept: "application/json" });
   if (gatewayCredential) {
     lookupHeaders.set("Authorization", `Bearer ${gatewayCredential}`);
-  } else if (developmentContext && operation.scopeSource.kind !== "proposal") {
+  } else if (developmentContext && resourceScope) {
     applyReadHeaders(lookupHeaders, developmentContext);
+  }
+  if (resourceScope) {
+    applyResourceScopeHeaders(lookupHeaders, resourceScope);
   }
   const payload = await fetchGatewayAuthorityScope(
     gatewayBaseUrl,
@@ -333,7 +348,12 @@ async function resolveAdvisoryCopilotScope({
     lookupHeaders,
   );
   const scope = extractScopeFromPayload(payload, operation.scopeSource.kind);
-  return scope?.resourceId === expectedResourceId ? scope : null;
+  return scope?.resourceId === expectedResourceId &&
+    (!resourceScope ||
+      (scope.proposalId === resourceScope.proposalId &&
+        scope.portfolioId === resourceScope.portfolioId))
+    ? scope
+    : null;
 }
 
 function applyReadHeaders(
@@ -345,6 +365,14 @@ function applyReadHeaders(
     role: context.reviewerRole,
     capability: READ_CAPABILITY,
   });
+}
+
+function applyResourceScopeHeaders(
+  headers: Headers,
+  resourceScope: AdvisoryCopilotResourceScope,
+) {
+  headers.set("X-Authorized-Proposal-Id", resourceScope.proposalId);
+  headers.set("X-Authorized-Portfolio-Id", resourceScope.portfolioId);
 }
 
 function applyDevelopmentHeaders(
@@ -401,15 +429,30 @@ function extractScopeFromPayload(
     : null;
 }
 
-function replaceBodyAttribution(
+function sanitizeCopilotBodyEnvelope(
   bodyText: string,
-  field: "created_by" | "requested_by",
-  actorId: string,
+  attribution?: {
+    field: "created_by" | "requested_by";
+    actorId: string;
+  },
 ): string | null {
   const envelope = objectValue(parseJson(bodyText));
   const body = objectValue(envelope?.body);
   if (!envelope || !body) return null;
-  return JSON.stringify({ ...envelope, body: { ...body, [field]: actorId } });
+  const { resource_scope: _resourceScope, ...forwardedEnvelope } = envelope;
+  return JSON.stringify({
+    ...forwardedEnvelope,
+    body: attribution
+      ? { ...body, [attribution.field]: attribution.actorId }
+      : body,
+  });
+}
+
+function readResourceScope(value: unknown): AdvisoryCopilotResourceScope | null {
+  const scope = objectValue(value);
+  const proposalId = readIdentifier(scope?.proposal_id);
+  const portfolioId = readIdentifier(scope?.portfolio_id);
+  return proposalId && portfolioId ? { proposalId, portfolioId } : null;
 }
 
 function parseJson(value: string): unknown {
