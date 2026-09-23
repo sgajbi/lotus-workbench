@@ -138,6 +138,40 @@ describe("performance risk source identity", () => {
     expect(isPerformanceRiskSourceCurrent(source, identity)).toBe(true);
     expect(
       isPerformanceRiskSourceCurrent(
+        {
+          ...source,
+          payload: {
+            periods: [
+              {
+                key: "EXPLICIT",
+                start_date: "2025-04-01",
+                end_date: "2026-04-09",
+              },
+            ],
+          },
+        },
+        identity,
+      ),
+    ).toBe(true);
+    expect(
+      isPerformanceRiskSourceCurrent(
+        {
+          ...source,
+          payload: {
+            periods: [
+              {
+                key: "EXPLICIT",
+                start_date: "2025-04-01",
+                end_date: "2026-04-11",
+              },
+            ],
+          },
+        },
+        identity,
+      ),
+    ).toBe(false);
+    expect(
+      isPerformanceRiskSourceCurrent(
         { ...source, requested_report_start_date: "2025-04-01" },
         identity,
       ),

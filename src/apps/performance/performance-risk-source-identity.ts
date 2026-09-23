@@ -152,7 +152,9 @@ function hasRequestedRiskWindow(
             ? period.start_date >= identity.reportStartDate
             : period.start_date === identity.reportStartDate)) &&
         (!identity.reportEndDate ||
-          period.end_date === identity.reportEndDate) &&
+          (hasGovernedRequestedWindow
+            ? period.end_date <= identity.reportEndDate
+            : period.end_date === identity.reportEndDate)) &&
         hasRiskSeriesWithinPeriod(period),
     ),
   );
