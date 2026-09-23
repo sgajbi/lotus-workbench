@@ -430,6 +430,11 @@ export type AdvisoryCopilotActionRequest = {
   user_instruction?: string;
 };
 
+export type AdvisoryCopilotResourceScope = {
+  proposal_id: string;
+  portfolio_id: string;
+};
+
 export type AdvisoryCopilotReviewRequest = {
   action:
     | "APPROVE_FOR_INTERNAL_USE"
@@ -482,6 +487,8 @@ export type AdvisoryCopilotRunData = {
     action_family?: AdvisoryCopilotActionFamily | string;
     evidence_packet_id?: string;
     evidence_packet_hash?: string;
+    portfolio_id?: string;
+    proposal_id?: string;
     output_hash?: string;
     review_posture?: string;
     client_ready_publication?: string;

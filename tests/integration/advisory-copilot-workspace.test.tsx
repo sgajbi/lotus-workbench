@@ -41,6 +41,8 @@ const getAdvisoryCopilotSupportabilityMock = vi.fn(async () => ({
 const createEvidencePacketMock = vi.fn(async (_payload: unknown) => ({
   evidence_packet: {
     evidence_packet_id: "copilot_packet_1",
+    proposal_id: "proposal_sg_structured_note_001",
+    portfolio_id: "PB_SG_GLOBAL_BAL_001",
     client_ready_publication: "BLOCKED",
     sections: [
       {
@@ -66,7 +68,11 @@ const createEvidencePacketMock = vi.fn(async (_payload: unknown) => ({
   },
 }));
 const runAdvisoryCopilotActionMock = vi.fn(
-  async (_payload: unknown, _idempotencyKey: string): Promise<AdvisoryCopilotRunData> => ({
+  async (
+    _payload: unknown,
+    _idempotencyKey: string,
+    _resourceScope: unknown,
+  ): Promise<AdvisoryCopilotRunData> => ({
   run: {
     run_id: "copilot_run_1",
     evidence_packet_id: "copilot_packet_1",
@@ -94,6 +100,7 @@ const reviewAdvisoryCopilotRunMock = vi.fn(
     _runId: string,
     _payload: unknown,
     _idempotencyKey: string,
+    _resourceScope: unknown,
   ): Promise<AdvisoryCopilotReviewData> => ({
   run: {
     run_id: "copilot_run_1",
@@ -135,9 +142,13 @@ vi.mock("../../src/features/proposals/api", () => ({
     runId: string,
     payload: unknown,
     idempotencyKey: string,
-  ) => reviewAdvisoryCopilotRunMock(runId, payload, idempotencyKey),
-  runAdvisoryCopilotAction: (payload: unknown, idempotencyKey: string) =>
-    runAdvisoryCopilotActionMock(payload, idempotencyKey),
+    resourceScope: unknown,
+  ) => reviewAdvisoryCopilotRunMock(runId, payload, idempotencyKey, resourceScope),
+  runAdvisoryCopilotAction: (
+    payload: unknown,
+    idempotencyKey: string,
+    resourceScope: unknown,
+  ) => runAdvisoryCopilotActionMock(payload, idempotencyKey, resourceScope),
 }));
 
 function renderWithQueryClient(ui: React.ReactElement) {
@@ -226,6 +237,10 @@ describe("AdvisoryCopilotWorkspace", () => {
         },
       },
       "ui-copilot-run-PROPOSAL_EXPLANATION-proposal_sg_structured_note_001-1-copilot_packet_1",
+      {
+        proposal_id: "proposal_sg_structured_note_001",
+        portfolio_id: "PB_SG_GLOBAL_BAL_001",
+      },
     );
     expect(JSON.stringify(createEvidencePacketMock.mock.calls)).not.toContain(
       "source_sections",
@@ -286,6 +301,10 @@ describe("AdvisoryCopilotWorkspace", () => {
         requested_intents: ["summarize_compliance_review"],
       }),
       "ui-copilot-run-COMPLIANCE_REVIEW_SUMMARY-proposal_sg_structured_note_001-1-copilot_packet_1",
+      {
+        proposal_id: "proposal_sg_structured_note_001",
+        portfolio_id: "PB_SG_GLOBAL_BAL_001",
+      },
     );
   });
 
@@ -364,6 +383,10 @@ describe("AdvisoryCopilotWorkspace", () => {
           },
         },
         "ui-copilot-review-copilot_run_1",
+        {
+          proposal_id: "proposal_sg_structured_note_001",
+          portfolio_id: "PB_SG_GLOBAL_BAL_001",
+        },
       );
     });
     await waitFor(() => {

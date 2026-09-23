@@ -12,6 +12,7 @@ import {
   AdvisoryCopilotEvidencePacketRequest,
   AdvisoryCopilotReviewData,
   AdvisoryCopilotReviewRequest,
+  AdvisoryCopilotResourceScope,
   AdvisoryCopilotRunData,
   AdvisoryCopilotSupportabilityData,
   AdvisorCockpitAcknowledgeData,
@@ -614,11 +615,13 @@ export async function createAdvisoryCopilotEvidencePacketFromProposalVersion(
 export async function runAdvisoryCopilotAction(
   payload: AdvisoryCopilotActionRequest,
   idempotencyKey: string,
+  resourceScope: AdvisoryCopilotResourceScope,
 ): Promise<AdvisoryCopilotRunData> {
   const envelope = await postAdvisoryCopilotJson(
     "/actions",
     payload,
     idempotencyKey,
+    resourceScope,
   );
   return envelope.data as unknown as AdvisoryCopilotRunData;
 }
@@ -627,11 +630,13 @@ export async function reviewAdvisoryCopilotRun(
   runId: string,
   payload: AdvisoryCopilotReviewRequest,
   idempotencyKey: string,
+  resourceScope: AdvisoryCopilotResourceScope,
 ): Promise<AdvisoryCopilotReviewData> {
   const envelope = await postAdvisoryCopilotJson(
     `/actions/${encodeURIComponent(runId)}/reviews`,
     payload,
     idempotencyKey,
+    resourceScope,
   );
   return envelope.data as unknown as AdvisoryCopilotReviewData;
 }
@@ -1198,6 +1203,7 @@ async function postAdvisoryCopilotJson(
   path: string,
   body: unknown,
   idempotencyKey?: string,
+  resourceScope?: AdvisoryCopilotResourceScope,
 ): Promise<AdvisoryCopilotEnvelopeResponse> {
   const headers: Record<string, string> = {};
   if (idempotencyKey) {
@@ -1209,7 +1215,10 @@ async function postAdvisoryCopilotJson(
     {
       method: "POST",
       headers,
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({
+        body,
+        ...(resourceScope ? { resource_scope: resourceScope } : {}),
+      }),
     },
   );
 }

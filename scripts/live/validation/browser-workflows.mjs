@@ -2527,7 +2527,10 @@ export async function validateProposalMemoEvidencePackPanel(
   await expect(memoPanel.getByText("Evidence aligned").first()).toBeVisible({
     timeout: timeoutMs,
   });
-  await expect(memoPanel.getByText(/^sha256:/).first()).toBeVisible({
+  if ((await memoDetails.getAttribute("open")) === null) {
+    await memoDetails.locator("summary").click();
+  }
+  await expect(memoDetails.getByText(/^sha256:/).first()).toBeVisible({
     timeout: timeoutMs,
   });
 

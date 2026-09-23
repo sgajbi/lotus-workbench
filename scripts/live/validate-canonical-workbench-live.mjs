@@ -65,6 +65,7 @@ import { createCanonicalPolicyEvaluation } from "./validation/advisory-policy-pr
 import { validateCanonicalAdvisoryCopilot } from "./validation/advisory-copilot-proof.mjs";
 import {
   buildPayloadScopedIdempotencyKey,
+  buildRuntimeScopedIdempotencyKey,
   extractGatewayEnvelopeData,
   readString,
 } from "./validation/payload-utils.mjs";
@@ -134,6 +135,12 @@ const ideaVersion = await fetchJson(
   "Lotus Idea runtime version",
   timeoutMs,
 );
+const canonicalRuntimeGeneration = readString(ideaVersion?.build?.imageBuildId);
+if (canonicalRuntimeGeneration === null) {
+  throw new Error(
+    "Lotus Idea runtime version omitted the admitted canonical image generation.",
+  );
+}
 if (mainlineSourceProvenance) {
   const ideaRuntimeBinding = bindMainlineSourceManifestToRuntime(
     mainlineSourceProvenance,
@@ -1025,8 +1032,9 @@ async function run() {
       },
     },
   };
-  const proposalCreateIdempotencyKey = buildPayloadScopedIdempotencyKey(
+  const proposalCreateIdempotencyKey = buildRuntimeScopedIdempotencyKey(
     "wb-canonical-narrative",
+    canonicalRuntimeGeneration,
     proposalCreateBody,
   );
   const proposalCreate = await sendJson(
