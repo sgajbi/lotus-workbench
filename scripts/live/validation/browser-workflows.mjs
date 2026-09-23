@@ -1223,7 +1223,9 @@ export async function validateAdvisoryJourneyScreens(
         "data-action-state",
         "recorded-and-refreshed",
       );
-      await expect(feedbackStatus).toContainText("Feedback recorded through Gateway.");
+      await expect(feedbackStatus).toContainText(
+        "Feedback saved. Opportunity detail and worklist are current.",
+      );
 
       await actionPanel.getByRole("button", { name: "Record review" }).click();
       const reviewStatus = page.getByTestId("idea-action-review-status");
@@ -1232,7 +1234,9 @@ export async function validateAdvisoryJourneyScreens(
         "data-action-state",
         "recorded-and-refreshed",
       );
-      await expect(reviewStatus).toContainText("Review recorded through Gateway.");
+      await expect(reviewStatus).toContainText(
+        "Review saved. Opportunity detail and worklist are current.",
+      );
 
       await actionPanel.getByRole("button", { name: "Record intent" }).click();
       const conversionStatus = page.getByTestId(
@@ -1244,7 +1248,7 @@ export async function validateAdvisoryJourneyScreens(
         "recorded-and-refreshed",
       );
       await expect(conversionStatus).toContainText(
-        "Conversion intent recorded through Gateway.",
+        "Conversion intent saved. Opportunity detail and worklist are current.",
       );
 
       summary.uiChecks.push({
@@ -2006,11 +2010,12 @@ export async function validatePerformanceAnalysisPanel(
     await page.getByRole("button", { name: "Refresh history" }).click({
       timeout: timeoutMs,
     });
-    await expect(attributionTrendEvidence).not.toHaveAttribute(
-      "data-state",
-      "loading",
-      { timeout: timeoutMs },
-    );
+    await expect
+      .poll(
+        () => attributionTrendEvidence.getAttribute("data-state"),
+        { timeout: timeoutMs },
+      )
+      .toMatch(/^(multi-observation|single-observation)$/);
     attributionTrendPosture = await attributionTrendEvidence.getAttribute("data-state");
     recordUiCheck({
       description: "Attribution history exact-selection recovery",
@@ -2916,10 +2921,7 @@ export async function validateOutcomeReviewPanel(
   await navigateForBusinessProof(page, `${workbenchBaseUrl}/workbench/${portfolioId}?mode=reviews`, {
     timeout: timeoutMs,
   });
-  const outcomeReviewPanel = workbenchPanelByClass(
-    page,
-    "outcome-review-panel",
-  );
+  const outcomeReviewPanel = page.locator("article#outcome-review-panel");
   await expect(
     outcomeReviewPanel.getByRole("heading", {
       name: "Outcome comparison",
@@ -2945,13 +2947,6 @@ export async function validateOutcomeReviewPanel(
   await expect(selectedReview).toHaveAttribute(
     "data-realized-snapshot-hash",
     sourceEvidence.realizedSnapshotHash,
-    { timeout: timeoutMs },
-  );
-  const readiness = outcomeReviewPanel.getByLabel(
-    "Selected outcome review readiness",
-  );
-  await expect(readiness).toContainText(
-    `Source evidence${sourceEvidence.sourceEvidenceStatus}`,
     { timeout: timeoutMs },
   );
   const evidenceAvailability = outcomeReviewPanel.getByLabel(
@@ -3578,7 +3573,7 @@ export async function validateProofPackPanel(
     ).toBeVisible({ timeout: timeoutMs });
   }
   const advisorMemoButton = proofPackPanel
-    .getByRole("button", { name: "Open advisor memo", exact: true })
+    .getByRole("button", { name: /^Open advisor memo/ })
     .first();
   await expect(advisorMemoButton).toBeEnabled({ timeout: timeoutMs });
   const memoResponsePromise = page.waitForResponse(

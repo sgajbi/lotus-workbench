@@ -675,6 +675,8 @@ describe("live validation browser workflow helpers", () => {
     expect(source).toContain('attributionTrendPosture === "error"');
     expect(source).toContain("Attribution history could not be refreshed");
     expect(source).toContain('name: "Refresh history"');
+    expect(source).toContain(".poll(");
+    expect(source).toContain("/^(multi-observation|single-observation)$/");
     expect(source).toContain("Attribution history exact-selection recovery");
   });
 
