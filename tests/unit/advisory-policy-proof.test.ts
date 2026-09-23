@@ -1,7 +1,8 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 const PORTFOLIO_ID = "PB_SG_GLOBAL_BAL_001";
-const PROOF_MODULE_PATH: string = "../../scripts/live/validation/advisory-policy-proof.mjs";
+const PROOF_MODULE_PATH: string =
+  "../../scripts/live/validation/advisory-policy-proof.mjs";
 
 type CanonicalScenario = ReturnType<typeof canonicalScenario>;
 type ProofSummary = { apiChecks: unknown[]; workflowPackChecks: unknown[] };
@@ -12,7 +13,11 @@ type CreateCanonicalPolicyEvaluation = (args: {
   proposalId: string;
   proposalVersionId: string;
   timeoutMs: number;
-}) => Promise<unknown>;
+}) => Promise<{
+  evaluationId: string;
+  evaluationHash: string;
+  authority: { tenantId: string; legalEntityCode: string; actorId: string };
+}>;
 
 let createCanonicalPolicyEvaluation: CreateCanonicalPolicyEvaluation;
 
@@ -49,6 +54,9 @@ function policyPackVersionResponse(): Response {
           content_hash: "policy-content-hash",
         },
       },
+      applicability: {
+        legal_entity_scope: ["REFERENCE"],
+      },
     },
   });
 }
@@ -70,7 +78,10 @@ function createdEvaluationResponse({
   });
 }
 
-function reviewQueueResponse({ portfolioId = PORTFOLIO_ID, evaluationId = "pev_001" } = {}): Response {
+function reviewQueueResponse({
+  portfolioId = PORTFOLIO_ID,
+  evaluationId = "pev_001",
+} = {}): Response {
   return jsonResponse({
     data: {
       items: [
@@ -115,21 +126,38 @@ function successfulFetchMock({
     .mockResolvedValueOnce(policyPackVersionResponse())
     .mockResolvedValueOnce(jsonResponse({ data: { status: "validated" } }))
     .mockResolvedValueOnce(jsonResponse({ data: { status: "active" } }))
-    .mockResolvedValueOnce(createdEvaluationResponse({ evaluationId, evaluationHash }))
+    .mockResolvedValueOnce(
+      createdEvaluationResponse({ evaluationId, evaluationHash }),
+    )
     .mockResolvedValueOnce(reviewQueueResponse({ evaluationId }))
     .mockResolvedValueOnce(workflowResponse())
     .mockResolvedValueOnce(signOffPackageResponse())
     .mockResolvedValueOnce(jsonResponse({ data: { status: "recorded" } }));
 }
 
-function readIdempotencyKey(fetchMock: ReturnType<typeof vi.fn>, callIndex: number): string {
-  const options = fetchMock.mock.calls[callIndex]?.[1] as RequestInit | undefined;
+function readIdempotencyKey(
+  fetchMock: ReturnType<typeof vi.fn>,
+  callIndex: number,
+): string {
+  const options = fetchMock.mock.calls[callIndex]?.[1] as
+    RequestInit | undefined;
   const headers = options?.headers as Record<string, string> | undefined;
   const key = headers?.["Idempotency-Key"];
   if (!key) {
-    throw new Error(`Fetch call ${callIndex} did not carry an Idempotency-Key header.`);
+    throw new Error(
+      `Fetch call ${callIndex} did not carry an Idempotency-Key header.`,
+    );
   }
   return key;
+}
+
+function readHeaders(
+  fetchMock: ReturnType<typeof vi.fn>,
+  callIndex: number,
+): Record<string, string> {
+  const options = fetchMock.mock.calls[callIndex]?.[1] as
+    RequestInit | undefined;
+  return (options?.headers as Record<string, string> | undefined) ?? {};
 }
 
 async function captureMutationKeys({
@@ -203,9 +231,15 @@ describe("advisory policy live proof", () => {
 
     const validateBody = JSON.parse(fetchMock.mock.calls[1][1].body as string);
     const activateBody = JSON.parse(fetchMock.mock.calls[2][1].body as string);
-    expect(validateBody.body.requested_by).toBe("workbench-canonical-validator");
-    expect(activateBody.body.activated_by).toBe("workbench-canonical-policy-checker");
-    expect(activateBody.body.activated_by).not.toBe(validateBody.body.requested_by);
+    expect(validateBody.body.requested_by).toBe(
+      "workbench-canonical-validator",
+    );
+    expect(activateBody.body.activated_by).toBe(
+      "workbench-canonical-policy-checker",
+    );
+    expect(activateBody.body.activated_by).not.toBe(
+      validateBody.body.requested_by,
+    );
 
     const reviewQueueUrl = fetchMock.mock.calls[4][0].toString();
     expect(reviewQueueUrl).toContain("evaluation_status=PENDING_REVIEW");
@@ -217,14 +251,82 @@ describe("advisory policy live proof", () => {
     });
   });
 
-  it("rejects review queue responses that are not scoped to the canonical portfolio", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(policyPackVersionResponse())
-      .mockResolvedValueOnce(jsonResponse({ data: { status: "validated" } }))
-      .mockResolvedValueOnce(jsonResponse({ data: { status: "active" } }))
-      .mockResolvedValueOnce(createdEvaluationResponse())
-      .mockResolvedValueOnce(reviewQueueResponse({ portfolioId: "PB_OTHER_001" }));
+  it("carries least-privilege caller authority through every governed policy request", async () => {
+    const fetchMock = successfulFetchMock();
+    const scenario = canonicalScenario();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proof = await createCanonicalPolicyEvaluation({
+      summary: { apiChecks: [], workflowPackChecks: [] },
+      scenario,
+      gatewayBaseUrl: "http://gateway.dev.lotus",
+      proposalId: "proposal_001",
+      proposalVersionId: "version_001",
+      timeoutMs: 1000,
+    });
+
+    expect(proof.authority).toEqual({
+      tenantId: "tenant-sg",
+      legalEntityCode: "REFERENCE",
+      actorId: scenario.createdBy,
+    });
+
+    expect(readHeaders(fetchMock, 1)).toMatchObject({
+      "X-Actor-Id": "workbench-canonical-validator",
+      "X-Tenant-Id": "tenant-sg",
+      "X-Legal-Entity-Code": "REFERENCE",
+      "X-Role": "POLICY_STEWARD",
+      "X-Caller-Capabilities": "advisory.policy_pack.validate",
+    });
+    expect(readHeaders(fetchMock, 2)).toMatchObject({
+      "X-Actor-Id": "workbench-canonical-policy-checker",
+      "X-Tenant-Id": "tenant-sg",
+      "X-Legal-Entity-Code": "REFERENCE",
+      "X-Role": "POLICY_CHECKER",
+      "X-Caller-Capabilities": "advisory.policy_pack.activate",
+    });
+    expect(readHeaders(fetchMock, 3)).toMatchObject({
+      "X-Actor-Id": scenario.createdBy,
+      "X-Tenant-Id": "tenant-sg",
+      "X-Legal-Entity-Code": "REFERENCE",
+      "X-Role": "ADVISOR",
+      "X-Caller-Capabilities": "advisory.policy_evaluation.finalize",
+      "X-Authorized-Proposal-Id": "proposal_001",
+      "X-Authorized-Portfolio-Id": PORTFOLIO_ID,
+    });
+
+    for (const callIndex of [4, 5, 6]) {
+      expect(readHeaders(fetchMock, callIndex)).toMatchObject({
+        "X-Actor-Id": scenario.createdBy,
+        "X-Tenant-Id": "tenant-sg",
+        "X-Legal-Entity-Code": "REFERENCE",
+        "X-Role": "ADVISOR",
+        "X-Caller-Capabilities": "advisory.policy_evaluation.read",
+      });
+    }
+
+    expect(readHeaders(fetchMock, 7)).toMatchObject({
+      "X-Actor-Id": "policy_checker_1",
+      "X-Tenant-Id": "tenant-sg",
+      "X-Legal-Entity-Code": "REFERENCE",
+      "X-Role": "POLICY_CHECKER",
+      "X-Caller-Capabilities": "advisory.policy_evaluation.sign_off",
+      "X-Authorized-Proposal-Id": "proposal_001",
+      "X-Authorized-Portfolio-Id": PORTFOLIO_ID,
+    });
+  });
+
+  it("fails closed when the policy pack does not identify one authoritative legal entity", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      jsonResponse({
+        data: {
+          policy_pack_version: {
+            policy_pack: { content_hash: "policy-content-hash" },
+          },
+          applicability: { legal_entity_scope: ["REFERENCE", "SGPB"] },
+        },
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
@@ -235,9 +337,36 @@ describe("advisory policy live proof", () => {
         proposalId: "proposal_001",
         proposalVersionId: "version_001",
         timeoutMs: 1000,
-      })
+      }),
     ).rejects.toThrow(
-      "Canonical policy review queue returned item outside portfolio scope PB_SG_GLOBAL_BAL_001"
+      "Canonical advisory policy pack must declare exactly one legal-entity scope.",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects review queue responses that are not scoped to the canonical portfolio", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(policyPackVersionResponse())
+      .mockResolvedValueOnce(jsonResponse({ data: { status: "validated" } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { status: "active" } }))
+      .mockResolvedValueOnce(createdEvaluationResponse())
+      .mockResolvedValueOnce(
+        reviewQueueResponse({ portfolioId: "PB_OTHER_001" }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      createCanonicalPolicyEvaluation({
+        summary: { apiChecks: [], workflowPackChecks: [] },
+        scenario: canonicalScenario(),
+        gatewayBaseUrl: "http://gateway.dev.lotus",
+        proposalId: "proposal_001",
+        proposalVersionId: "version_001",
+        timeoutMs: 1000,
+      }),
+    ).rejects.toThrow(
+      "Canonical policy review queue returned item outside portfolio scope PB_SG_GLOBAL_BAL_001",
     );
   });
 

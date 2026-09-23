@@ -3,6 +3,11 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 const PORTFOLIO_ID = "PB_SG_GLOBAL_BAL_001";
 const PROPOSAL_ID = "proposal_rfc27_001";
 const PROPOSAL_VERSION_ID = "version_rfc27_001";
+const POLICY_AUTHORITY = {
+  tenantId: "tenant-sg",
+  legalEntityCode: "REFERENCE",
+  actorId: "advisor_1",
+};
 const PROOF_MODULE_PATH: string =
   "../../scripts/live/validation/advisory-copilot-proof.mjs";
 
@@ -15,6 +20,7 @@ type ValidateCanonicalAdvisoryCopilot = (args: {
   proposalId: string;
   proposalVersionId: string;
   proposalVersionNo: number;
+  authority: typeof POLICY_AUTHORITY;
   timeoutMs: number;
   proofExecutionId?: string;
 }) => Promise<{
@@ -98,7 +104,10 @@ function evidencePacket(actionFamily: string): Record<string, unknown> {
   };
 }
 
-function runRecord(actionFamily: string, posture = "REVIEW_REQUIRED"): Record<string, unknown> {
+function runRecord(
+  actionFamily: string,
+  posture = "REVIEW_REQUIRED",
+): Record<string, unknown> {
   return {
     run_id: `run_${actionFamily.toLowerCase()}_${posture.toLowerCase()}`,
     action_family: actionFamily,
@@ -196,11 +205,15 @@ function createFetchMock({ omitListedRun }: { omitListedRun?: string } = {}) {
       }
       return reviewResponse(actionFamily);
     }
-    if (target.includes(`/proposals/${PROPOSAL_ID}/versions/${PROPOSAL_VERSION_ID}/runs`)) {
+    if (
+      target.includes(
+        `/proposals/${PROPOSAL_ID}/versions/${PROPOSAL_VERSION_ID}/runs`,
+      )
+    ) {
       return jsonResponse({
         data: {
-          items: ACTIONS.filter((action) => action !== omitListedRun).map((action) =>
-            runRecord(action),
+          items: ACTIONS.filter((action) => action !== omitListedRun).map(
+            (action) => runRecord(action),
           ),
         },
       });
@@ -218,8 +231,7 @@ describe("advisory copilot live proof", () => {
     const module = (await import(PROOF_MODULE_PATH)) as {
       validateCanonicalAdvisoryCopilot: ValidateCanonicalAdvisoryCopilot;
     };
-    validateCanonicalAdvisoryCopilot =
-      module.validateCanonicalAdvisoryCopilot;
+    validateCanonicalAdvisoryCopilot = module.validateCanonicalAdvisoryCopilot;
   });
 
   it("validates source-owned packets, all action families, review, guardrails, and run listing", async () => {
@@ -235,6 +247,7 @@ describe("advisory copilot live proof", () => {
       proposalId: PROPOSAL_ID,
       proposalVersionId: PROPOSAL_VERSION_ID,
       proposalVersionNo: 1,
+      authority: POLICY_AUTHORITY,
       timeoutMs: 1000,
       proofExecutionId: "proof-execution-001",
     });
@@ -247,13 +260,46 @@ describe("advisory copilot live proof", () => {
       proposalVersionRunCount: 6,
     });
     expect(fetchMock).toHaveBeenCalledTimes(22);
+    const protectedCalls = fetchMock.mock.calls.filter(
+      (call) =>
+        !call[0].toString().endsWith("/api/v1/advisory-copilot/supportability"),
+    );
+    expect(protectedCalls).toHaveLength(21);
+    for (const [, init] of protectedCalls) {
+      expect(init?.headers).toEqual(
+        expect.objectContaining({
+          "X-Tenant-Id": POLICY_AUTHORITY.tenantId,
+          "X-Legal-Entity-Code": POLICY_AUTHORITY.legalEntityCode,
+          "X-Principal-Status": "ACTIVE",
+          "X-Authorized-Proposal-Id": PROPOSAL_ID,
+          "X-Authorized-Portfolio-Id": PORTFOLIO_ID,
+        }),
+      );
+    }
+    expect(
+      protectedCalls.map(
+        (call) =>
+          (call[1]?.headers as Record<string, string>)["X-Caller-Capabilities"],
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        "advisory.policy_evaluation.read",
+        "advisory.copilot.action",
+        "advisory.copilot.review",
+        "advisory.copilot.read",
+      ]),
+    );
     expect(
       fetchMock.mock.calls
-        .filter((call) => call[0].toString().endsWith("/api/v1/advisory-copilot/actions"))
+        .filter((call) =>
+          call[0].toString().endsWith("/api/v1/advisory-copilot/actions"),
+        )
         .map((call) => call[1]?.headers),
     ).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ "Idempotency-Key": expect.stringMatching(/^wb-copilot-run-/) }),
+        expect.objectContaining({
+          "Idempotency-Key": expect.stringMatching(/^wb-copilot-run-/),
+        }),
         expect.objectContaining({
           "Idempotency-Key": expect.stringMatching(/^wb-copilot-guardrail-/),
         }),
@@ -273,8 +319,12 @@ describe("advisory copilot live proof", () => {
     });
     expect(
       fetchMock.mock.calls
-        .filter((call) => call[0].toString().endsWith("/api/v1/advisory-copilot/actions"))
-        .map((call) => JSON.parse(call[1]?.body?.toString() ?? "{}").body.reason),
+        .filter((call) =>
+          call[0].toString().endsWith("/api/v1/advisory-copilot/actions"),
+        )
+        .map(
+          (call) => JSON.parse(call[1]?.body?.toString() ?? "{}").body.reason,
+        ),
     ).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ proof_execution_id: "proof-execution-001" }),
@@ -295,34 +345,39 @@ describe("advisory copilot live proof", () => {
         proposalId: PROPOSAL_ID,
         proposalVersionId: PROPOSAL_VERSION_ID,
         proposalVersionNo: 1,
+        authority: POLICY_AUTHORITY,
         timeoutMs: 1000,
         proofExecutionId,
       });
     }
 
     const proposalExplanationRunKeys = fetchMock.mock.calls
-      .filter((call) => call[0].toString().endsWith("/api/v1/advisory-copilot/actions"))
+      .filter((call) =>
+        call[0].toString().endsWith("/api/v1/advisory-copilot/actions"),
+      )
       .filter((call) => {
         const requestBody = JSON.parse(call[1]?.body?.toString() ?? "{}");
         return (
-          requestBody.body.evidence_packet_id === "packet_proposal_explanation" &&
+          requestBody.body.evidence_packet_id ===
+            "packet_proposal_explanation" &&
           !requestBody.body.requested_intents?.includes("publish_client_ready")
         );
       })
-      .map((call) => (call[1]?.headers as Record<string, string>)["Idempotency-Key"]);
+      .map(
+        (call) =>
+          (call[1]?.headers as Record<string, string>)["Idempotency-Key"],
+      );
 
     expect(proposalExplanationRunKeys).toHaveLength(2);
     expect(new Set(proposalExplanationRunKeys).size).toBe(2);
   });
 
   it("rejects supportability drift before creating action runs", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        supportabilityResponse({
-          supportStatus: "ADVISE_API_CERTIFIED_GATEWAY_WORKBENCH_PENDING",
-        }),
-      );
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      supportabilityResponse({
+        supportStatus: "ADVISE_API_CERTIFIED_GATEWAY_WORKBENCH_PENDING",
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
@@ -334,14 +389,15 @@ describe("advisory copilot live proof", () => {
         proposalId: PROPOSAL_ID,
         proposalVersionId: PROPOSAL_VERSION_ID,
         proposalVersionNo: 1,
+        authority: POLICY_AUTHORITY,
         timeoutMs: 1000,
       }),
     ).rejects.toThrow("Advisory copilot supportability returned");
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("rejects proposal-version run listings that omit a canonical action run", async () => {
-    const fetchMock = createFetchMock({ omitListedRun: "CLIENT_FOLLOW_UP_DRAFT" });
+  it("fails closed before tenant-owned calls when policy authority is absent", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(supportabilityResponse());
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
@@ -353,6 +409,31 @@ describe("advisory copilot live proof", () => {
         proposalId: PROPOSAL_ID,
         proposalVersionId: PROPOSAL_VERSION_ID,
         proposalVersionNo: 1,
+        authority: { ...POLICY_AUTHORITY, tenantId: "" },
+        timeoutMs: 1000,
+      }),
+    ).rejects.toThrow(
+      "Advisory copilot proof requires the authority consumed by the canonical policy evaluation",
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects proposal-version run listings that omit a canonical action run", async () => {
+    const fetchMock = createFetchMock({
+      omitListedRun: "CLIENT_FOLLOW_UP_DRAFT",
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      validateCanonicalAdvisoryCopilot({
+        summary: { apiChecks: [], workflowPackChecks: [] },
+        scenario: {},
+        gatewayBaseUrl: "http://gateway.dev.lotus",
+        portfolioId: PORTFOLIO_ID,
+        proposalId: PROPOSAL_ID,
+        proposalVersionId: PROPOSAL_VERSION_ID,
+        proposalVersionNo: 1,
+        authority: POLICY_AUTHORITY,
         timeoutMs: 1000,
       }),
     ).rejects.toThrow(

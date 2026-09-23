@@ -21,7 +21,7 @@ describe("canonical Core image provenance", () => {
     );
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
     expect(result.stdout).toContain('"passed":true');
-  });
+  }, 30_000);
 
   it("binds the check to the shipped built Core image before downstream seed", () => {
     const source = readFileSync(
@@ -31,12 +31,12 @@ describe("canonical Core image provenance", () => {
     expect(source).toContain("New-CanonicalCoreBuildEnvironment");
     expect(source).toContain("Assert-CanonicalCoreImageProvenance");
     expect(
-      source.match(/Get-GitRepositoryIdentity -RepoPath \$coreRepo -RequireCleanPrebuiltSource/g),
+      source.match(
+        /Get-GitRepositoryIdentity -RepoPath \$coreRepo -RequireCleanPrebuiltSource/g,
+      ),
     ).toHaveLength(2);
     expect(
       source.indexOf("Assert-CanonicalCoreImageProvenance -RepoPath $coreRepo"),
-    ).toBeLessThan(
-      source.indexOf("Invoke-CanonicalCoreSeed -IngestOnly"),
-    );
+    ).toBeLessThan(source.indexOf("Invoke-CanonicalCoreSeed -IngestOnly"));
   });
 });

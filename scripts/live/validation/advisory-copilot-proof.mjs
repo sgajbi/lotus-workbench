@@ -48,13 +48,16 @@ export const CANONICAL_ADVISORY_COPILOT_ACTIONS = [
 
 const DEFAULT_SCENARIO = {
   scenarioId: "RFC27_ADVISORY_COPILOT_CANONICAL",
-  expectedSupportStatus: "ADVISE_COPILOT_GATEWAY_WORKBENCH_CANONICAL_PROOF_SUPPORTED",
+  expectedSupportStatus:
+    "ADVISE_COPILOT_GATEWAY_WORKBENCH_CANONICAL_PROOF_SUPPORTED",
   expectedClientReadyPublication: "BLOCKED",
   expectedReviewPosture: "REVIEW_REQUIRED",
   expectedReviewedPosture: "APPROVED_FOR_INTERNAL_USE",
   expectedGuardrailPosture: "GUARDRAIL_REJECTED",
   expectedGuardrailReason: "CLIENT_READY_PUBLICATION_FORBIDDEN",
-  actionFamilies: CANONICAL_ADVISORY_COPILOT_ACTIONS.map((action) => action.family),
+  actionFamilies: CANONICAL_ADVISORY_COPILOT_ACTIONS.map(
+    (action) => action.family,
+  ),
   unsupportedCapabilityBoundaries: [
     "CLIENT_READY_PUBLICATION",
     "POLICY_APPROVAL_OR_SIGN_OFF",
@@ -63,12 +66,43 @@ const DEFAULT_SCENARIO = {
   ],
 };
 
+const COPILOT_MAKER_ACTOR_ID = "workbench-canonical-copilot-validator";
+const COPILOT_REVIEWER_ACTOR_ID = "desk_head_sg_001";
+
+function advisoryCopilotCallerHeaders({
+  authority,
+  actorId,
+  role,
+  capability,
+  proposalId,
+  portfolioId,
+}) {
+  const tenantId = readString(authority?.tenantId);
+  const legalEntityCode = readString(authority?.legalEntityCode);
+  if (!tenantId || !legalEntityCode) {
+    throw new Error(
+      "Advisory copilot proof requires the authority consumed by the canonical policy evaluation.",
+    );
+  }
+  return {
+    "X-Actor-Id": actorId,
+    "X-Tenant-Id": tenantId,
+    "X-Legal-Entity-Code": legalEntityCode,
+    "X-Role": role,
+    "X-Caller-Capabilities": capability,
+    "X-Principal-Status": "ACTIVE",
+    "X-Authorized-Proposal-Id": proposalId,
+    "X-Authorized-Portfolio-Id": portfolioId,
+  };
+}
+
 function normalizeScenario(rawScenario) {
   if (!rawScenario || typeof rawScenario !== "object") {
     return DEFAULT_SCENARIO;
   }
   return {
-    scenarioId: readString(rawScenario.scenarioId) ?? DEFAULT_SCENARIO.scenarioId,
+    scenarioId:
+      readString(rawScenario.scenarioId) ?? DEFAULT_SCENARIO.scenarioId,
     expectedSupportStatus:
       readString(rawScenario.expectedSupportStatus) ??
       DEFAULT_SCENARIO.expectedSupportStatus,
@@ -93,7 +127,9 @@ function normalizeScenario(rawScenario) {
     unsupportedCapabilityBoundaries: Array.isArray(
       rawScenario.unsupportedCapabilityBoundaries,
     )
-      ? rawScenario.unsupportedCapabilityBoundaries.map(readString).filter(Boolean)
+      ? rawScenario.unsupportedCapabilityBoundaries
+          .map(readString)
+          .filter(Boolean)
       : DEFAULT_SCENARIO.unsupportedCapabilityBoundaries,
   };
 }
@@ -132,12 +168,19 @@ function assertSourceBackedPacket(packet, { action, portfolioId, proposalId }) {
       `Advisory copilot packet returned proposal ${readString(packet?.proposal_id) ?? "missing"}, expected ${proposalId}.`,
     );
   }
-  if (!readString(packet?.evidence_packet_id) || !readString(packet?.evidence_packet_hash)) {
-    throw new Error("Advisory copilot packet returned no stable identity and hash.");
+  if (
+    !readString(packet?.evidence_packet_id) ||
+    !readString(packet?.evidence_packet_hash)
+  ) {
+    throw new Error(
+      "Advisory copilot packet returned no stable identity and hash.",
+    );
   }
   const sections = Array.isArray(packet?.sections) ? packet.sections : [];
   if (sections.length < 1) {
-    throw new Error(`Advisory copilot ${action.family} packet returned no source sections.`);
+    throw new Error(
+      `Advisory copilot ${action.family} packet returned no source sections.`,
+    );
   }
   const sectionWithoutSource = sections.find(
     (section) =>
@@ -154,16 +197,29 @@ function assertSourceBackedPacket(packet, { action, portfolioId, proposalId }) {
 }
 
 function assertRun(run, { action, scenario, packet }) {
-  if (!readString(run?.run_id) || !readString(run?.request_hash) || !readString(run?.output_hash)) {
-    throw new Error(`Advisory copilot ${action.family} run returned no stable hashes.`);
+  if (
+    !readString(run?.run_id) ||
+    !readString(run?.request_hash) ||
+    !readString(run?.output_hash)
+  ) {
+    throw new Error(
+      `Advisory copilot ${action.family} run returned no stable hashes.`,
+    );
   }
   if (readString(run?.action_family) !== action.family) {
-    throw new Error(`Advisory copilot run action drifted for ${action.family}.`);
+    throw new Error(
+      `Advisory copilot run action drifted for ${action.family}.`,
+    );
   }
   if (readString(run?.evidence_packet_id) !== packet.evidence_packet_id) {
-    throw new Error(`Advisory copilot ${action.family} run lost evidence-packet lineage.`);
+    throw new Error(
+      `Advisory copilot ${action.family} run lost evidence-packet lineage.`,
+    );
   }
-  if (readString(run?.client_ready_publication) !== scenario.expectedClientReadyPublication) {
+  if (
+    readString(run?.client_ready_publication) !==
+    scenario.expectedClientReadyPublication
+  ) {
     throw new Error(
       `Advisory copilot ${action.family} run returned client publication ${readString(run?.client_ready_publication) ?? "missing"}, expected ${scenario.expectedClientReadyPublication}.`,
     );
@@ -173,8 +229,13 @@ function assertRun(run, { action, scenario, packet }) {
       `Advisory copilot ${action.family} run returned review posture ${readString(run?.review_posture) ?? "missing"}, expected ${scenario.expectedReviewPosture}.`,
     );
   }
-  if (!readString(run?.workflow_pack_id) || !readString(run?.workflow_pack_version)) {
-    throw new Error(`Advisory copilot ${action.family} run returned no workflow-pack lineage.`);
+  if (
+    !readString(run?.workflow_pack_id) ||
+    !readString(run?.workflow_pack_version)
+  ) {
+    throw new Error(
+      `Advisory copilot ${action.family} run returned no workflow-pack lineage.`,
+    );
   }
 }
 
@@ -187,7 +248,9 @@ function assertReviewedRun(reviewResponse, { action, scenario }) {
     );
   }
   if (!readString(review?.review_id) || !readString(review?.request_hash)) {
-    throw new Error(`Advisory copilot ${action.family} review returned no audit identity.`);
+    throw new Error(
+      `Advisory copilot ${action.family} review returned no audit identity.`,
+    );
   }
 }
 
@@ -213,6 +276,8 @@ async function createSourceOwnedPacket({
   gatewayBaseUrl,
   proposalId,
   proposalVersionNo,
+  portfolioId,
+  authority,
   action,
   timeoutMs,
 }) {
@@ -222,7 +287,7 @@ async function createSourceOwnedPacket({
       proposal_version_no: proposalVersionNo,
       action_family: action.family,
       audience: action.audience,
-      created_by: "workbench-canonical-copilot-validator",
+      created_by: COPILOT_MAKER_ACTOR_ID,
       reason: {
         purpose: "canonical_rfc0027_advisory_copilot_validation",
         scenario_id: scenario.scenarioId,
@@ -237,6 +302,14 @@ async function createSourceOwnedPacket({
     {
       method: "POST",
       body: requestBody,
+      headers: advisoryCopilotCallerHeaders({
+        authority,
+        actorId: COPILOT_MAKER_ACTOR_ID,
+        role: "ADVISOR",
+        capability: "advisory.policy_evaluation.read",
+        proposalId,
+        portfolioId,
+      }),
     },
   );
   const data = extractGatewayEnvelopeData(response);
@@ -248,6 +321,9 @@ async function runCopilotAction({
   scenario,
   gatewayBaseUrl,
   packet,
+  portfolioId,
+  proposalId,
+  authority,
   action,
   timeoutMs,
   proofExecutionId,
@@ -257,7 +333,7 @@ async function runCopilotAction({
       evidence_packet_id: packet.evidence_packet_id,
       audience: action.audience,
       requested_outputs: [action.outputKey],
-      requested_by: "workbench-canonical-copilot-validator",
+      requested_by: COPILOT_MAKER_ACTOR_ID,
       requested_intents: [action.intent],
       user_instruction: "",
       reason: {
@@ -277,6 +353,14 @@ async function runCopilotAction({
       method: "POST",
       body: requestBody,
       headers: {
+        ...advisoryCopilotCallerHeaders({
+          authority,
+          actorId: COPILOT_MAKER_ACTOR_ID,
+          role: "ADVISOR",
+          capability: "advisory.copilot.action",
+          proposalId,
+          portfolioId,
+        }),
         "Idempotency-Key": buildPayloadScopedIdempotencyKey(
           "wb-copilot-run",
           requestBody,
@@ -296,6 +380,7 @@ async function reviewCopilotRun({
   action,
   portfolioId,
   proposalId,
+  authority,
   timeoutMs,
   proofExecutionId,
 }) {
@@ -303,7 +388,8 @@ async function reviewCopilotRun({
     body: {
       action: "APPROVE_FOR_INTERNAL_USE",
       reason: {
-        decision: "Reviewed against cited source evidence for internal advisor use.",
+        decision:
+          "Reviewed against cited source evidence for internal advisor use.",
         scenario_id: scenario.scenarioId,
         proof_execution_id: proofExecutionId,
       },
@@ -324,14 +410,14 @@ async function reviewCopilotRun({
           "wb-copilot-review",
           { run_id: run.run_id, ...requestBody },
         ),
-        "X-Actor-Id": "desk_head_sg_001",
-        "X-Tenant-Id": "tenant-sg-001",
-        "X-Legal-Entity-Code": "PB_SG",
-        "X-Role": "ADVISORY_SUPERVISOR",
-        "X-Caller-Capabilities": "advisory.copilot.review",
-        "X-Principal-Status": "ACTIVE",
-        "X-Authorized-Proposal-Id": proposalId,
-        "X-Authorized-Portfolio-Id": portfolioId,
+        ...advisoryCopilotCallerHeaders({
+          authority,
+          actorId: COPILOT_REVIEWER_ACTOR_ID,
+          role: "ADVISORY_SUPERVISOR",
+          capability: "advisory.copilot.review",
+          proposalId,
+          portfolioId,
+        }),
       },
     },
   );
@@ -343,6 +429,9 @@ async function createGuardrailRejectedRun({
   scenario,
   gatewayBaseUrl,
   packet,
+  portfolioId,
+  proposalId,
+  authority,
   action,
   timeoutMs,
   proofExecutionId,
@@ -352,7 +441,7 @@ async function createGuardrailRejectedRun({
       evidence_packet_id: packet.evidence_packet_id,
       audience: action.audience,
       requested_outputs: [action.outputKey],
-      requested_by: "workbench-canonical-copilot-validator",
+      requested_by: COPILOT_MAKER_ACTOR_ID,
       requested_intents: ["publish_client_ready"],
       user_instruction: "",
       reason: {
@@ -372,6 +461,14 @@ async function createGuardrailRejectedRun({
       method: "POST",
       body: requestBody,
       headers: {
+        ...advisoryCopilotCallerHeaders({
+          authority,
+          actorId: COPILOT_MAKER_ACTOR_ID,
+          role: "ADVISOR",
+          capability: "advisory.copilot.action",
+          proposalId,
+          portfolioId,
+        }),
         "Idempotency-Key": buildPayloadScopedIdempotencyKey(
           "wb-copilot-guardrail",
           requestBody,
@@ -391,15 +488,19 @@ export async function validateCanonicalAdvisoryCopilot({
   proposalId,
   proposalVersionId,
   proposalVersionNo,
+  authority,
   timeoutMs,
   proofExecutionId: rawProofExecutionId,
 }) {
   const scenario = normalizeScenario(rawScenario);
   const proofExecutionId =
-    readString(rawProofExecutionId) ?? `wb-rfc0027-copilot-proof-${randomUUID()}`;
+    readString(rawProofExecutionId) ??
+    `wb-rfc0027-copilot-proof-${randomUUID()}`;
   const actions = actionsForScenario(scenario);
   if (actions.length !== scenario.actionFamilies.length) {
-    throw new Error("Advisory copilot canonical scenario declares unknown action families.");
+    throw new Error(
+      "Advisory copilot canonical scenario declares unknown action families.",
+    );
   }
 
   const supportability = await fetchJson(
@@ -409,7 +510,10 @@ export async function validateCanonicalAdvisoryCopilot({
     timeoutMs,
   );
   const supportabilityData = extractGatewayEnvelopeData(supportability);
-  if (readString(supportabilityData?.support_status) !== scenario.expectedSupportStatus) {
+  if (
+    readString(supportabilityData?.support_status) !==
+    scenario.expectedSupportStatus
+  ) {
     throw new Error(
       `Advisory copilot supportability returned ${readString(supportabilityData?.support_status) ?? "missing"}, expected ${scenario.expectedSupportStatus}.`,
     );
@@ -418,15 +522,24 @@ export async function validateCanonicalAdvisoryCopilot({
     readString(supportabilityData?.client_ready_publication) !==
     scenario.expectedClientReadyPublication
   ) {
-    throw new Error("Advisory copilot supportability did not preserve blocked publication.");
+    throw new Error(
+      "Advisory copilot supportability did not preserve blocked publication.",
+    );
   }
-  const supportedFamilies = new Set(supportabilityData?.supported_action_families ?? []);
+  const supportedFamilies = new Set(
+    supportabilityData?.supported_action_families ?? [],
+  );
   for (const action of actions) {
     if (!supportedFamilies.has(action.family)) {
-      throw new Error(`Advisory copilot supportability omitted ${action.family}.`);
+      throw new Error(
+        `Advisory copilot supportability omitted ${action.family}.`,
+      );
     }
   }
-  assertBoundaryText(supportabilityData, scenario.unsupportedCapabilityBoundaries);
+  assertBoundaryText(
+    supportabilityData,
+    scenario.unsupportedCapabilityBoundaries,
+  );
 
   const actionProofs = [];
   for (const action of actions) {
@@ -436,12 +549,19 @@ export async function validateCanonicalAdvisoryCopilot({
       gatewayBaseUrl,
       proposalId,
       proposalVersionNo,
+      portfolioId,
+      authority,
       action,
       timeoutMs,
     });
     assertSourceBackedPacket(packet, { action, portfolioId, proposalId });
-    if (readString(packet.client_ready_publication) !== scenario.expectedClientReadyPublication) {
-      throw new Error(`Advisory copilot ${action.family} packet did not block client publication.`);
+    if (
+      readString(packet.client_ready_publication) !==
+      scenario.expectedClientReadyPublication
+    ) {
+      throw new Error(
+        `Advisory copilot ${action.family} packet did not block client publication.`,
+      );
     }
 
     const run = await runCopilotAction({
@@ -449,6 +569,9 @@ export async function validateCanonicalAdvisoryCopilot({
       scenario,
       gatewayBaseUrl,
       packet,
+      portfolioId,
+      proposalId,
+      authority,
       action,
       timeoutMs,
       proofExecutionId,
@@ -463,6 +586,7 @@ export async function validateCanonicalAdvisoryCopilot({
       action,
       portfolioId,
       proposalId,
+      authority,
       timeoutMs,
       proofExecutionId,
     });
@@ -487,6 +611,8 @@ export async function validateCanonicalAdvisoryCopilot({
     gatewayBaseUrl,
     proposalId,
     proposalVersionNo,
+    portfolioId,
+    authority,
     action: guardrailAction,
     timeoutMs,
   });
@@ -495,24 +621,38 @@ export async function validateCanonicalAdvisoryCopilot({
     scenario,
     gatewayBaseUrl,
     packet: guardrailPacket,
+    portfolioId,
+    proposalId,
+    authority,
     action: guardrailAction,
     timeoutMs,
     proofExecutionId,
   });
   assertGuardrailRun(guardrailRun, { scenario });
 
-  const runPage = await fetchJson(
+  const runPage = await sendJson(
     summary,
     `${gatewayBaseUrl}/api/v1/advisory-copilot/proposals/${encodeURIComponent(
       proposalId,
     )}/versions/${encodeURIComponent(proposalVersionId)}/runs`,
     "Advisory copilot proposal-version run list",
     timeoutMs,
+    {
+      headers: advisoryCopilotCallerHeaders({
+        authority,
+        actorId: COPILOT_MAKER_ACTOR_ID,
+        role: "ADVISOR",
+        capability: "advisory.copilot.read",
+        proposalId,
+        portfolioId,
+      }),
+    },
   );
   const runPageData = extractGatewayEnvelopeData(runPage);
   const listedRuns = Array.isArray(runPageData?.items) ? runPageData.items : [];
   const missingRun = actionProofs.find(
-    (proof) => !listedRuns.some((run) => readString(run?.run_id) === proof.runId),
+    (proof) =>
+      !listedRuns.some((run) => readString(run?.run_id) === proof.runId),
   );
   if (missingRun) {
     throw new Error(

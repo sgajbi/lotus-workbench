@@ -145,7 +145,8 @@ if (mainlineSourceProvenance) {
   );
   summary.mainlineSourceProvenance = {
     path: mainlineSourceProvenancePath,
-    certificationClassification: mainlineSourceProvenance.certificationClassification,
+    certificationClassification:
+      mainlineSourceProvenance.certificationClassification,
     repositories: mainlineSourceProvenance.repositories.map((repository) => ({
       repository: repository.repository,
       headSha: repository.headSha,
@@ -154,21 +155,23 @@ if (mainlineSourceProvenance) {
     runtimeBindings: [ideaRuntimeBinding],
   };
 }
-summary.ideaCapacitySeed = validationProfile === "full"
-  ? await loadIdeaCapacitySeedEvidence(ideaCapacitySeedEvidencePath, {
-      commitSha: ideaVersion?.build?.gitCommitSha,
-      branch: ideaVersion?.build?.gitBranch,
-      runId: ideaVersion?.build?.ciRunId,
-    })
-  : {
-      status: "excluded",
-      ...summary.excludedProofs[0],
-      productionCapacityCertified: false,
-    };
+summary.ideaCapacitySeed =
+  validationProfile === "full"
+    ? await loadIdeaCapacitySeedEvidence(ideaCapacitySeedEvidencePath, {
+        commitSha: ideaVersion?.build?.gitCommitSha,
+        branch: ideaVersion?.build?.gitBranch,
+        runId: ideaVersion?.build?.ciRunId,
+      })
+    : {
+        status: "excluded",
+        ...summary.excludedProofs[0],
+        productionCapacityCertified: false,
+      };
 const panelGovernance = createPanelGovernance(summary, panelRegistry);
 
 const advisorBookAsOfDate =
-  process.env.NEXT_PUBLIC_WORKBENCH_ADVISOR_BOOK_AS_OF_DATE ?? canonicalAsOfDate;
+  process.env.NEXT_PUBLIC_WORKBENCH_ADVISOR_BOOK_AS_OF_DATE ??
+  canonicalAsOfDate;
 
 function canonicalPerformanceQuery(extra = {}) {
   const query = new URLSearchParams({
@@ -561,11 +564,7 @@ function extractPmQualitySummaryInvocationId(response) {
 async function ensureCanonicalPmOperatingQualityEvidence() {
   const asOfDate = dpmCommandCenterDefaults.asOfDate;
   const pmQualityBaseUrl = `${gatewayBaseUrl}/api/v1/dpm/command-center/pm-operating-quality`;
-  const sendPmQualityJson = (
-    url,
-    description,
-    { method = "GET", body } = {},
-  ) =>
+  const sendPmQualityJson = (url, description, { method = "GET", body } = {}) =>
     sendDpmCommandCenterJson(url, description, {
       method,
       body,
@@ -738,10 +737,7 @@ async function ensureCanonicalPmOperatingQualityEvidence() {
       "DPM PM operating-quality score-run list did not return the seeded score run.",
     );
   }
-  const scoreRunState = extractPmQualityScoreRunState(
-    scoreRunList,
-    scoreRunId,
-  );
+  const scoreRunState = extractPmQualityScoreRunState(scoreRunList, scoreRunId);
   if (scoreRunState !== "READY") {
     throw new Error(
       `DPM PM operating-quality score run ${scoreRunId} is not ready: ${scoreRunState ?? "missing state"}.`,
@@ -1094,6 +1090,7 @@ async function run() {
     proposalId,
     proposalVersionId,
     proposalVersionNo,
+    authority: policyEvaluationProof.authority,
     timeoutMs,
   });
   const bankDemoProofScenario = advisoryScenario.bankDemoProof;
@@ -1103,7 +1100,9 @@ async function run() {
     "RFC-0028 bank demo scenario contract",
     timeoutMs,
   );
-  const bankDemoScenarioData = extractGatewayEnvelopeData(bankDemoScenarioContract);
+  const bankDemoScenarioData = extractGatewayEnvelopeData(
+    bankDemoScenarioContract,
+  );
   if (bankDemoScenarioData?.scenario_id !== bankDemoProofScenario.scenarioId) {
     throw new Error(
       "RFC-0028 bank demo scenario contract did not return the governed scenario id.",
@@ -1547,18 +1546,19 @@ async function run() {
       "DPM Core candidate-source preview did not preserve lotus-core DpmPortfolioUniverseCandidate source refs.",
     );
   }
-  const coreCandidateSourceRejected = await postDpmCommandCenterJsonExpectingStatus(
-    `${gatewayBaseUrl}/api/v1/dpm/command-center/waves/preview`,
-    "DPM Core candidate-source rejects caller portfolios",
-    422,
-    {
-      body: {
-        ...coreCandidateSourcePreviewBody,
-        trigger_id: `${coreCandidateSourcePreviewBody.trigger_id}-invalid-mixed-request`,
-        portfolios: [{ portfolio_id: portfolioId }],
+  const coreCandidateSourceRejected =
+    await postDpmCommandCenterJsonExpectingStatus(
+      `${gatewayBaseUrl}/api/v1/dpm/command-center/waves/preview`,
+      "DPM Core candidate-source rejects caller portfolios",
+      422,
+      {
+        body: {
+          ...coreCandidateSourcePreviewBody,
+          trigger_id: `${coreCandidateSourcePreviewBody.trigger_id}-invalid-mixed-request`,
+          portfolios: [{ portfolio_id: portfolioId }],
+        },
       },
-    },
-  );
+    );
   if (
     !payloadTextIncludes(
       coreCandidateSourceRejected,
@@ -1715,9 +1715,11 @@ async function run() {
     timeoutMs,
     {
       headers: {
-        "X-Actor-Id": process.env.WORKBENCH_ADVISOR_BOOK_ACTOR_ID ?? "PM_SG_001",
+        "X-Actor-Id":
+          process.env.WORKBENCH_ADVISOR_BOOK_ACTOR_ID ?? "PM_SG_001",
         "X-Caller-Application": "lotus-workbench",
-        "X-Tenant-Id": process.env.WORKBENCH_ADVISOR_BOOK_TENANT_ID ?? "tenant-sg",
+        "X-Tenant-Id":
+          process.env.WORKBENCH_ADVISOR_BOOK_TENANT_ID ?? "tenant-sg",
         "X-Region": process.env.WORKBENCH_ADVISOR_BOOK_REGION ?? "APAC",
         "X-Booking-Center-Code":
           process.env.WORKBENCH_ADVISOR_BOOK_BOOKING_CENTER_CODE ?? "Singapore",

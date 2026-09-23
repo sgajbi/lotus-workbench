@@ -6,7 +6,6 @@ const SOURCE_EXTENSIONS = new Set([".ts", ".tsx", ".js", ".jsx"]);
 const RAW_FETCH_PATTERN = /\bfetch\s*\(/g;
 
 export const RAW_FEATURE_TRANSPORT_BASELINE = Object.freeze({
-  "src/features/advisory-copilot/caller-context.ts": 1,
   "src/features/analytics-observability/metrics.ts": 1,
   "src/features/domain-products/api.ts": 1,
   "src/features/intake/api.ts": 1,
@@ -20,8 +19,10 @@ function defaultRepoRoot() {
 }
 
 function isMainModule() {
-  return Boolean(process.argv[1])
-    && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+  return (
+    Boolean(process.argv[1]) &&
+    resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  );
 }
 
 function collectSourceFiles(directory) {
@@ -55,16 +56,14 @@ export function findFeatureTransportBoundaryViolations({
   );
   const files = new Set([...Object.keys(baseline), ...observed.keys()]);
 
-  return [...files]
-    .sort()
-    .flatMap((file) => {
-      const expected = baseline[file] ?? 0;
-      const actual = observed.get(file) ?? 0;
-      if (actual === expected) {
-        return [];
-      }
-      return [{ file, expected, actual }];
-    });
+  return [...files].sort().flatMap((file) => {
+    const expected = baseline[file] ?? 0;
+    const actual = observed.get(file) ?? 0;
+    if (actual === expected) {
+      return [];
+    }
+    return [{ file, expected, actual }];
+  });
 }
 
 export function validateFeatureTransportBoundary(options) {
@@ -74,13 +73,14 @@ export function validateFeatureTransportBoundary(options) {
   }
 
   const detail = violations
-    .map(({ file, expected, actual }) =>
-      `- ${file}: expected ${expected} raw fetch call(s), observed ${actual}`,
+    .map(
+      ({ file, expected, actual }) =>
+        `- ${file}: expected ${expected} raw fetch call(s), observed ${actual}`,
     )
     .join("\n");
   throw new Error(
-    `Feature transport boundary violations:\n${detail}\n`
-    + "Use the governed Workbench transport. If an existing exception was removed, ratchet the baseline in the same change.",
+    `Feature transport boundary violations:\n${detail}\n` +
+      "Use the governed Workbench transport. If an existing exception was removed, ratchet the baseline in the same change.",
   );
 }
 

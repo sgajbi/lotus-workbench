@@ -43,12 +43,22 @@ describe("BFF proxy route", () => {
     "WORKBENCH_ADVISOR_COCKPIT_PRINCIPAL_STATUS",
     "WORKBENCH_ADVISOR_COCKPIT_PORTFOLIO_IDS",
     "WORKBENCH_ADVISORY_COPILOT_AUTH_MODE",
+    "WORKBENCH_ADVISORY_COPILOT_MAKER_ACTOR_ID",
+    "WORKBENCH_ADVISORY_COPILOT_MAKER_ROLE",
     "WORKBENCH_ADVISORY_COPILOT_ACTOR_ID",
     "WORKBENCH_ADVISORY_COPILOT_TENANT_ID",
     "WORKBENCH_ADVISORY_COPILOT_LEGAL_ENTITY_CODE",
     "WORKBENCH_ADVISORY_COPILOT_ROLE",
     "WORKBENCH_ADVISORY_COPILOT_PRINCIPAL_STATUS",
     "WORKBENCH_ADVISORY_COPILOT_PORTFOLIO_IDS",
+    "WORKBENCH_ADVISORY_POLICY_AUTH_MODE",
+    "WORKBENCH_ADVISORY_POLICY_READER_ACTOR_ID",
+    "WORKBENCH_ADVISORY_POLICY_READER_ROLE",
+    "WORKBENCH_ADVISORY_POLICY_CHECKER_ACTOR_ID",
+    "WORKBENCH_ADVISORY_POLICY_CHECKER_ROLE",
+    "WORKBENCH_ADVISORY_POLICY_TENANT_ID",
+    "WORKBENCH_ADVISORY_POLICY_LEGAL_ENTITY_CODE",
+    "WORKBENCH_ADVISORY_POLICY_PORTFOLIO_IDS",
     "LOTUS_ENVIRONMENT",
   ] as const;
   const originalCallerContextEnv = Object.fromEntries(
@@ -113,7 +123,10 @@ describe("BFF proxy route", () => {
   it("denies a verified-posture Idea request before Gateway when principal resolution fails", async () => {
     process.env.LOTUS_ENVIRONMENT = "production";
     const fetchMock = vi.mocked(fetch);
-    vi.spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal").mockResolvedValueOnce({
+    vi.spyOn(
+      configuredPrincipal,
+      "authorizeConfiguredBffPrincipal",
+    ).mockResolvedValueOnce({
       status: "denied",
       denialClass: "present_but_unverified",
       httpStatus: 401,
@@ -130,7 +143,11 @@ describe("BFF proxy route", () => {
           },
         },
       ),
-      { params: Promise.resolve({ path: ["api", "v1", "ideas", "review-queues", "advisor"] }) },
+      {
+        params: Promise.resolve({
+          path: ["api", "v1", "ideas", "review-queues", "advisor"],
+        }),
+      },
     );
 
     expect(fetchMock).not.toHaveBeenCalled();
@@ -148,7 +165,10 @@ describe("BFF proxy route", () => {
     process.env.LOTUS_ENVIRONMENT = "production";
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValue(new Response('{"items":[]}', { status: 200 }));
-    vi.spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal").mockResolvedValueOnce({
+    vi.spyOn(
+      configuredPrincipal,
+      "authorizeConfiguredBffPrincipal",
+    ).mockResolvedValueOnce({
       status: "admitted",
       principal: {
         issuer: "https://identity.lotus.test",
@@ -176,7 +196,11 @@ describe("BFF proxy route", () => {
           },
         },
       ),
-      { params: Promise.resolve({ path: ["api", "v1", "ideas", "review-queues", "advisor"] }) },
+      {
+        params: Promise.resolve({
+          path: ["api", "v1", "ideas", "review-queues", "advisor"],
+        }),
+      },
     );
 
     expect(response.status).toBe(200);
@@ -1470,7 +1494,10 @@ describe("BFF proxy route", () => {
     process.env.LOTUS_ENVIRONMENT = "production";
     const fetchMock = vi.mocked(fetch);
     fetchMock.mockResolvedValue(new Response('{"items":[]}', { status: 200 }));
-    vi.spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal").mockResolvedValueOnce({
+    vi.spyOn(
+      configuredPrincipal,
+      "authorizeConfiguredBffPrincipal",
+    ).mockResolvedValueOnce({
       status: "admitted",
       principal: {
         issuer: "https://identity.lotus.test",
@@ -1841,16 +1868,693 @@ describe("BFF proxy route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(authorize).toHaveBeenCalledWith("Bearer verified-session-credential", {
-      requiredCapabilities: ["advisory.advisor_cockpit.read"],
-      requestedPortfolioIds: ["PB_SG_GLOBAL_BAL_001"],
-    });
+    expect(authorize).toHaveBeenCalledWith(
+      "Bearer verified-session-credential",
+      {
+        requiredCapabilities: ["advisory.advisor_cockpit.read"],
+        requestedPortfolioIds: ["PB_SG_GLOBAL_BAL_001"],
+      },
+    );
     const upstreamHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
     expect(upstreamHeaders.get("Authorization")).toBe(
       "Bearer delegated.cockpit.signature",
     );
     expect(upstreamHeaders.get("X-Authorized-Portfolio-Id")).toBeNull();
     expect(upstreamHeaders.get("X-Caller-Capabilities")).toBeNull();
+  });
+
+  it("derives advisory-policy read authority at the BFF", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response('{"data":{"items":[]}}', { status: 200 }),
+    );
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-policy-evaluations/review-queue?portfolio_id=PB_SG_GLOBAL_BAL_001",
+        {
+          headers: {
+            "X-Actor-Id": "browser-spoofed-actor",
+            "X-Tenant-Id": "browser-spoofed-tenant",
+            Authorization: "Bearer browser-spoofed-token",
+          },
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["api", "v1", "advisory-policy-evaluations", "review-queue"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const headers = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(headers.get("X-Actor-Id")).toBe("advisor_sg_001");
+    expect(headers.get("X-Tenant-Id")).toBe("tenant-sg");
+    expect(headers.get("X-Legal-Entity-Code")).toBe("REFERENCE");
+    expect(headers.get("X-Role")).toBe("ADVISOR");
+    expect(headers.get("X-Caller-Capabilities")).toBe(
+      "advisory.policy_evaluation.read",
+    );
+    expect(headers.get("Authorization")).toBeNull();
+  });
+
+  it("rejects advisory-policy review-queue reads outside the admitted portfolio", async () => {
+    const fetchMock = vi.mocked(fetch);
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-policy-evaluations/review-queue?portfolio_id=PB_NOT_ENTITLED",
+      ),
+      {
+        params: Promise.resolve({
+          path: ["api", "v1", "advisory-policy-evaluations", "review-queue"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      code: "advisory_policy_scope_not_entitled",
+      status: "rejected",
+    });
+  });
+
+  it("binds advisory-policy evaluation reads to source identity and portfolio", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              evaluation_id: "pev_001",
+              proposal_id: "proposal_001",
+              portfolio_id: "PB_SG_GLOBAL_BAL_001",
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{"data":{}}', { status: 200 }));
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-policy-evaluations/pev_001",
+      ),
+      {
+        params: Promise.resolve({
+          path: ["api", "v1", "advisory-policy-evaluations", "pev_001"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "http://gateway.dev.lotus/api/v1/advisory-policy-evaluations/pev_001",
+    );
+    const forwardedHeaders = fetchMock.mock.calls[1][1]?.headers as Headers;
+    expect(forwardedHeaders.get("X-Actor-Id")).toBe("advisor_sg_001");
+    expect(forwardedHeaders.get("X-Caller-Capabilities")).toBe(
+      "advisory.policy_evaluation.read",
+    );
+  });
+
+  it("rejects advisory-policy evaluation reads when source identity drifts", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            evaluation_id: "pev_other",
+            proposal_id: "proposal_001",
+            portfolio_id: "PB_SG_GLOBAL_BAL_001",
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-policy-evaluations/pev_001/workflow",
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "api",
+            "v1",
+            "advisory-policy-evaluations",
+            "pev_001",
+            "workflow",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(response.json()).resolves.toEqual({
+      code: "advisory_policy_scope_not_resolved",
+      status: "rejected",
+    });
+  });
+
+  it("derives policy sign-off scope from the source evaluation and rewrites the actor", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              evaluation_id: "pev_001",
+              proposal_id: "proposal_001",
+              portfolio_id: "PB_SG_GLOBAL_BAL_001",
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{"data":{}}', { status: 200 }));
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-policy-evaluations/pev_001/sign-off-decisions",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "Idempotency-Key": "idem-policy-signoff",
+            "X-Authorized-Portfolio-Id": "UNENTITLED_PORTFOLIO",
+          },
+          body: JSON.stringify({
+            body: {
+              actor_id: "browser_selected_actor",
+              decision: "REQUEST_MORE_EVIDENCE",
+              source_evaluation_hash: "sha256:source",
+            },
+          }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "api",
+            "v1",
+            "advisory-policy-evaluations",
+            "pev_001",
+            "sign-off-decisions",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "http://gateway.dev.lotus/api/v1/advisory-policy-evaluations/pev_001",
+    );
+    const lookupHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(lookupHeaders.get("X-Caller-Capabilities")).toBe(
+      "advisory.policy_evaluation.read",
+    );
+    const upstream = fetchMock.mock.calls[1][1];
+    const upstreamHeaders = upstream?.headers as Headers;
+    expect(upstreamHeaders.get("X-Actor-Id")).toBe("policy_checker_1");
+    expect(upstreamHeaders.get("X-Role")).toBe("POLICY_CHECKER");
+    expect(upstreamHeaders.get("X-Caller-Capabilities")).toBe(
+      "advisory.policy_evaluation.sign_off",
+    );
+    expect(upstreamHeaders.get("X-Authorized-Proposal-Id")).toBe(
+      "proposal_001",
+    );
+    expect(upstreamHeaders.get("X-Authorized-Portfolio-Id")).toBe(
+      "PB_SG_GLOBAL_BAL_001",
+    );
+    expect(JSON.parse(String(upstream?.body))).toMatchObject({
+      body: { actor_id: "policy_checker_1" },
+    });
+  });
+
+  it("replaces a browser-selected policy actor with the admitted session principal", async () => {
+    process.env.LOTUS_ENVIRONMENT = "production";
+    process.env.WORKBENCH_ADVISORY_POLICY_AUTH_MODE = "authenticated_session";
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              evaluation_id: "pev_001",
+              proposal_id: "proposal_001",
+              portfolio_id: "PB_SG_GLOBAL_BAL_001",
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{"data":{}}', { status: 200 }));
+    vi.spyOn(
+      configuredPrincipal,
+      "authorizeConfiguredBffPrincipal",
+    ).mockResolvedValueOnce({
+      status: "admitted",
+      principal: {
+        issuer: "https://identity.lotus.test",
+        audience: ["lotus-workbench-bff"],
+        subject: "user:policy-checker-001",
+        tenantId: "tenant-sg",
+        principalKind: "user",
+        credentialId: "session-policy-001",
+        capabilities: new Set(["advisory.policy_evaluation.sign_off"]),
+        portfolioScope: new Set(["PB_SG_GLOBAL_BAL_001"]),
+      },
+      gatewayCredential: "delegated.policy.signature",
+    });
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-policy-evaluations/pev_001/sign-off-decisions",
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer verified-session-credential",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            body: {
+              actor_id: "browser_selected_actor",
+              decision: "REQUEST_MORE_EVIDENCE",
+              source_evaluation_hash: "sha256:source",
+            },
+          }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "api",
+            "v1",
+            "advisory-policy-evaluations",
+            "pev_001",
+            "sign-off-decisions",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    const lookupHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(lookupHeaders.get("Authorization")).toBe(
+      "Bearer delegated.policy.signature",
+    );
+    const upstream = fetchMock.mock.calls[1][1];
+    const upstreamHeaders = upstream?.headers as Headers;
+    expect(upstreamHeaders.get("Authorization")).toBe(
+      "Bearer delegated.policy.signature",
+    );
+    expect(upstreamHeaders.get("X-Actor-Id")).toBeNull();
+    expect(JSON.parse(String(upstream?.body))).toMatchObject({
+      body: { actor_id: "user:policy-checker-001" },
+    });
+  });
+
+  it("refuses policy sign-off when source evaluation scope is incomplete", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: { evaluation_id: "pev_001", proposal_id: "proposal_001" },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-policy-evaluations/pev_001/sign-off-decisions",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            body: {
+              actor_id: "browser_selected_actor",
+              decision: "REQUEST_MORE_EVIDENCE",
+              source_evaluation_hash: "sha256:source",
+            },
+          }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "api",
+            "v1",
+            "advisory-policy-evaluations",
+            "pev_001",
+            "sign-off-decisions",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(response.json()).resolves.toEqual({
+      code: "advisory_policy_scope_not_resolved",
+      status: "rejected",
+    });
+  });
+
+  it("derives Advisory Copilot packet authority from the source proposal", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              proposal: {
+                proposal_id: "proposal_sg_structured_note_001",
+                portfolio_id: "PB_SG_GLOBAL_BAL_001",
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{"data":{}}', { status: 200 }));
+    const body = JSON.stringify({
+      body: {
+        proposal_id: "proposal_sg_structured_note_001",
+        proposal_version_no: 1,
+        action_family: "PROPOSAL_RATIONALE",
+        audience: "ADVISOR_INTERNAL",
+        created_by: "browser-spoofed-maker",
+      },
+    });
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-copilot/evidence-packets/from-proposal-version",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "X-Actor-Id": "browser-spoofed-actor",
+          },
+          body,
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "api",
+            "v1",
+            "advisory-copilot",
+            "evidence-packets",
+            "from-proposal-version",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "http://gateway.dev.lotus/api/v1/proposals/proposal_sg_structured_note_001",
+    );
+    const sourceHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(sourceHeaders.get("X-Actor-Id")).toBeNull();
+    const upstream = fetchMock.mock.calls[1][1];
+    expect(JSON.parse(String(upstream?.body))).toMatchObject({
+      body: { created_by: "advisor_sg_001" },
+    });
+    const headers = upstream?.headers as Headers;
+    expect(headers.get("X-Actor-Id")).toBe("advisor_sg_001");
+    expect(headers.get("X-Tenant-Id")).toBe("tenant-sg");
+    expect(headers.get("X-Legal-Entity-Code")).toBe("REFERENCE");
+    expect(headers.get("X-Role")).toBe("ADVISOR");
+    expect(headers.get("X-Caller-Capabilities")).toBe(
+      "advisory.policy_evaluation.read",
+    );
+    expect(headers.get("X-Authorized-Proposal-Id")).toBe(
+      "proposal_sg_structured_note_001",
+    );
+    expect(headers.get("X-Authorized-Portfolio-Id")).toBe(
+      "PB_SG_GLOBAL_BAL_001",
+    );
+  });
+
+  it("attributes Copilot packet creation to the admitted session principal", async () => {
+    process.env.LOTUS_ENVIRONMENT = "production";
+    process.env.WORKBENCH_ADVISORY_COPILOT_AUTH_MODE = "authenticated_session";
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              proposal: {
+                proposal_id: "proposal_sg_structured_note_001",
+                portfolio_id: "PB_SG_GLOBAL_BAL_001",
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{"data":{}}', { status: 200 }));
+    vi.spyOn(
+      configuredPrincipal,
+      "authorizeConfiguredBffPrincipal",
+    ).mockResolvedValueOnce({
+      status: "admitted",
+      principal: {
+        issuer: "https://identity.lotus.test",
+        audience: ["lotus-workbench-bff"],
+        subject: "user:advisor-001",
+        tenantId: "tenant-sg",
+        principalKind: "user",
+        credentialId: "session-copilot-packet-001",
+        capabilities: new Set(["advisory.policy_evaluation.read"]),
+        portfolioScope: new Set(["PB_SG_GLOBAL_BAL_001"]),
+      },
+      gatewayCredential: "delegated.copilot.signature",
+    });
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-copilot/evidence-packets/from-proposal-version",
+        {
+          method: "POST",
+          headers: {
+            Authorization: "Bearer verified-session-credential",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            body: {
+              proposal_id: "proposal_sg_structured_note_001",
+              proposal_version_no: 1,
+              action_family: "PROPOSAL_RATIONALE",
+              audience: "ADVISOR_INTERNAL",
+              created_by: "browser-spoofed-maker",
+            },
+          }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "api",
+            "v1",
+            "advisory-copilot",
+            "evidence-packets",
+            "from-proposal-version",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      body: { created_by: "user:advisor-001" },
+    });
+    for (const call of fetchMock.mock.calls) {
+      const headers = call[1]?.headers as Headers;
+      expect(headers.get("Authorization")).toBe(
+        "Bearer delegated.copilot.signature",
+      );
+      expect(headers.get("X-Actor-Id")).toBeNull();
+    }
+  });
+
+  it("rejects a Copilot packet request when source proposal identity drifts", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            proposal: {
+              proposal_id: "another_proposal",
+              portfolio_id: "PB_SG_GLOBAL_BAL_001",
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-copilot/evidence-packets/from-proposal-version",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            body: {
+              proposal_id: "proposal_sg_structured_note_001",
+              proposal_version_no: 1,
+              action_family: "PROPOSAL_RATIONALE",
+              audience: "ADVISOR_INTERNAL",
+              created_by: "advisor_sg_001",
+            },
+          }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "api",
+            "v1",
+            "advisory-copilot",
+            "evidence-packets",
+            "from-proposal-version",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(response.json()).resolves.toEqual({
+      code: "advisory_copilot_scope_not_resolved",
+      status: "rejected",
+    });
+  });
+
+  it("derives Advisory Copilot action authority from the source evidence packet", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            data: {
+              evidence_packet: {
+                evidence_packet_id: "packet_001",
+                proposal_id: "proposal_sg_structured_note_001",
+                portfolio_id: "PB_SG_GLOBAL_BAL_001",
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{"data":{}}', { status: 200 }));
+    const body = JSON.stringify({
+      body: {
+        evidence_packet_id: "packet_001",
+        audience: "ADVISOR_INTERNAL",
+        requested_outputs: ["rationale"],
+        requested_by: "browser-spoofed-maker",
+      },
+    });
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-copilot/actions",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body,
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["api", "v1", "advisory-copilot", "actions"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(200);
+    expect(String(fetchMock.mock.calls[0][0])).toBe(
+      "http://gateway.dev.lotus/api/v1/advisory-copilot/evidence-packets/packet_001",
+    );
+    const lookupHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
+    expect(lookupHeaders.get("X-Caller-Capabilities")).toBe(
+      "advisory.copilot.read",
+    );
+    const upstreamHeaders = fetchMock.mock.calls[1][1]?.headers as Headers;
+    expect(upstreamHeaders.get("X-Actor-Id")).toBe("advisor_sg_001");
+    expect(upstreamHeaders.get("X-Role")).toBe("ADVISOR");
+    expect(upstreamHeaders.get("X-Caller-Capabilities")).toBe(
+      "advisory.copilot.action",
+    );
+    expect(upstreamHeaders.get("X-Authorized-Proposal-Id")).toBe(
+      "proposal_sg_structured_note_001",
+    );
+    expect(upstreamHeaders.get("X-Authorized-Portfolio-Id")).toBe(
+      "PB_SG_GLOBAL_BAL_001",
+    );
+    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toMatchObject({
+      body: { requested_by: "advisor_sg_001" },
+    });
+  });
+
+  it("rejects a Copilot action when the source packet identity drifts", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            evidence_packet: {
+              evidence_packet_id: "packet_other",
+              proposal_id: "proposal_sg_structured_note_001",
+              portfolio_id: "PB_SG_GLOBAL_BAL_001",
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-copilot/actions",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            body: {
+              evidence_packet_id: "packet_001",
+              audience: "ADVISOR_INTERNAL",
+              requested_outputs: ["rationale"],
+              requested_by: "browser-spoofed-maker",
+            },
+          }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: ["api", "v1", "advisory-copilot", "actions"],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(response.json()).resolves.toEqual({
+      code: "advisory_copilot_scope_not_resolved",
+      status: "rejected",
+    });
   });
 
   it("derives Advisory Copilot review authority at the BFF instead of trusting browser headers", async () => {
@@ -1943,10 +2647,10 @@ describe("BFF proxy route", () => {
     const upstreamHeaders = upstreamInit?.headers as Headers;
     expect(upstreamHeaders.get("X-Actor-Id")).toBe("desk_head_sg_001");
     expect(upstreamHeaders.get("X-Caller-Application")).toBe("lotus-workbench");
-    expect(upstreamHeaders.get("X-Tenant-Id")).toBe("tenant-sg-001");
+    expect(upstreamHeaders.get("X-Tenant-Id")).toBe("tenant-sg");
     expect(upstreamHeaders.get("X-Region")).toBe("APAC");
     expect(upstreamHeaders.get("X-Booking-Center-Code")).toBe("SG");
-    expect(upstreamHeaders.get("X-Legal-Entity-Code")).toBe("PB_SG");
+    expect(upstreamHeaders.get("X-Legal-Entity-Code")).toBe("REFERENCE");
     expect(upstreamHeaders.get("X-Role")).toBe("ADVISORY_SUPERVISOR");
     expect(upstreamHeaders.get("X-Caller-Capabilities")).toBe(
       "advisory.copilot.review",
@@ -1962,6 +2666,56 @@ describe("BFF proxy route", () => {
     expect(upstreamHeaders.get("X-Service-Identity")).toBeNull();
     expect(upstreamHeaders.get("Authorization")).toBeNull();
     expect(upstreamHeaders.get("Cookie")).toBeNull();
+  });
+
+  it("rejects a Copilot review when the source run identity drifts", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          data: {
+            run: {
+              run_id: "copilot_run_other",
+              proposal_id: "proposal_sg_structured_note_001",
+              portfolio_id: "PB_SG_GLOBAL_BAL_001",
+            },
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const response = await POST(
+      new NextRequest(
+        "http://localhost:3000/api/bff/api/v1/advisory-copilot/actions/copilot_run_1/reviews",
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            body: { action: "APPROVE_FOR_INTERNAL_USE" },
+          }),
+        },
+      ),
+      {
+        params: Promise.resolve({
+          path: [
+            "api",
+            "v1",
+            "advisory-copilot",
+            "actions",
+            "copilot_run_1",
+            "reviews",
+          ],
+        }),
+      },
+    );
+
+    expect(response.status).toBe(502);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await expect(response.json()).resolves.toEqual({
+      code: "advisory_copilot_scope_not_resolved",
+      status: "rejected",
+    });
   });
 
   it("uses one delegated credential for verified Copilot scope and review calls", async () => {
@@ -1983,7 +2737,10 @@ describe("BFF proxy route", () => {
         ),
       )
       .mockResolvedValueOnce(new Response('{"data":{}}', { status: 200 }));
-    vi.spyOn(configuredPrincipal, "authorizeConfiguredBffPrincipal").mockResolvedValueOnce({
+    vi.spyOn(
+      configuredPrincipal,
+      "authorizeConfiguredBffPrincipal",
+    ).mockResolvedValueOnce({
       status: "admitted",
       principal: {
         issuer: "https://identity.lotus.test",
@@ -2009,7 +2766,9 @@ describe("BFF proxy route", () => {
             "X-Actor-Id": "browser-actor",
             "X-Authorized-Portfolio-Id": "PB_NOT_ENTITLED",
           },
-          body: JSON.stringify({ body: { action: "APPROVE_FOR_INTERNAL_USE" } }),
+          body: JSON.stringify({
+            body: { action: "APPROVE_FOR_INTERNAL_USE" },
+          }),
         },
       ),
       {
@@ -2640,10 +3399,14 @@ describe("BFF proxy route", () => {
 
   it("does not reveal reporting portfolio scope before principal authentication", async () => {
     process.env.LOTUS_ENVIRONMENT = "production";
-    process.env.WORKBENCH_REPORTING_CALLER_PORTFOLIO_IDS = "PB_SG_GLOBAL_BAL_001";
+    process.env.WORKBENCH_REPORTING_CALLER_PORTFOLIO_IDS =
+      "PB_SG_GLOBAL_BAL_001";
     const fetchMock = vi.mocked(fetch);
 
-    for (const portfolioId of ["PB_SG_GLOBAL_BAL_001", "UNENTITLED_PORTFOLIO"]) {
+    for (const portfolioId of [
+      "PB_SG_GLOBAL_BAL_001",
+      "UNENTITLED_PORTFOLIO",
+    ]) {
       const response = await GET(
         new NextRequest(
           `http://localhost:3000/api/bff/api/v1/report-ordering/options?scopeType=portfolio&scopeId=${portfolioId}`,
@@ -2699,10 +3462,13 @@ describe("BFF proxy route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(authorize).toHaveBeenCalledWith("Bearer verified-session-credential", {
-      requiredCapabilities: ["advisor.book.read"],
-      requestedPortfolioIds: ["PB_SG_GLOBAL_BAL_001"],
-    });
+    expect(authorize).toHaveBeenCalledWith(
+      "Bearer verified-session-credential",
+      {
+        requiredCapabilities: ["advisor.book.read"],
+        requestedPortfolioIds: ["PB_SG_GLOBAL_BAL_001"],
+      },
+    );
     const upstreamHeaders = fetchMock.mock.calls[0][1]?.headers as Headers;
     expect(upstreamHeaders.get("Authorization")).toBe(
       "Bearer delegated.reporting.signature",
@@ -2780,19 +3546,30 @@ describe("BFF proxy route", () => {
   it("sends platform capability reads under the BFF-admitted tenant without a browser tenant selector", async () => {
     process.env.WORKBENCH_BFF_TENANT_ID = "tenant-sg";
     const fetchMock = vi.mocked(fetch);
-    fetchMock.mockResolvedValue(new Response('{"data":{"normalized":{"shellBootstrap":{"workspaces":[]}}}}', { status: 200 }));
+    fetchMock.mockResolvedValue(
+      new Response(
+        '{"data":{"normalized":{"shellBootstrap":{"workspaces":[]}}}}',
+        { status: 200 },
+      ),
+    );
 
     const request = new NextRequest(
       "http://localhost:3000/api/bff/api/v1/platform/capabilities?consumerSystem=UI",
       { headers: { "X-Tenant-Id": "browser-spoof" } },
     );
     const response = await GET(request, {
-      params: Promise.resolve({ path: ["api", "v1", "platform", "capabilities"] }),
+      params: Promise.resolve({
+        path: ["api", "v1", "platform", "capabilities"],
+      }),
     });
 
     expect(response.status).toBe(200);
     const [upstreamUrl, upstreamInit] = fetchMock.mock.calls[0];
-    expect(new URL(String(upstreamUrl)).searchParams.has("tenantId")).toBe(false);
-    expect((upstreamInit?.headers as Headers).get("X-Tenant-Id")).toBe("tenant-sg");
+    expect(new URL(String(upstreamUrl)).searchParams.has("tenantId")).toBe(
+      false,
+    );
+    expect((upstreamInit?.headers as Headers).get("X-Tenant-Id")).toBe(
+      "tenant-sg",
+    );
   });
 });

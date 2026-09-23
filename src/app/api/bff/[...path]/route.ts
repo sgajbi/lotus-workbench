@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  applyAdvisoryCopilotCallerContextHeaders,
-} from "@/features/advisory-copilot/caller-context";
-import {
-  applyAdvisorBookCallerContextHeaders,
-} from "@/features/advisor-book/caller-context";
-import {
-  applyAdvisorCockpitCallerContextHeaders,
-} from "@/features/advisor-cockpit/caller-context";
+import { applyAdvisoryCopilotCallerContextHeaders } from "@/features/advisory-copilot/caller-context";
+import { applyAdvisoryPolicyCallerContextHeaders } from "@/features/advisory-policy/caller-context";
+import { applyAdvisorBookCallerContextHeaders } from "@/features/advisor-book/caller-context";
+import { applyAdvisorCockpitCallerContextHeaders } from "@/features/advisor-cockpit/caller-context";
 import {
   createGatewayRequestSignal,
   isGatewayRequestTimeout,
@@ -30,6 +25,7 @@ import {
 import { readGatewayBffResponse } from "@/features/workbench/bff-response";
 import {
   advisoryCopilotAuthorityRejection,
+  advisoryPolicyAuthorityRejection,
   advisorBookAuthorityRejection,
   advisorCockpitAuthorityRejection,
   ideaAuthorityRejection,
@@ -178,6 +174,42 @@ async function proxy(request: NextRequest, params: { path: string[] }) {
         headers: protectedResponseHeaders(verifiedPrincipal),
       },
     );
+  }
+  if (
+    advisoryCopilotAuthority.status === "applied" &&
+    advisoryCopilotAuthority.bodyText
+  ) {
+    requestBody = advisoryCopilotAuthority.bodyText;
+  }
+  const advisoryPolicyAuthority = await applyAdvisoryPolicyCallerContextHeaders(
+    headers,
+    {
+      method: request.method,
+      upstreamPath,
+      searchParams: request.nextUrl.searchParams,
+      bodyText: requestBody,
+      gatewayBaseUrl,
+      verifiedPrincipal,
+      gatewayCredential: verifiedGatewayCredential,
+    },
+  );
+  if (advisoryPolicyAuthority.status === "rejected") {
+    const rejection = advisoryPolicyAuthorityRejection(
+      advisoryPolicyAuthority.reason,
+    );
+    return NextResponse.json(
+      { code: rejection.code, status: "rejected" },
+      {
+        status: rejection.status,
+        headers: protectedResponseHeaders(verifiedPrincipal),
+      },
+    );
+  }
+  if (
+    advisoryPolicyAuthority.status === "applied" &&
+    advisoryPolicyAuthority.bodyText
+  ) {
+    requestBody = advisoryPolicyAuthority.bodyText;
   }
   const reportingAuthority = applyReportOrderingRouteCallerContextHeaders(
     headers,
