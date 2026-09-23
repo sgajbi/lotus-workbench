@@ -1979,7 +1979,12 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).toContain(
       "renderedSectionCount !== sourceProof.sectionCount",
     );
-    expect(browserWorkflowModule).toContain("Open advisor memo");
+    expect(browserWorkflowModule).toContain(
+      'getByRole("button", { name: /^Open advisor memo/ })',
+    );
+    expect(browserWorkflowModule).not.toContain(
+      'name: "Open advisor memo", exact: true',
+    );
     expect(browserWorkflowModule).toContain('name: "Portfolio decision memo"');
     expect(browserWorkflowModule).toContain("resolveRegistryRoute");
     expect(browserWorkflowModule).toContain("assertRailModeActive");
@@ -1997,7 +2002,18 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).not.toContain(
       'locator(".pm-quality-status-strip")',
     );
-    expect(browserWorkflowModule).toContain("outcome-review-panel");
+    expect(browserWorkflowModule).toContain(
+      'page.locator("article#outcome-review-panel")',
+    );
+    expect(browserWorkflowModule).not.toContain(
+      'workbenchPanelByClass(page, "outcome-review-panel")',
+    );
+    expect(browserWorkflowModule).not.toContain(
+      'getByLabel(\n    "Selected outcome review readiness"',
+    );
+    expect(browserWorkflowModule).toContain(
+      'getByLabel(\n    "Outcome review evidence availability"',
+    );
     expect(browserWorkflowModule).toContain(
       "buildOutcomeReviewSourceEvidenceProof(sourceReview)",
     );
@@ -2242,6 +2258,18 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).toContain("idea-action-review-status");
     expect(browserWorkflowModule).toContain("idea-action-conversion-status");
     expect(browserWorkflowModule).toContain("recorded-and-refreshed");
+    expect(browserWorkflowModule).toContain(
+      "Feedback saved. Opportunity detail and worklist are current.",
+    );
+    expect(browserWorkflowModule).toContain(
+      "Review saved. Opportunity detail and worklist are current.",
+    );
+    expect(browserWorkflowModule).toContain(
+      "Conversion intent saved. Opportunity detail and worklist are current.",
+    );
+    expect(browserWorkflowModule).not.toContain(
+      "Feedback recorded through Gateway.",
+    );
     expect(browserWorkflowModule).toContain(
       'sourceRefresh: "verified_after_each_mutation"',
     );
