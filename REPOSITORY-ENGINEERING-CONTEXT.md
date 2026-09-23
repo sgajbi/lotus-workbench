@@ -75,26 +75,26 @@ Browser
   -> owning Lotus service
 ```
 
-| Area | Responsibility |
-| --- | --- |
-| `src/app/` | App Router pages, layouts, providers, health endpoints, and BFF route handlers |
-| `src/apps/portfolio/` | Portfolio review composition, records, exact transaction detail, and source projections |
-| `src/apps/performance/` | Performance, attribution, risk, evidence, and adviser-brief composition |
-| `src/apps/recommendations/` | Recommendations route composition |
-| `src/features/advisor-book/` | Adviser-book selection and source-returned book posture |
-| `src/features/report-ordering/` | Report Centre contracts, ordering, receipts, history, and screen state |
-| `src/features/workbench/` | Manage and advisory workflow contracts, view models, and commands |
-| `src/features/intake/` | Portfolio intake workflow and source-bound receipts |
-| `src/features/domain-products/` | Governed data-product discovery and trust posture |
-| `src/design-system/` | Reusable workstation primitives, financial formatters, tokens, and source-state controls |
-| `src/shell/` | Navigation, review context, application registry, and shared framing |
-| `src/copy/` | Typed productive copy shared by a workflow |
-| `scripts/quality/` | Blocking architecture, authority, dependency, CSS, copy, and documentation gates |
-| `scripts/testing/` | Deterministic browser-scenario orchestration |
-| `scripts/live/` | Canonical front-office runtime, validation, and evidence capture |
-| `tests/` | Unit, contract, fixture-browser, live-browser, and regression evidence |
-| `docs/` | Deep architecture, procedures, standards, RFCs, and evidence |
-| `wiki/` | Business, product, operator, support, and screen guidance |
+| Area                            | Responsibility                                                                           |
+| ------------------------------- | ---------------------------------------------------------------------------------------- |
+| `src/app/`                      | App Router pages, layouts, providers, health endpoints, and BFF route handlers           |
+| `src/apps/portfolio/`           | Portfolio review composition, records, exact transaction detail, and source projections  |
+| `src/apps/performance/`         | Performance, attribution, risk, evidence, and adviser-brief composition                  |
+| `src/apps/recommendations/`     | Recommendations route composition                                                        |
+| `src/features/advisor-book/`    | Adviser-book selection and source-returned book posture                                  |
+| `src/features/report-ordering/` | Report Centre contracts, ordering, receipts, history, and screen state                   |
+| `src/features/workbench/`       | Manage and advisory workflow contracts, view models, and commands                        |
+| `src/features/intake/`          | Portfolio intake workflow and source-bound receipts                                      |
+| `src/features/domain-products/` | Governed data-product discovery and trust posture                                        |
+| `src/design-system/`            | Reusable workstation primitives, financial formatters, tokens, and source-state controls |
+| `src/shell/`                    | Navigation, review context, application registry, and shared framing                     |
+| `src/copy/`                     | Typed productive copy shared by a workflow                                               |
+| `scripts/quality/`              | Blocking architecture, authority, dependency, CSS, copy, and documentation gates         |
+| `scripts/testing/`              | Deterministic browser-scenario orchestration                                             |
+| `scripts/live/`                 | Canonical front-office runtime, validation, and evidence capture                         |
+| `tests/`                        | Unit, contract, fixture-browser, live-browser, and regression evidence                   |
+| `docs/`                         | Deep architecture, procedures, standards, RFCs, and evidence                             |
+| `wiki/`                         | Business, product, operator, support, and screen guidance                                |
 
 Detailed ownership is in the
 [product architecture blueprint](docs/documentation/product-architecture-blueprint.md). API and
@@ -131,6 +131,11 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   restore configured development headers as a fallback.
 - A BFF that narrows query scope must reject missing or repeated required values and forward the
   exact admitted representation. Gateway remains the final object-authorization authority.
+- Advisory Policy and Advisory Copilot mutations derive portfolio scope from the source evaluation,
+  proposal, packet, or run that the user is acting on. They reject missing, conflicting, or
+  unentitled source scope before Gateway, strip browser authority, and keep maker and checker
+  principals distinct. A route must not manufacture a portfolio, tenant, role, capability, or actor
+  merely because the canonical fixture is enabled.
 - The BFF describes emitted bytes: it requests identity encoding, removes hop-by-hop and stale
   transfer metadata, and preserves governed end-to-end headers. Streaming needs an explicit
   timeout, cancellation, range, and backpressure design.
@@ -251,25 +256,25 @@ For the canonical commands below, first set
 `$workspaceRoot = (Resolve-Path (Join-Path $PWD '..')).Path` from the repository root. This resolves
 the documented sibling-checkout layout without relying on the scripts' personal default.
 
-| Purpose | Command |
-| --- | --- |
-| Install | `npm ci --no-audit --no-fund` |
-| Develop | `npm run dev` (the governed launcher supplies `LOTUS_ENVIRONMENT=dev` only when absent) |
-| Lint and architecture gates | `npm run lint` |
-| Type safety | `npm run typecheck` |
-| Unit tests | `npm test` |
-| Coverage gate | `npm run test:coverage` |
-| Production build | `npm run build` |
-| Local core quality gate | Run `npm run security:audit`, `npm run lint`, `npm run typecheck`, `npm run test:coverage`, and `npm run build` in order (`make check` shortcut) |
-| Install the governed browser | `node node_modules/playwright/cli.js install chromium` (once after `npm ci`, and again when the Playwright version changes) |
-| Browser smoke | `npm run test:e2e` |
-| Deterministic fixture families | `npm run test:e2e:fixtures` |
-| Container parity | `docker compose -f docker-compose.ci-local.yml up --build --abort-on-container-exit --exit-code-from ci-local ci-local` |
-| Container parity teardown | `docker compose -f docker-compose.ci-local.yml down -v --remove-orphans` |
-| Scale regression | `npm run scale:proof` then `npm run scale:proof:down` |
-| Canonical stack (Windows PowerShell) | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot` |
-| Canonical validation (Windows PowerShell) | `npm run live:validate` |
-| Canonical teardown (Windows PowerShell) | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot` |
+| Purpose                                   | Command                                                                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Install                                   | `npm ci --no-audit --no-fund`                                                                                                                    |
+| Develop                                   | `npm run dev` (the governed launcher supplies `LOTUS_ENVIRONMENT=dev` only when absent)                                                          |
+| Lint and architecture gates               | `npm run lint`                                                                                                                                   |
+| Type safety                               | `npm run typecheck`                                                                                                                              |
+| Unit tests                                | `npm test`                                                                                                                                       |
+| Coverage gate                             | `npm run test:coverage`                                                                                                                          |
+| Production build                          | `npm run build`                                                                                                                                  |
+| Local core quality gate                   | Run `npm run security:audit`, `npm run lint`, `npm run typecheck`, `npm run test:coverage`, and `npm run build` in order (`make check` shortcut) |
+| Install the governed browser              | `node node_modules/playwright/cli.js install chromium` (once after `npm ci`, and again when the Playwright version changes)                      |
+| Browser smoke                             | `npm run test:e2e`                                                                                                                               |
+| Deterministic fixture families            | `npm run test:e2e:fixtures`                                                                                                                      |
+| Container parity                          | `docker compose -f docker-compose.ci-local.yml up --build --abort-on-container-exit --exit-code-from ci-local ci-local`                          |
+| Container parity teardown                 | `docker compose -f docker-compose.ci-local.yml down -v --remove-orphans`                                                                         |
+| Scale regression                          | `npm run scale:proof` then `npm run scale:proof:down`                                                                                            |
+| Canonical stack (Windows PowerShell)      | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot`              |
+| Canonical validation (Windows PowerShell) | `npm run live:validate`                                                                                                                          |
+| Canonical teardown (Windows PowerShell)   | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot`               |
 
 Use the narrowest focused test during development, then run repository-native gates proportionate
 to the change. The local core quality gate is not full PR parity; protected CI also proves runtime
@@ -313,18 +318,18 @@ Preserve these current documentation contracts when editing their owners:
 
 Consult deeper sources only when the task crosses their subject:
 
-| Task | Authority and reason |
-| --- | --- |
-| Any implementation | `AGENTS.md` and the Lotus Skill Routing Map select mandatory controls and delivery skill |
-| UI or workflow | [Frontend delivery governance](https://github.com/sgajbi/lotus-platform/tree/main/codex/skills/lotus-frontend-delivery-governance) defines product, accessibility, source-truth, and evidence expectations |
-| BFF or integration | [Capability contract](docs/architecture/workbench-ui-gateway-capability-contract.md), [API Surface](wiki/API-Surface.md), and [Integrations](wiki/Integrations.md) define ownership |
-| Business language | [Product vocabulary](docs/documentation/product-vocabulary.md) owns terminology |
-| Screen behavior | [Screen Guide Catalogue](wiki/Screen-Guide-Catalogue.md) routes to the canonical guide |
-| Runtime or QA | [Canonical runtime guide](docs/operations/canonical-front-office-local-runtime.md) defines the governed path |
-| CI or fitness function | [Validation and CI](wiki/Validation-and-CI.md) and Platform CI governance define enforcement |
-| Architecture or dependency | [Architecture index](docs/architecture/README.md) and dependency-risk inventory define admission |
-| Repository decision | [RFC Index](docs/rfcs/README.md) locates current and historical decisions |
-| Documentation | [Documentation map](docs/README.md) and Platform documentation layering define authority |
+| Task                       | Authority and reason                                                                                                                                                                                       |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Any implementation         | `AGENTS.md` and the Lotus Skill Routing Map select mandatory controls and delivery skill                                                                                                                   |
+| UI or workflow             | [Frontend delivery governance](https://github.com/sgajbi/lotus-platform/tree/main/codex/skills/lotus-frontend-delivery-governance) defines product, accessibility, source-truth, and evidence expectations |
+| BFF or integration         | [Capability contract](docs/architecture/workbench-ui-gateway-capability-contract.md), [API Surface](wiki/API-Surface.md), and [Integrations](wiki/Integrations.md) define ownership                        |
+| Business language          | [Product vocabulary](docs/documentation/product-vocabulary.md) owns terminology                                                                                                                            |
+| Screen behavior            | [Screen Guide Catalogue](wiki/Screen-Guide-Catalogue.md) routes to the canonical guide                                                                                                                     |
+| Runtime or QA              | [Canonical runtime guide](docs/operations/canonical-front-office-local-runtime.md) defines the governed path                                                                                               |
+| CI or fitness function     | [Validation and CI](wiki/Validation-and-CI.md) and Platform CI governance define enforcement                                                                                                               |
+| Architecture or dependency | [Architecture index](docs/architecture/README.md) and dependency-risk inventory define admission                                                                                                           |
+| Repository decision        | [RFC Index](docs/rfcs/README.md) locates current and historical decisions                                                                                                                                  |
+| Documentation              | [Documentation map](docs/README.md) and Platform documentation layering define authority                                                                                                                   |
 
 The broad Lotus Engineering Context is deeper reading for cross-repository architecture or shared
 policy; it is not the default first read for a bounded Workbench change.

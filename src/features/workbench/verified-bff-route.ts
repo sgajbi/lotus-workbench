@@ -3,6 +3,10 @@ import {
   resolveAdvisoryCopilotCapability,
 } from "@/features/advisory-copilot/caller-context";
 import {
+  resolveAdvisoryPolicyAuthorityMode,
+  resolveAdvisoryPolicyCapability,
+} from "@/features/advisory-policy/caller-context";
+import {
   resolveAdvisorBookAuthorityMode,
   resolveAdvisorBookRouteCapability,
 } from "@/features/advisor-book/caller-context";
@@ -49,12 +53,17 @@ export function resolveVerifiedBffRouteRequirement(
     resolveAdvisoryCopilotAuthorityMode() === "authenticated_session"
       ? resolveAdvisoryCopilotCapability(request)
       : undefined;
+  const advisoryPolicyCapability =
+    resolveAdvisoryPolicyAuthorityMode() === "authenticated_session"
+      ? resolveAdvisoryPolicyCapability(request)
+      : undefined;
   const requiredCapability =
     ideaCapability ??
     advisorBookCapability ??
     advisorCockpitCapability ??
     reportingCapability ??
-    advisoryCopilotCapability;
+    advisoryCopilotCapability ??
+    advisoryPolicyCapability;
   if (!requiredCapability) return null;
 
   const requestedPortfolioIds = reportingCapability

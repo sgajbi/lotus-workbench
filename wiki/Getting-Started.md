@@ -6,11 +6,11 @@ does not by itself certify populated source data, integrated panel support, or d
 
 ## Quick Decision Map
 
-| If you need to | Start with | Evidence boundary |
-| --- | --- | --- |
-| Install dependencies or work on isolated UI code | `make install`, then `make run` | Local development only |
-| Validate Workbench with the governed Lotus services | Use the [Windows PowerShell sequence](#canonical-local-runtime) below | Integrated source and panel checks must pass |
-| Capture support or demo evidence | Complete canonical validation before `npm run live:evidence` | Diagnostic output is not promoted as demo proof |
+| If you need to                                      | Start with                                                            | Evidence boundary                               |
+| --------------------------------------------------- | --------------------------------------------------------------------- | ----------------------------------------------- |
+| Install dependencies or work on isolated UI code    | `make install`, then `make run`                                       | Local development only                          |
+| Validate Workbench with the governed Lotus services | Use the [Windows PowerShell sequence](#canonical-local-runtime) below | Integrated source and panel checks must pass    |
+| Capture support or demo evidence                    | Complete canonical validation before `npm run live:evidence`          | Diagnostic output is not promoted as demo proof |
 
 ## Navigating Workbench
 
@@ -179,25 +179,44 @@ query parameters, or the acknowledgement body is rejected. The fixture is reject
 `dev`, `development`, `local`, or `test`; other environments require the verified route and current
 grant resolution tracked by Workbench #436 and Platform #775.
 
-### Advisory Copilot local review authority fixture
+### Advisory Policy and Copilot local authority fixtures
 
-Advisor-use copilot review submissions use a separate BFF-owned development fixture:
+Policy review reads and sign-off use distinct BFF-owned development principals:
+
+```txt
+WORKBENCH_ADVISORY_POLICY_AUTH_MODE=development_configured
+WORKBENCH_ADVISORY_POLICY_READER_ACTOR_ID=advisor_sg_001
+WORKBENCH_ADVISORY_POLICY_READER_ROLE=ADVISOR
+WORKBENCH_ADVISORY_POLICY_CHECKER_ACTOR_ID=policy_checker_1
+WORKBENCH_ADVISORY_POLICY_CHECKER_ROLE=POLICY_CHECKER
+WORKBENCH_ADVISORY_POLICY_TENANT_ID=tenant-sg
+WORKBENCH_ADVISORY_POLICY_LEGAL_ENTITY_CODE=REFERENCE
+WORKBENCH_ADVISORY_POLICY_PORTFOLIO_IDS=PB_SG_GLOBAL_BAL_001
+```
+
+Workbench derives read authority at the BFF. Before sign-off it reads the source evaluation,
+checks its portfolio against server-side entitlement, forwards its proposal and portfolio scope,
+and replaces any browser actor with the configured checker actor.
+
+Advisor-use Copilot packet, action, and review submissions use a separate BFF-owned development
+fixture:
 
 ```txt
 WORKBENCH_ADVISORY_COPILOT_AUTH_MODE=development_configured
+WORKBENCH_ADVISORY_COPILOT_MAKER_ACTOR_ID=advisor_sg_001
+WORKBENCH_ADVISORY_COPILOT_MAKER_ROLE=ADVISOR
 WORKBENCH_ADVISORY_COPILOT_ACTOR_ID=desk_head_sg_001
-WORKBENCH_ADVISORY_COPILOT_TENANT_ID=tenant-sg-001
-WORKBENCH_ADVISORY_COPILOT_LEGAL_ENTITY_CODE=PB_SG
+WORKBENCH_ADVISORY_COPILOT_TENANT_ID=tenant-sg
+WORKBENCH_ADVISORY_COPILOT_LEGAL_ENTITY_CODE=REFERENCE
 WORKBENCH_ADVISORY_COPILOT_ROLE=ADVISORY_SUPERVISOR
 WORKBENCH_ADVISORY_COPILOT_PRINCIPAL_STATUS=ACTIVE
 WORKBENCH_ADVISORY_COPILOT_PORTFOLIO_IDS=PB_SG_GLOBAL_BAL_001
 ```
 
-The browser submits only the review action and business reason. Workbench strips browser-supplied
-reviewer and authority headers, reads the source-owned Gateway copilot run, verifies the run
-portfolio against the configured entitlement list, and forwards the run's proposal and portfolio
-scope with `advisory.copilot.review`. Missing run scope or cross-entitlement scope fails closed
-before the review mutation reaches Gateway.
+Workbench strips browser-supplied authority. It resolves packet scope from the source proposal,
+action scope from the source evidence packet, and review scope from the source run; verifies each
+portfolio against the configured entitlement list; and forwards only the exact capability for the
+operation. Missing, mismatched, or cross-entitlement source scope fails closed before mutation.
 
 ## First checks
 

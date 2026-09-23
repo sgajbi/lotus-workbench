@@ -15,21 +15,11 @@ function readNormalizedSource(...pathSegments: string[]): string {
   );
 }
 const OWNERSHIP_MODULE = readFileSync(
-  join(
-    process.cwd(),
-    "scripts",
-    "live",
-    "CanonicalPortOwnership.psm1",
-  ),
+  join(process.cwd(), "scripts", "live", "CanonicalPortOwnership.psm1"),
   "utf8",
 );
 const OWNERSHIP_CONTRACT = readFileSync(
-  join(
-    process.cwd(),
-    "scripts",
-    "quality",
-    "Test-CanonicalPortOwnership.ps1",
-  ),
+  join(process.cwd(), "scripts", "quality", "Test-CanonicalPortOwnership.ps1"),
   "utf8",
 );
 const BROWSER_WORKFLOW_MODULE = readNormalizedSource(
@@ -55,7 +45,9 @@ describe("canonical live validation script", () => {
     );
 
     expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
-    expect(result.stdout).toContain('"contract":"canonical-idea-evidence-authority"');
+    expect(result.stdout).toContain(
+      '"contract":"canonical-idea-evidence-authority"',
+    );
     expect(result.stdout).toContain('"passed":true');
   });
 
@@ -99,7 +91,10 @@ describe("canonical live validation script", () => {
       "export async function validateProofPackPanel",
       workflowStart,
     );
-    const workflowSource = BROWSER_WORKFLOW_MODULE.slice(workflowStart, workflowEnd);
+    const workflowSource = BROWSER_WORKFLOW_MODULE.slice(
+      workflowStart,
+      workflowEnd,
+    );
     const sectionTitle = componentSource.match(
       /<SectionBlock\s+title="([^"]+)"\s+subtitle=/,
     )?.[1];
@@ -160,9 +155,8 @@ describe("canonical live validation script", () => {
       "async function validateAdvisoryJourneyRoute",
       decisionProofStart,
     );
-    const overviewJourneyStart = browserWorkflowModule.indexOf(
-      'key: "overview"',
-    );
+    const overviewJourneyStart =
+      browserWorkflowModule.indexOf('key: "overview"');
     const overviewJourneyEnd = browserWorkflowModule.indexOf(
       'key: "client-context"',
       overviewJourneyStart,
@@ -205,7 +199,7 @@ describe("canonical live validation script", () => {
       expect(decisionSurfaceProof).toContain(stableEvidence);
     }
     expect(decisionSurfaceProof).not.toContain(
-      'locator(\'[data-source-render-row="proposal-list"]\')',
+      "locator('[data-source-render-row=\"proposal-list\"]')",
     );
     expect(decisionSurfaceProof).toContain(
       "selected-source-proposal-through-gateway",
@@ -235,9 +229,7 @@ describe("canonical live validation script", () => {
     )?.[1];
 
     expect(riskInvocation).toContain("mandateComparisons: {");
-    expect(riskInvocation).toContain(
-      "summary: riskSummary.mandate_comparison",
-    );
+    expect(riskInvocation).toContain("summary: riskSummary.mandate_comparison");
     expect(riskInvocation).toContain(
       "concentration: riskConcentration.mandate_comparison",
     );
@@ -493,9 +485,7 @@ describe("canonical live validation script", () => {
     expect(browserValidator).toContain(
       "/api/v1/dpm/command-center/mandates/by-portfolio/",
     );
-    expect(browserValidator).toContain(
-      "fetchOptionalDpmCommandCenterJson",
-    );
+    expect(browserValidator).toContain("fetchOptionalDpmCommandCenterJson");
     expect(browserValidator).toContain('status: "seed_gap"');
     expect(browserValidator).toContain(
       "/api/v1/dpm/command-center/mandates/${encodeURIComponent(mandateId)}/health",
@@ -520,14 +510,18 @@ describe("canonical live validation script", () => {
     expect(script).toContain("[switch]$SkipSeedCleanup");
     expect(script).toContain("function Test-LocalApp");
     expect(script).toContain("function Invoke-ComposeUp");
-    expect(script).toContain("function Get-CanonicalDpmCommandCenterEnvironment");
+    expect(script).toContain(
+      "function Get-CanonicalDpmCommandCenterEnvironment",
+    );
     expect(script).toContain("$requiredValues = @{");
     expect(script).not.toContain("$requiredValues = [ordered]@{");
     expect(script).toContain(
       "WORKBENCH_BFF_TENANT_ID = [string]$context.workbench_caller_tenant_id",
     );
     expect(script).toContain("WORKBENCH_DPM_COMMAND_CENTER_TENANT_ID");
-    expect(script).toContain("WORKBENCH_DPM_COMMAND_CENTER_PORTFOLIO_MANAGER_ID");
+    expect(script).toContain(
+      "WORKBENCH_DPM_COMMAND_CENTER_PORTFOLIO_MANAGER_ID",
+    );
     expect(script).toContain("WORKBENCH_DPM_COMMAND_CENTER_BOOK_ID");
     expect(script).toContain("WORKBENCH_DPM_COMMAND_CENTER_AS_OF_DATE");
     expect(script).toContain(
@@ -539,7 +533,9 @@ describe("canonical live validation script", () => {
     expect(script).toContain(
       "$environment = $canonicalDpmCommandCenterEnvironment.Clone()",
     );
-    expect(script).toContain("$dockerWorkbenchEnvironment = Get-DockerWorkbenchEnvironment");
+    expect(script).toContain(
+      "$dockerWorkbenchEnvironment = Get-DockerWorkbenchEnvironment",
+    );
     expect(script).toContain("[switch]$Build");
     expect(script).toContain(
       '$composeCommand -notmatch "(?:^|\\s)--build(?:\\s|$)"',
@@ -549,7 +545,9 @@ describe("canonical live validation script", () => {
     expect(script).toContain("function Start-CanonicalManage");
     expect(script).toContain("function Start-DirectIngress");
     expect(script).toContain("function Invoke-CanonicalCoreSeed");
-    expect(script).toContain('Join-Path $coreRepo "src\\libs\\portfolio-common"');
+    expect(script).toContain(
+      'Join-Path $coreRepo "src\\libs\\portfolio-common"',
+    );
     expect(script).toContain(
       "PYTHONPATH = ($corePythonPathEntries -join [System.IO.Path]::PathSeparator)",
     );
@@ -564,7 +562,11 @@ describe("canonical live validation script", () => {
     );
     expect(script).toContain("if ($BuildImages -or $RequireMainlineSources) {");
     expect(
-      readNormalizedSource("scripts", "live", "CanonicalCoreImageProvenance.psm1"),
+      readNormalizedSource(
+        "scripts",
+        "live",
+        "CanonicalCoreImageProvenance.psm1",
+      ),
     ).toContain("DEMO_DATA_PACK_ENABLED = 'false'");
     expect(script).toContain(
       "Starting lotus-core with auxiliary demo data pack disabled for canonical PB seed isolation.",
@@ -582,16 +584,14 @@ describe("canonical live validation script", () => {
     expect(script).toContain("function Get-DockerPublishedPortOwners");
     expect(script).toContain("function Test-CanonicalPortOwnership");
     expect(script).not.toContain('C:\\Users\\Sandeep\\projects",');
-    expect(script).toContain("Resolve-CanonicalWorkspaceRoot -ProjectsRoot $ProjectsRoot");
+    expect(script).toContain(
+      "Resolve-CanonicalWorkspaceRoot -ProjectsRoot $ProjectsRoot",
+    );
     expect(script).toContain(
       'Import-Module (Join-Path $PSScriptRoot "CanonicalPortOwnership.psm1") -Force',
     );
-    expect(script).toContain(
-      "Test-CanonicalDockerProjectOwnership",
-    );
-    expect(script).toContain(
-      "Canonical port ownership preflight passed.",
-    );
+    expect(script).toContain("Test-CanonicalDockerProjectOwnership");
+    expect(script).toContain("Canonical port ownership preflight passed.");
     expect(OWNERSHIP_MODULE).toContain(
       "function ConvertTo-CanonicalHostPathKey",
     );
@@ -599,9 +599,7 @@ describe("canonical live validation script", () => {
       "function Test-CanonicalDockerProjectOwnership",
     );
     expect(OWNERSHIP_MODULE).toContain("[System.IO.Path]::GetFullPath($Path)");
-    expect(OWNERSHIP_MODULE).toContain(
-      "[System.IO.Path]::IsPathRooted($Path)",
-    );
+    expect(OWNERSHIP_MODULE).toContain("[System.IO.Path]::IsPathRooted($Path)");
     expect(OWNERSHIP_MODULE).toContain("$isDriveAbsolute");
     expect(OWNERSHIP_MODULE).toContain("$isUncAbsolute");
     expect(OWNERSHIP_MODULE).toContain("$AllowedProjects -icontains $Project");
@@ -621,9 +619,13 @@ describe("canonical live validation script", () => {
     expect(script).toContain(
       "Canonical startup did not stop any foreign container or process.",
     );
-    expect(script).toContain('AllowedDockerProjects = @("lotus-core-app-local")');
+    expect(script).toContain(
+      'AllowedDockerProjects = @("lotus-core-app-local")',
+    );
     expect(script).toContain("AllowedDockerWorkingDirectories = @($coreRepo)");
-    expect(script).toContain('AllowedContainerNames = @("lotus-direct-dev-ingress")');
+    expect(script).toContain(
+      'AllowedContainerNames = @("lotus-direct-dev-ingress")',
+    );
     expect(script).toContain("if ($CoreManageOnlyMode)");
     expect(script).toContain(
       "Test-CanonicalPortOwnership -CoreManageOnlyMode:$CoreManageOnly",
@@ -637,9 +639,7 @@ describe("canonical live validation script", () => {
         "Previewing managed canonical hosts block from lotus-platform",
       ),
     );
-    expect(
-      script.indexOf("if ($PortOwnershipPreflightOnly)"),
-    ).toBeLessThan(
+    expect(script.indexOf("if ($PortOwnershipPreflightOnly)")).toBeLessThan(
       script.lastIndexOf("Invoke-MainlineSourceProvenancePreflight"),
     );
     expect(
@@ -654,13 +654,15 @@ describe("canonical live validation script", () => {
       "Leaving Docker-owned $Description listener on :$Port",
     );
     expect(script).toContain(
-      "$workbenchEnvironment.BFF_BASE_URL = \"http://gateway.dev.lotus\"",
+      '$workbenchEnvironment.BFF_BASE_URL = "http://gateway.dev.lotus"',
     );
     expect(script).toContain('$workbenchEnvironment.LOTUS_ENVIRONMENT = "dev"');
     expect(script).toContain(
       '$workbenchEnvironment.WORKBENCH_IDEA_AUTH_MODE = "development_configured"',
     );
-    expect(script).toContain('$workbenchEnvironment.NEXT_TELEMETRY_DISABLED = "1"');
+    expect(script).toContain(
+      '$workbenchEnvironment.NEXT_TELEMETRY_DISABLED = "1"',
+    );
     expect(script).toContain(
       "Invoke-WithProcessEnvironment -Environment $workbenchEnvironment",
     );
@@ -690,17 +692,25 @@ describe("canonical live validation script", () => {
     expect(script).toContain(
       "Invoke-ComposeUp $manageRepo $dockerManageEnvironment",
     );
-    expect(script).toContain('BFF_BASE_URL = "http://host.docker.internal:8100"');
+    expect(script).toContain(
+      'BFF_BASE_URL = "http://host.docker.internal:8100"',
+    );
     expect(script).toContain('LOTUS_ENVIRONMENT = "dev"');
-    expect(script).toContain('WORKBENCH_IDEA_AUTH_MODE = "development_configured"');
+    expect(script).toContain(
+      'WORKBENCH_IDEA_AUTH_MODE = "development_configured"',
+    );
     expect(script).not.toContain("Workbench already responding on :3000");
     expect(script).toContain("--portfolio-id $PortfolioId");
     expect(script).toContain("--end-date 2026-04-10");
     expect(script).toContain("--benchmark-start-date 2025-01-06");
     expect(script).toContain("--wait-seconds $SeedWaitSeconds");
     expect(script).toContain('$seedCommand = "$seedCommand --skip-cleanup"');
-    expect(script).toContain("Join-Path $platformRepo 'automation/Invoke-DpmCommandCenterSeed.ps1'");
-    expect(script).toContain("-RuntimeHolder $RuntimeHolder -RuntimeOperationToken $runtimeOperation.Token -RuntimeOperationFence $runtimeOperation.Lock");
+    expect(script).toContain(
+      "Join-Path $platformRepo 'automation/Invoke-DpmCommandCenterSeed.ps1'",
+    );
+    expect(script).toContain(
+      "-RuntimeHolder $RuntimeHolder -RuntimeOperationToken $runtimeOperation.Token -RuntimeOperationFence $runtimeOperation.Lock",
+    );
     expect(script).toContain(
       "Seeding governed DPM command-center and action-register evidence",
     );
@@ -725,7 +735,9 @@ describe("canonical live validation script", () => {
     expect(script).not.toContain("Invoke-ComposeUp $riskRepo -Build");
     expect(script).not.toContain("Invoke-ComposeUp $reportRepo -Build");
     expect(script.indexOf("if ($CoreManageOnly)")).toBeLessThan(
-      script.indexOf("$ideaSourceIdentity = Get-GitRepositoryIdentity -RepoPath $ideaRepo"),
+      script.indexOf(
+        "$ideaSourceIdentity = Get-GitRepositoryIdentity -RepoPath $ideaRepo",
+      ),
     );
   });
 
@@ -758,12 +770,7 @@ describe("canonical live validation script", () => {
       "utf8",
     );
     const ideaEvidenceModule = readFileSync(
-      join(
-        process.cwd(),
-        "scripts",
-        "live",
-        "CanonicalIdeaEvidence.psm1",
-      ),
+      join(process.cwd(), "scripts", "live", "CanonicalIdeaEvidence.psm1"),
       "utf8",
     );
     const browserValidator = readFileSync(
@@ -790,10 +797,14 @@ describe("canonical live validation script", () => {
       expect(stopScript).toContain(service);
     }
     for (const script of [startScript, stopScript]) {
-      expect(script).toContain('$workbenchRepo = $WorkbenchRepoPath');
-      expect(script).toContain("$selectedWorkbench = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path");
+      expect(script).toContain("$workbenchRepo = $WorkbenchRepoPath");
+      expect(script).toContain(
+        "$selectedWorkbench = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path",
+      );
       expect(script).toContain("-WorkbenchRepoPath $workbenchRepo");
-      expect(script).toContain("Selected Workbench checkout does not match the executing script.");
+      expect(script).toContain(
+        "Selected Workbench checkout does not match the executing script.",
+      );
     }
     expect(stopScript).toContain(
       "Stop-ListenersOnPorts @($runtimeOperation.Scope.ports)",
@@ -825,28 +836,34 @@ describe("canonical live validation script", () => {
     expect(startScript).toContain(
       '$evaluatedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")',
     );
-    const ideaSeedStart = startScript.indexOf("function Invoke-CanonicalIdeaSeed");
+    const ideaSeedStart = startScript.indexOf(
+      "function Invoke-CanonicalIdeaSeed",
+    );
     const ideaReadyBoundary = startScript.indexOf(
       'throw "lotus-idea did not become ready before canonical advisor queue seed."',
       ideaSeedStart,
     );
     const liveSourceClock = startScript.indexOf(
-      '$sourceObservedAtUtc = (Get-Date).ToUniversalTime()',
+      "$sourceObservedAtUtc = (Get-Date).ToUniversalTime()",
       ideaSeedStart,
     );
     expect(liveSourceClock).toBeGreaterThan(ideaReadyBoundary);
-    expect(startScript.indexOf("$evaluatedAtUtc =", liveSourceClock)).toBeGreaterThan(
-      liveSourceClock,
-    );
-    expect(startScript.indexOf("$lifecycleObservedAtUtc =", liveSourceClock)).toBeGreaterThan(
+    expect(
+      startScript.indexOf("$evaluatedAtUtc =", liveSourceClock),
+    ).toBeGreaterThan(liveSourceClock);
+    expect(
+      startScript.indexOf("$lifecycleObservedAtUtc =", liveSourceClock),
+    ).toBeGreaterThan(
       startScript.indexOf("$evaluatedAtUtc =", liveSourceClock),
     );
-    expect(startScript.indexOf("$queueEvaluatedAtUtc =", liveSourceClock)).toBeGreaterThan(
+    expect(
+      startScript.indexOf("$queueEvaluatedAtUtc =", liveSourceClock),
+    ).toBeGreaterThan(
       startScript.indexOf("$lifecycleObservedAtUtc =", liveSourceClock),
     );
     expect(startScript).toContain("evaluatedAtUtc = $evaluatedAtUtc");
     expect(startScript).toContain(
-      'review-queues/advisor?evaluatedAtUtc=$encodedEvaluatedAtUtc',
+      "review-queues/advisor?evaluatedAtUtc=$encodedEvaluatedAtUtc",
     );
     expect(startScript).toContain(
       "[datetimeoffset]$queue.evaluatedAtUtc -ne [datetimeoffset]$queueEvaluatedAtUtc",
@@ -873,16 +890,18 @@ describe("canonical live validation script", () => {
       "$Value -notmatch $canonicalUtcTimestampPattern",
     );
     expect(ideaEvidenceModule).toContain("[datetimeoffset]::ParseExact(");
-    expect(ideaEvidenceModule).toContain('ConvertFrom-Json -DateKind String');
+    expect(ideaEvidenceModule).toContain("ConvertFrom-Json -DateKind String");
     expect(ideaEvidenceModule).toContain(
-      '$timestampProperty = $evidence.PSObject.Properties[$field]',
+      "$timestampProperty = $evidence.PSObject.Properties[$field]",
     );
     expect(validationScript).toContain(
       "-EvaluatedAtUtc $ideaCandidateSeedEvidence.queueEvaluatedAtUtc",
     );
     expect(startScript).toContain("--tenant-id $payload.accessScope.tenantId");
     expect(startScript).toContain("--book-id $payload.accessScope.bookId");
-    expect(startScript).toContain("--portfolio-id $payload.accessScope.portfolioId");
+    expect(startScript).toContain(
+      "--portfolio-id $payload.accessScope.portfolioId",
+    );
     expect(startScript).toContain("--client-id $payload.accessScope.clientId");
     expect(startScript).toContain(
       '"X-Caller-Tenant-Ids" = $payload.accessScope.tenantId',
@@ -910,7 +929,9 @@ describe("canonical live validation script", () => {
       '"Idempotency-Key" = "canonical-idea-high-cash:$($PortfolioId):$ideaCanonicalRunId"',
     );
     expect(ideaEvidenceModule).toContain("function Assert-IdeaQueueSeed");
-    expect(ideaEvidenceModule).toContain("function Read-IdeaCandidateSeedEvidence");
+    expect(ideaEvidenceModule).toContain(
+      "function Read-IdeaCandidateSeedEvidence",
+    );
     expect(startScript).toContain(
       'schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v3"',
     );
@@ -957,7 +978,7 @@ describe("canonical live validation script", () => {
     expect(ideaEvidenceModule).not.toContain("book-advisor-001");
     expect(ideaEvidenceModule).not.toContain("client-001");
     expect(ideaEvidenceModule).toContain(
-      '$activeIdeaRunId = [string]$ideaVersion.build.ciRunId',
+      "$activeIdeaRunId = [string]$ideaVersion.build.ciRunId",
     );
     expect(ideaEvidenceModule).toContain(
       "but the active Idea runtime identifies run '$activeIdeaRunId'",
@@ -977,9 +998,15 @@ describe("canonical live validation script", () => {
     expect(startScript).toContain("[switch]$RequireMainlineSources");
     expect(startScript).toContain("mainline-source-provenance.mjs");
     expect(startScript).toContain("--workbench-repo-path $workbenchRepo");
-    expect(startScript.match(/--workbench-repo-path \$workbenchRepo/g)?.length).toBe(2);
-    expect(startScript).toContain("No Docker build, seed, or validation was started");
-    expect(startScript).toContain("docker compose up -d --build --force-recreate");
+    expect(
+      startScript.match(/--workbench-repo-path \$workbenchRepo/g)?.length,
+    ).toBe(2);
+    expect(startScript).toContain(
+      "No Docker build, seed, or validation was started",
+    );
+    expect(startScript).toContain(
+      "docker compose up -d --build --force-recreate",
+    );
     expect(startScript).toContain("mainline-source-provenance-runtime.json");
     expect(startScript).toContain("SpecialFolder]::LocalApplicationData");
     expect(startScript).toContain("mainlineProvenanceRoot");
@@ -993,7 +1020,7 @@ describe("canonical live validation script", () => {
     expect(validationScript).toContain("--mainline-source-provenance");
     expect(browserValidator).toContain("mainlineSourceProvenance");
     expect(browserValidator).toContain("bindMainlineSourceManifestToRuntime");
-    expect(browserValidator).toContain("repository: \"lotus-idea\"");
+    expect(browserValidator).toContain('repository: "lotus-idea"');
   });
 
   it("forwards canonical DPM context through the Docker Workbench boundary", () => {
@@ -1131,9 +1158,7 @@ describe("canonical live validation script", () => {
     const governedSeam = script.slice(governedSeamStart, governedSeamEnd);
     expect(governedSeam).toContain("function sendDpmCommandCenterJson");
     expect(governedSeam).toContain("return sendJson(summary, url");
-    expect(governedSeam).toContain(
-      "headers: dpmCommandCenterCallerHeaders",
-    );
+    expect(governedSeam).toContain("headers: dpmCommandCenterCallerHeaders");
     expect(script).not.toContain("fetchOptionalJson");
   });
 
@@ -1170,7 +1195,12 @@ describe("canonical live validation script", () => {
     expect(script).not.toContain("LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT");
 
     const startScript = readFileSync(
-      join(process.cwd(), "scripts", "live", "Start-LotusFrontOfficeCanonical.ps1"),
+      join(
+        process.cwd(),
+        "scripts",
+        "live",
+        "Start-LotusFrontOfficeCanonical.ps1",
+      ),
       "utf8",
     );
     expect(startScript).toContain(
@@ -1180,10 +1210,10 @@ describe("canonical live validation script", () => {
       "'npm run live:validate -- -ValidationProfile client-demo'",
     );
     expect(startScript).toContain(
-      'Write-Host "Run \'$followUpValidationCommand\' from lotus-workbench when you want end-to-end validation."',
+      "Write-Host \"Run '$followUpValidationCommand' from lotus-workbench when you want end-to-end validation.\"",
     );
     expect(startScript).toContain(
-      '$ideaCapacityTrustedCallerContext = "canonical-local-idea-capacity-seed-$([guid]::NewGuid().ToString(\'N\'))"',
+      "$ideaCapacityTrustedCallerContext = \"canonical-local-idea-capacity-seed-$([guid]::NewGuid().ToString('N'))\"",
     );
     expect(startScript).toContain("LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN");
     expect(startScript).toContain("LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT");
@@ -1197,15 +1227,21 @@ describe("canonical live validation script", () => {
     );
     expect(capacitySeed).toContain("-AsOfDate $datePolicy.AsOfDate");
     expect(capacitySeed).toContain("-SeededAtUtc $capacityObservedAtUtc");
-    expect(capacitySeed).not.toContain("-SeededAtUtc $datePolicy.GeneratedAtUtc");
-    expect(startScript).not.toContain('GeneratedAtUtc = "$($asOfDate)T10:00:00Z"');
+    expect(capacitySeed).not.toContain(
+      "-SeededAtUtc $datePolicy.GeneratedAtUtc",
+    );
+    expect(startScript).not.toContain(
+      'GeneratedAtUtc = "$($asOfDate)T10:00:00Z"',
+    );
     const readyIndex = capacitySeed.indexOf(
       'Wait-HttpReady -Url "http://127.0.0.1:8000/health/ready"',
     );
     const clockIndex = capacitySeed.indexOf(
       "$capacityObservedAtUtc = (Get-Date).ToUniversalTime()",
     );
-    const seedIndex = capacitySeed.indexOf("-SeededAtUtc $capacityObservedAtUtc");
+    const seedIndex = capacitySeed.indexOf(
+      "-SeededAtUtc $capacityObservedAtUtc",
+    );
     expect(readyIndex).toBeGreaterThanOrEqual(0);
     expect(clockIndex).toBeGreaterThan(readyIndex);
     expect(seedIndex).toBeGreaterThan(clockIndex);
@@ -1293,7 +1329,9 @@ describe("canonical live validation script", () => {
     expect(script).toContain("/performance/details?");
     expect(script).toContain("Performance details contribution readiness");
     expect(script).toContain("contribution_detail state is");
-    expect(script).toContain('rows=${Array.isArray(rows) ? rows.length : "non-array"}');
+    expect(script).toContain(
+      'rows=${Array.isArray(rows) ? rows.length : "non-array"}',
+    );
     expect(script).toContain("/risk/concentration?");
     expect(script).toContain("/risk/drawdown?");
     expect(script).toContain("/risk/rolling?");
@@ -1378,9 +1416,15 @@ describe("canonical live validation script", () => {
     );
     expect(advisoryCopilotProof).toContain("wb-copilot-run");
     expect(advisoryCopilotProof).toContain("wb-copilot-review");
-    expect(advisoryCopilotProof).toContain('"X-Caller-Capabilities": "advisory.copilot.review"');
-    expect(advisoryCopilotProof).toContain('"X-Authorized-Proposal-Id": proposalId');
-    expect(advisoryCopilotProof).toContain('"X-Authorized-Portfolio-Id": portfolioId');
+    expect(advisoryCopilotProof).toContain(
+      'capability: "advisory.copilot.review"',
+    );
+    expect(advisoryCopilotProof).toContain(
+      '"X-Authorized-Proposal-Id": proposalId',
+    );
+    expect(advisoryCopilotProof).toContain(
+      '"X-Authorized-Portfolio-Id": portfolioId',
+    );
     expect(advisoryCopilotProof).not.toContain('actor_id: "desk_head_sg_001"');
     expect(advisoryCopilotProof).toContain(
       "/api/v1/advisory-copilot/evidence-packets/from-proposal-version",
@@ -1639,9 +1683,7 @@ describe("canonical live validation script", () => {
     expect(script).toContain(
       "const reportCentreProof = await validateReportCentrePanel(page",
     );
-    expect(script).toContain(
-      "outputFormat: reportCentreProof.outputFormat",
-    );
+    expect(script).toContain("outputFormat: reportCentreProof.outputFormat");
     expect(script).toContain(
       "pdfOutputState: reportCentreProof.pdfOutputState",
     );
@@ -1716,8 +1758,12 @@ describe("canonical live validation script", () => {
 
     expect(script).toContain("canonicalStartDate");
     expect(script).toContain("canonicalAsOfDate");
-    expect(script).toContain("report_start_date: extra.reportStartDate ?? canonicalStartDate");
-    expect(browserWorkflowModule).toContain("reportStartDate=${canonicalStartDate}");
+    expect(script).toContain(
+      "report_start_date: extra.reportStartDate ?? canonicalStartDate",
+    );
+    expect(browserWorkflowModule).toContain(
+      "reportStartDate=${canonicalStartDate}",
+    );
     expect(script).toContain("createBrowserValidationHelpers");
     expect(script).toContain("validatePortfolioMemoryPanel");
     expect(script).toContain("validateConstructionAlternativesPanel");
@@ -1902,7 +1948,9 @@ describe("canonical live validation script", () => {
     expect(script).toContain('source_type: "REBALANCE_RUN"');
     expect(browserWorkflowModule).toContain("screenshotRegisteredPanel");
     expect(browserWorkflowModule).toContain("validateAdvisorBookPanel");
-    expect(script).toMatch(/validateAdvisorBookPanel\(page, \{\s+summary,\s+workbenchBaseUrl,/);
+    expect(script).toMatch(
+      /validateAdvisorBookPanel\(page, \{\s+summary,\s+workbenchBaseUrl,/,
+    );
     expect(script).not.toMatch(
       /validateAdvisorBookPanel\(page, \{\s+summary,\s+advisorBook,/,
     );
@@ -1919,15 +1967,13 @@ describe("canonical live validation script", () => {
       'pathname.endsWith("/api/bff/api/v1/dpm/command-center/proof-packs")',
     );
     expect(browserWorkflowModule).toContain(
-      'proofPackPanel.getByText(state, { exact: true })',
+      "proofPackPanel.getByText(state, { exact: true })",
     );
     expect(browserWorkflowModule).toContain(
       "renderedSectionCount !== sourceProof.sectionCount",
     );
     expect(browserWorkflowModule).toContain("Open advisor memo");
-    expect(browserWorkflowModule).toContain(
-      'name: "Portfolio decision memo"',
-    );
+    expect(browserWorkflowModule).toContain('name: "Portfolio decision memo"');
     expect(browserWorkflowModule).toContain("resolveRegistryRoute");
     expect(browserWorkflowModule).toContain("assertRailModeActive");
     expect(browserWorkflowModule).toContain("tableByExactLabel");
@@ -1989,17 +2035,13 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).toContain(
       'name: "Time-weighted return path · Net of fees"',
     );
-    expect(browserWorkflowModule).toContain(
-      'name: "Outcome comparison"',
-    );
-    expect(browserWorkflowModule).toContain(
-      'name: "Selected review detail"',
-    );
+    expect(browserWorkflowModule).toContain('name: "Outcome comparison"');
+    expect(browserWorkflowModule).toContain('name: "Selected review detail"');
     expect(browserWorkflowModule).toContain(
       'outcomeReviewPanel.getByText("Evidence availability", { exact: true })',
     );
     expect(browserWorkflowModule).toContain(
-      'name: /Prepare AI-assisted review summary/',
+      "name: /Prepare AI-assisted review summary/",
     );
     for (const label of [
       "Adviser talking points",
@@ -2029,7 +2071,9 @@ describe("canonical live validation script", () => {
       "await validateAdvisorBriefWorkflowPackReviewChain",
     );
     expect(advisorBriefBrowserProofIndex).toBeGreaterThan(-1);
-    expect(advisorBriefApiProofIndex).toBeGreaterThan(advisorBriefBrowserProofIndex);
+    expect(advisorBriefApiProofIndex).toBeGreaterThan(
+      advisorBriefBrowserProofIndex,
+    );
     expect(script).toContain('preRecordedAcceptReviewer: "live.validator.ui"');
     expect(script).toContain("advisorBriefAcceptProofQuery?.detailBasis");
     expect(script).toContain("advisorBriefAcceptProofQuery?.chartFrequency");
@@ -2047,12 +2091,8 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).toContain(
       'getAttribute("data-review-supportability")',
     );
-    expect(browserWorkflowModule).toContain(
-      'getAttribute("data-reviewer")',
-    );
-    expect(browserWorkflowModule).toContain(
-      'getAttribute("data-recorded-at")',
-    );
+    expect(browserWorkflowModule).toContain('getAttribute("data-reviewer")');
+    expect(browserWorkflowModule).toContain('getAttribute("data-recorded-at")');
     expect(browserWorkflowModule).not.toContain(
       "supportabilityRegion.textContent()",
     );
@@ -2135,10 +2175,10 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).toContain("advisory-opportunities-live.png");
     expect(browserWorkflowModule).toContain("const observedRoute = page.url()");
     expect(browserWorkflowModule).toContain("route: observedRoute");
-    expect(browserWorkflowModule).toContain("idea-review-queue-through-gateway");
     expect(browserWorkflowModule).toContain(
-      "resolveHighCashIdeaCandidateId",
+      "idea-review-queue-through-gateway",
     );
+    expect(browserWorkflowModule).toContain("resolveHighCashIdeaCandidateId");
     expect(browserWorkflowModule).toContain("requireHighCashIdeaCandidateId");
     expect(browserWorkflowModule).toContain(
       "name: `High Cash - ${expectedIdeaCandidateId}`",
@@ -2161,13 +2201,13 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).not.toContain(
       'candidateTable.locator("tbody tr a").first().click()',
     );
-    expect(browserWorkflowModule).toContain("Idea candidate source-safe detail");
+    expect(browserWorkflowModule).toContain(
+      "Idea candidate source-safe detail",
+    );
     expect(browserWorkflowModule).toContain(
       "selectedCandidateId: canonicalCandidateId",
     );
-    expect(browserWorkflowModule).toContain(
-      "canonicalCandidateProof:",
-    );
+    expect(browserWorkflowModule).toContain("canonicalCandidateProof:");
     expect(browserWorkflowModule).toContain(
       "candidate_id_policy_evaluation_source_signal_and_source_ref_verified",
     );
@@ -2182,7 +2222,9 @@ describe("canonical live validation script", () => {
       "Queue policy: idea-deterministic-ranking-v1",
     );
     expect(browserWorkflowModule).toContain("Queue evaluated:");
-    expect(browserWorkflowModule).toContain("Candidate detail is unavailable through Gateway");
+    expect(browserWorkflowModule).toContain(
+      "Candidate detail is unavailable through Gateway",
+    );
     expect(browserWorkflowModule).toContain(
       "Lotus Idea review-action, feedback, and conversion-intent browser controls",
     );
@@ -2194,19 +2236,17 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).toContain("idea-action-conversion-status");
     expect(browserWorkflowModule).toContain("recorded-and-refreshed");
     expect(browserWorkflowModule).toContain(
-      "sourceRefresh: \"verified_after_each_mutation\"",
+      'sourceRefresh: "verified_after_each_mutation"',
     );
-    expect(browserWorkflowModule).toContain("\"supported_feature_promotion\"");
-    expect(browserWorkflowModule).toContain("\"execution_authority\"");
+    expect(browserWorkflowModule).toContain('"supported_feature_promotion"');
+    expect(browserWorkflowModule).toContain('"execution_authority"');
     expect(browserWorkflowModule).toContain(
       "advisory-advisor-cockpit-live.png",
     );
     expect(browserWorkflowModule).toContain(
       "advisory-advisory-copilot-live.png",
     );
-    expect(browserWorkflowModule).toContain(
-      "advisory-copilot-through-gateway",
-    );
+    expect(browserWorkflowModule).toContain("advisory-copilot-through-gateway");
     expect(browserWorkflowModule).toContain(
       'getByTestId("advisory-copilot-decision")',
     );
@@ -2247,9 +2287,7 @@ describe("canonical live validation script", () => {
     expect(finalReadOnlyPanelIndex).toBeGreaterThan(readOnlyJourneyIndex);
     expect(statefulIdeaIndex).toBeGreaterThan(finalReadOnlyPanelIndex);
     expect(browserWorkflowModule).toContain("Record internal review");
-    expect(browserWorkflowModule).toContain(
-      '"APPROVED_FOR_INTERNAL_USE",',
-    );
+    expect(browserWorkflowModule).toContain('"APPROVED_FOR_INTERNAL_USE",');
     expect(browserWorkflowModule).not.toContain("Approved For Internal Use");
     expect(browserWorkflowModule).toContain(
       'getByText("PROPOSAL_EXPLANATION", { exact: true })',
@@ -2279,9 +2317,7 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).toContain(
       "proposal-discussion-pack-review.v1",
     );
-    expect(browserWorkflowModule).toContain(
-      "source-confirmed-empty-window",
-    );
+    expect(browserWorkflowModule).toContain("source-confirmed-empty-window");
     expect(browserWorkflowModule).toContain(
       "selected-current-version-through-gateway",
     );

@@ -1,4 +1,5 @@
 import type { applyAdvisoryCopilotCallerContextHeaders } from "@/features/advisory-copilot/caller-context";
+import type { applyAdvisoryPolicyCallerContextHeaders } from "@/features/advisory-policy/caller-context";
 import type { applyAdvisorBookCallerContextHeaders } from "@/features/advisor-book/caller-context";
 import type { applyAdvisorCockpitCallerContextHeaders } from "@/features/advisor-cockpit/caller-context";
 import type {
@@ -36,7 +37,10 @@ export function advisorCockpitAuthorityRejection(
 ): Rejection {
   switch (reason) {
     case "authenticated_principal_required":
-      return { code: "advisor_cockpit_authenticated_principal_required", status: 401 };
+      return {
+        code: "advisor_cockpit_authenticated_principal_required",
+        status: 401,
+      };
     case "advisor_cockpit_scope_not_entitled":
       return { code: "advisor_cockpit_scope_not_entitled", status: 403 };
     case "invalid_advisor_cockpit_request":
@@ -46,7 +50,10 @@ export function advisorCockpitAuthorityRejection(
     case "development_authority_not_allowed":
     case "invalid_authority_mode":
     case "invalid_advisor_cockpit_configuration":
-      return { code: "advisor_cockpit_authority_configuration_rejected", status: 500 };
+      return {
+        code: "advisor_cockpit_authority_configuration_rejected",
+        status: 500,
+      };
   }
 }
 
@@ -58,11 +65,17 @@ export function advisorBookAuthorityRejection(
 ): Rejection {
   switch (reason) {
     case "authenticated_principal_required":
-      return { code: "advisor_book_authenticated_principal_required", status: 401 };
+      return {
+        code: "advisor_book_authenticated_principal_required",
+        status: 401,
+      };
     case "development_authority_not_allowed":
     case "invalid_authority_mode":
     case "invalid_advisor_book_configuration":
-      return { code: "advisor_book_authority_configuration_rejected", status: 500 };
+      return {
+        code: "advisor_book_authority_configuration_rejected",
+        status: 500,
+      };
   }
 }
 
@@ -74,7 +87,10 @@ export function advisoryCopilotAuthorityRejection(
 ): Rejection {
   switch (reason) {
     case "authenticated_principal_required":
-      return { code: "advisory_copilot_authenticated_principal_required", status: 401 };
+      return {
+        code: "advisory_copilot_authenticated_principal_required",
+        status: 401,
+      };
     case "invalid_advisory_copilot_request":
       return { code: "advisory_copilot_invalid_request", status: 422 };
     case "advisory_copilot_scope_not_entitled":
@@ -84,7 +100,38 @@ export function advisoryCopilotAuthorityRejection(
     case "development_authority_not_allowed":
     case "invalid_authority_mode":
     case "invalid_advisory_copilot_configuration":
-      return { code: "advisory_copilot_authority_configuration_rejected", status: 500 };
+      return {
+        code: "advisory_copilot_authority_configuration_rejected",
+        status: 500,
+      };
+  }
+}
+
+export function advisoryPolicyAuthorityRejection(
+  reason: Exclude<
+    Awaited<ReturnType<typeof applyAdvisoryPolicyCallerContextHeaders>>,
+    { status: "not_applicable" } | { status: "applied" }
+  >["reason"],
+): Rejection {
+  switch (reason) {
+    case "authenticated_principal_required":
+      return {
+        code: "advisory_policy_authenticated_principal_required",
+        status: 401,
+      };
+    case "invalid_advisory_policy_request":
+      return { code: "advisory_policy_invalid_request", status: 422 };
+    case "advisory_policy_scope_not_entitled":
+      return { code: "advisory_policy_scope_not_entitled", status: 403 };
+    case "advisory_policy_scope_not_resolved":
+      return { code: "advisory_policy_scope_not_resolved", status: 502 };
+    case "development_authority_not_allowed":
+    case "invalid_authority_mode":
+    case "invalid_advisory_policy_configuration":
+      return {
+        code: "advisory_policy_authority_configuration_rejected",
+        status: 500,
+      };
   }
 }
 
@@ -96,7 +143,10 @@ export function reportingAuthorityRejection(
 ): Rejection {
   switch (reason) {
     case "authenticated_principal_required":
-      return { code: "reporting_authenticated_principal_required", status: 401 };
+      return {
+        code: "reporting_authenticated_principal_required",
+        status: 401,
+      };
     case "reporting_scope_not_entitled":
       return { code: "reporting_scope_not_entitled", status: 403 };
     case "invalid_reporting_request":
@@ -104,6 +154,9 @@ export function reportingAuthorityRejection(
     case "development_authority_not_allowed":
     case "invalid_authority_mode":
     case "invalid_reporting_configuration":
-      return { code: "reporting_authority_configuration_rejected", status: 500 };
+      return {
+        code: "reporting_authority_configuration_rejected",
+        status: 500,
+      };
   }
 }

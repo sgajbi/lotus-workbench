@@ -5,6 +5,45 @@ import {
   readString,
 } from "./payload-utils.mjs";
 
+const CANONICAL_POLICY_TENANT_ID = "tenant-sg";
+
+function advisoryPolicyCallerHeaders({
+  actorId,
+  legalEntityCode,
+  role,
+  capability,
+  proposalId,
+  portfolioId,
+}) {
+  const headers = {
+    "X-Actor-Id": actorId,
+    "X-Tenant-Id": CANONICAL_POLICY_TENANT_ID,
+    "X-Legal-Entity-Code": legalEntityCode,
+    "X-Role": role,
+    "X-Caller-Capabilities": capability,
+  };
+  if (proposalId && portfolioId) {
+    headers["X-Authorized-Proposal-Id"] = proposalId;
+    headers["X-Authorized-Portfolio-Id"] = portfolioId;
+  }
+  return headers;
+}
+
+function extractPolicyPackLegalEntityCode(response) {
+  const payload = extractGatewayEnvelopeData(response);
+  const legalEntityScope = Array.isArray(
+    payload?.applicability?.legal_entity_scope,
+  )
+    ? payload.applicability.legal_entity_scope.map(readString).filter(Boolean)
+    : [];
+  if (legalEntityScope.length !== 1) {
+    throw new Error(
+      "Canonical advisory policy pack must declare exactly one legal-entity scope.",
+    );
+  }
+  return legalEntityScope[0];
+}
+
 function extractPolicyPackContentHash(response) {
   const payload = extractGatewayEnvelopeData(response);
   return (
@@ -23,26 +62,38 @@ function isAlreadyActivePolicyPackError(error) {
   );
 }
 
-function buildAdvisoryPolicyMutationIdempotencyKey(prefix, resource, requestBody) {
+function buildAdvisoryPolicyMutationIdempotencyKey(
+  prefix,
+  resource,
+  requestBody,
+) {
   return buildPayloadScopedIdempotencyKey(prefix, {
     resource,
     request: requestBody,
   });
 }
 
-async function ensureAdvisoryPolicyPackActive({ summary, scenario, gatewayBaseUrl, timeoutMs }) {
+async function ensureAdvisoryPolicyPackActive({
+  summary,
+  scenario,
+  gatewayBaseUrl,
+  timeoutMs,
+}) {
   const version = await fetchJson(
     summary,
     `${gatewayBaseUrl}/api/v1/advisory-policy-packs/${encodeURIComponent(
-      scenario.policyPackId
+      scenario.policyPackId,
     )}/versions/${encodeURIComponent(scenario.policyVersion)}`,
     "Advisory policy pack version for canonical scenario",
-    timeoutMs
+    timeoutMs,
   );
   const contentHash = extractPolicyPackContentHash(version);
   if (!contentHash) {
-    throw new Error("Canonical advisory policy pack version returned no content hash.");
+    throw new Error(
+      "Canonical advisory policy pack version returned no content hash.",
+    );
   }
+  const legalEntityCode = extractPolicyPackLegalEntityCode(version);
 
   const validateBody = {
     body: {
@@ -56,7 +107,7 @@ async function ensureAdvisoryPolicyPackActive({ summary, scenario, gatewayBaseUr
   await sendJson(
     summary,
     `${gatewayBaseUrl}/api/v1/advisory-policy-packs/${encodeURIComponent(
-      scenario.policyPackId
+      scenario.policyPackId,
     )}/versions/${encodeURIComponent(scenario.policyVersion)}/validate`,
     "Validate advisory policy pack for canonical scenario",
     timeoutMs,
@@ -64,16 +115,22 @@ async function ensureAdvisoryPolicyPackActive({ summary, scenario, gatewayBaseUr
       method: "POST",
       body: validateBody,
       headers: {
+        ...advisoryPolicyCallerHeaders({
+          actorId: validateBody.body.requested_by,
+          legalEntityCode,
+          role: "POLICY_STEWARD",
+          capability: "advisory.policy_pack.validate",
+        }),
         "Idempotency-Key": buildAdvisoryPolicyMutationIdempotencyKey(
           "wb-policy-pack-validate",
           {
             policy_pack_id: scenario.policyPackId,
             policy_version: scenario.policyVersion,
           },
-          validateBody
+          validateBody,
         ),
       },
-    }
+    },
   );
 
   const activateBody = {
@@ -87,7 +144,7 @@ async function ensureAdvisoryPolicyPackActive({ summary, scenario, gatewayBaseUr
     },
   };
   const activateUrl = `${gatewayBaseUrl}/api/v1/advisory-policy-packs/${encodeURIComponent(
-    scenario.policyPackId
+    scenario.policyPackId,
   )}/versions/${encodeURIComponent(scenario.policyVersion)}/activate`;
   try {
     await sendJson(
@@ -99,16 +156,22 @@ async function ensureAdvisoryPolicyPackActive({ summary, scenario, gatewayBaseUr
         method: "POST",
         body: activateBody,
         headers: {
+          ...advisoryPolicyCallerHeaders({
+            actorId: activateBody.body.activated_by,
+            legalEntityCode,
+            role: "POLICY_CHECKER",
+            capability: "advisory.policy_pack.activate",
+          }),
           "Idempotency-Key": buildAdvisoryPolicyMutationIdempotencyKey(
             "wb-policy-pack-activate",
             {
               policy_pack_id: scenario.policyPackId,
               policy_version: scenario.policyVersion,
             },
-            activateBody
+            activateBody,
           ),
         },
-      }
+      },
     );
   } catch (error) {
     if (!isAlreadyActivePolicyPackError(error)) {
@@ -122,6 +185,7 @@ async function ensureAdvisoryPolicyPackActive({ summary, scenario, gatewayBaseUr
       method: "POST",
     });
   }
+  return { legalEntityCode };
 }
 
 export async function createCanonicalPolicyEvaluation({
@@ -132,7 +196,20 @@ export async function createCanonicalPolicyEvaluation({
   proposalVersionId,
   timeoutMs,
 }) {
-  await ensureAdvisoryPolicyPackActive({ summary, scenario, gatewayBaseUrl, timeoutMs });
+  const { legalEntityCode } = await ensureAdvisoryPolicyPackActive({
+    summary,
+    scenario,
+    gatewayBaseUrl,
+    timeoutMs,
+  });
+  const portfolioId = readString(
+    scenario.evidenceBundle?.inputs?.portfolio_snapshot?.portfolio_id,
+  );
+  if (!portfolioId) {
+    throw new Error(
+      "Canonical policy evaluation scenario did not declare a portfolio id.",
+    );
+  }
   const createBody = {
     body: {
       policy_pack_id: scenario.policyPackId,
@@ -148,7 +225,7 @@ export async function createCanonicalPolicyEvaluation({
   const created = await sendJson(
     summary,
     `${gatewayBaseUrl}/api/v1/proposals/${encodeURIComponent(
-      proposalId
+      proposalId,
     )}/versions/${encodeURIComponent(proposalVersionId)}/policy-evaluations`,
     "Create advisory policy evaluation canonical proof",
     timeoutMs,
@@ -156,92 +233,123 @@ export async function createCanonicalPolicyEvaluation({
       method: "POST",
       body: createBody,
       headers: {
+        ...advisoryPolicyCallerHeaders({
+          actorId: scenario.createdBy,
+          legalEntityCode,
+          role: "ADVISOR",
+          capability: "advisory.policy_evaluation.finalize",
+          proposalId,
+          portfolioId,
+        }),
         "Idempotency-Key": buildAdvisoryPolicyMutationIdempotencyKey(
           "wb-policy-evaluation",
           {
             proposal_id: proposalId,
             proposal_version_id: proposalVersionId,
           },
-          createBody
+          createBody,
         ),
       },
-    }
+    },
   );
   const createdData = extractGatewayEnvelopeData(created);
   const record = createdData?.record ?? createdData;
   const evaluationId = readString(record?.evaluation_id);
   const evaluationHash = readString(record?.evaluation_hash);
   if (!evaluationId || !evaluationHash) {
-    throw new Error("Canonical policy evaluation proof did not return evaluation identity and hash.");
+    throw new Error(
+      "Canonical policy evaluation proof did not return evaluation identity and hash.",
+    );
   }
   if (record.evaluation_status !== scenario.expectedEvaluationStatus) {
     throw new Error(
-      `Canonical policy evaluation returned ${record.evaluation_status}, expected ${scenario.expectedEvaluationStatus}.`
+      `Canonical policy evaluation returned ${record.evaluation_status}, expected ${scenario.expectedEvaluationStatus}.`,
     );
-  }
-  const portfolioId = readString(scenario.evidenceBundle?.inputs?.portfolio_snapshot?.portfolio_id);
-  if (!portfolioId) {
-    throw new Error("Canonical policy evaluation scenario did not declare a portfolio id.");
   }
   const recordPortfolioId = readString(record?.portfolio_id);
   if (recordPortfolioId !== portfolioId) {
     throw new Error(
-      `Canonical policy evaluation returned portfolio ${recordPortfolioId || "missing"}, expected ${portfolioId}.`
+      `Canonical policy evaluation returned portfolio ${recordPortfolioId || "missing"}, expected ${portfolioId}.`,
     );
   }
 
-  const queue = await fetchJson(
+  const readHeaders = advisoryPolicyCallerHeaders({
+    actorId: scenario.createdBy,
+    legalEntityCode,
+    role: "ADVISOR",
+    capability: "advisory.policy_evaluation.read",
+  });
+  const queue = await sendJson(
     summary,
     `${gatewayBaseUrl}/api/v1/advisory-policy-evaluations/review-queue?evaluation_status=${encodeURIComponent(
-      scenario.expectedEvaluationStatus
+      scenario.expectedEvaluationStatus,
     )}&portfolio_id=${encodeURIComponent(portfolioId)}`,
     "Advisory policy review queue canonical proof",
-    timeoutMs
+    timeoutMs,
+    { headers: readHeaders },
   );
   const queueData = extractGatewayEnvelopeData(queue);
   const queueItems = Array.isArray(queueData?.items) ? queueData.items : [];
-  const outOfScopeItem = queueItems.find((item) => readString(item?.portfolio_id) !== portfolioId);
+  const outOfScopeItem = queueItems.find(
+    (item) => readString(item?.portfolio_id) !== portfolioId,
+  );
   if (outOfScopeItem) {
     throw new Error(
-      `Canonical policy review queue returned item outside portfolio scope ${portfolioId}: ${readString(
-        outOfScopeItem?.evaluation_id
-      ) || "unknown_evaluation"}.`
+      `Canonical policy review queue returned item outside portfolio scope ${portfolioId}: ${
+        readString(outOfScopeItem?.evaluation_id) || "unknown_evaluation"
+      }.`,
     );
   }
   if (!queueItems.some((item) => item?.evaluation_id === evaluationId)) {
-    throw new Error("Canonical policy review queue did not include the seeded evaluation.");
+    throw new Error(
+      "Canonical policy review queue did not include the seeded evaluation.",
+    );
   }
-  if (queueData?.queue_posture?.client_ready_publication !== scenario.expectedClientReadyPublication) {
-    throw new Error("Canonical policy review queue did not preserve blocked client-ready posture.");
+  if (
+    queueData?.queue_posture?.client_ready_publication !==
+    scenario.expectedClientReadyPublication
+  ) {
+    throw new Error(
+      "Canonical policy review queue did not preserve blocked client-ready posture.",
+    );
   }
 
-  const workflow = await fetchJson(
+  const workflow = await sendJson(
     summary,
     `${gatewayBaseUrl}/api/v1/advisory-policy-evaluations/${encodeURIComponent(
-      evaluationId
+      evaluationId,
     )}/workflow`,
     "Advisory policy workflow canonical proof",
-    timeoutMs
+    timeoutMs,
+    { headers: readHeaders },
   );
   const workflowData = extractGatewayEnvelopeData(workflow);
-  if (workflowData?.client_ready_publication !== scenario.expectedClientReadyPublication) {
-    throw new Error("Canonical policy workflow did not preserve blocked client-ready posture.");
+  if (
+    workflowData?.client_ready_publication !==
+    scenario.expectedClientReadyPublication
+  ) {
+    throw new Error(
+      "Canonical policy workflow did not preserve blocked client-ready posture.",
+    );
   }
 
-  const signOffPackage = await fetchJson(
+  const signOffPackage = await sendJson(
     summary,
     `${gatewayBaseUrl}/api/v1/advisory-policy-evaluations/${encodeURIComponent(
-      evaluationId
+      evaluationId,
     )}/sign-off-package`,
     "Advisory policy sign-off package canonical proof",
-    timeoutMs
+    timeoutMs,
+    { headers: readHeaders },
   );
   const signOffPackageData = extractGatewayEnvelopeData(signOffPackage);
   if (
     signOffPackageData?.package_posture?.client_ready_publication !==
     scenario.expectedClientReadyPublication
   ) {
-    throw new Error("Canonical policy sign-off package did not preserve blocked client-ready posture.");
+    throw new Error(
+      "Canonical policy sign-off package did not preserve blocked client-ready posture.",
+    );
   }
 
   const reviewDecisionBody = {
@@ -258,7 +366,7 @@ export async function createCanonicalPolicyEvaluation({
   await sendJson(
     summary,
     `${gatewayBaseUrl}/api/v1/advisory-policy-evaluations/${encodeURIComponent(
-      evaluationId
+      evaluationId,
     )}/sign-off-decisions`,
     "Record advisory policy review request canonical proof",
     timeoutMs,
@@ -266,13 +374,21 @@ export async function createCanonicalPolicyEvaluation({
       method: "POST",
       body: reviewDecisionBody,
       headers: {
+        ...advisoryPolicyCallerHeaders({
+          actorId: reviewDecisionBody.body.actor_id,
+          legalEntityCode,
+          role: "POLICY_CHECKER",
+          capability: "advisory.policy_evaluation.sign_off",
+          proposalId,
+          portfolioId,
+        }),
         "Idempotency-Key": buildAdvisoryPolicyMutationIdempotencyKey(
           "wb-policy-review-request",
           { evaluation_id: evaluationId },
-          reviewDecisionBody
+          reviewDecisionBody,
         ),
       },
-    }
+    },
   );
 
   summary.workflowPackChecks.push({
@@ -288,5 +404,13 @@ export async function createCanonicalPolicyEvaluation({
     clientReadyPublication: workflowData?.client_ready_publication,
   });
 
-  return { evaluationId, evaluationHash };
+  return {
+    evaluationId,
+    evaluationHash,
+    authority: {
+      tenantId: CANONICAL_POLICY_TENANT_ID,
+      legalEntityCode,
+      actorId: scenario.createdBy,
+    },
+  };
 }
