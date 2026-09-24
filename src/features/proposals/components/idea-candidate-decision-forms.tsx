@@ -41,6 +41,7 @@ export function IdeaReviewActionForm({
   retryableSubmission,
   reviewAction,
   reviewReason,
+  sourceAuthorityReady,
   snoozedUntil,
   suppressionReason,
 }: SharedFormProps & {
@@ -56,6 +57,7 @@ export function IdeaReviewActionForm({
   retryableSubmission?: RetryableIdeaActionSubmission;
   reviewAction: AdvisorIdeaReviewAction;
   reviewReason: AdvisorIdeaReasonCode;
+  sourceAuthorityReady: boolean;
   snoozedUntil: string;
   suppressionReason: NonNullable<
     AdvisorIdeaReviewActionRequest["suppressionReason"]
@@ -134,10 +136,20 @@ export function IdeaReviewActionForm({
           title="Review outcome not confirmed"
         />
       ) : null}
+      {!sourceAuthorityReady ? (
+        <span className={styles.fieldHint} role="status">
+          Review becomes available after this opportunity is visibly presented
+          and its current source evidence is confirmed.
+        </span>
+      ) : null}
       <ActionButton
         priority="secondary"
         type="submit"
-        disabled={isPending || Boolean(retryableReview && !intentChanged)}
+        disabled={
+          isPending ||
+          !sourceAuthorityReady ||
+          Boolean(retryableReview && !intentChanged)
+        }
       >
         {isPending && pendingKind === "review"
           ? "Recording..."
@@ -163,6 +175,7 @@ export function IdeaConversionIntentForm({
   onTargetChange,
   pendingKind,
   retryableSubmission,
+  sourceAuthorityReady,
 }: SharedFormProps & {
   conversionReason: AdvisorIdeaReasonCode;
   conversionTarget: string;
@@ -172,6 +185,7 @@ export function IdeaConversionIntentForm({
   onSubmit: FormEventHandler<HTMLFormElement>;
   onTargetChange: (value: string) => void;
   retryableSubmission?: RetryableIdeaActionSubmission;
+  sourceAuthorityReady: boolean;
 }) {
   const retryableConversion =
     retryableSubmission?.kind === "conversion"
@@ -211,10 +225,20 @@ export function IdeaConversionIntentForm({
           title="Conversion intent outcome not confirmed"
         />
       ) : null}
+      {!sourceAuthorityReady ? (
+        <span className={styles.fieldHint} role="status">
+          Conversion becomes available after an approved review is durably
+          accepted for this exact evidence.
+        </span>
+      ) : null}
       <ActionButton
         priority="primary"
         type="submit"
-        disabled={isPending || Boolean(retryableConversion && !intentChanged)}
+        disabled={
+          isPending ||
+          !sourceAuthorityReady ||
+          Boolean(retryableConversion && !intentChanged)
+        }
       >
         {isPending && pendingKind === "conversion"
           ? "Recording..."

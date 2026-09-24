@@ -47,6 +47,7 @@ async function mockIdeaQueue(page: Page) {
                 reasonCodes: ["portfolio_review_due"],
                 candidate: {
                   candidateId: candidateId(rank),
+                  evidencePacketId: `evidence-packet-${rank}`,
                   materialVersion: 3,
                   evidenceVersion: 7,
                   scorePolicyVersion: "idle-liquidity-v1",
@@ -242,7 +243,7 @@ test("records only presented Idea rows and retries the same failed evidence", as
     .toBe(1);
   await expect(
     page.getByText(
-      "Opportunity visibility could not be recorded. Review remains available.",
+      "Opportunity visibility could not be recorded. Review is withheld until visibility evidence is recorded.",
     ),
   ).toBeVisible();
 
@@ -279,7 +280,7 @@ test("records only presented Idea rows and retries the same failed evidence", as
   await expect(gridContainer).toHaveAttribute("data-receipt-state", "ready");
   await expect(
     page.getByText(
-      "Opportunity visibility could not be recorded. Review remains available.",
+      "Opportunity visibility could not be recorded. Review is withheld until visibility evidence is recorded.",
     ),
   ).toHaveCount(0);
 
@@ -294,7 +295,9 @@ test("records only presented Idea rows and retries the same failed evidence", as
   await expect(firstQueuePositionCell.locator("strong")).toHaveText("25");
 });
 
-test("searches the complete rendered queue-position value", async ({ page }) => {
+test("searches the complete rendered queue-position value", async ({
+  page,
+}) => {
   const unrankedCandidateId = "idea_candidate_unranked";
   await page.route(
     "**/api/bff/api/v1/ideas/review-queues/advisor**",

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState, type RefObject } from "react";
 import type { ColDef, ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { Alert } from "@mui/material";
@@ -10,8 +10,7 @@ import { ActionButton, Text, WorkbenchDataGridFrame } from "@/design-system";
 import { ensureAgGridModulesRegistered } from "@/design-system/utils/ag-grid-modules";
 
 import type { AdvisoryOpportunityRow } from "../advisory-opportunities-view-model";
-import type { AdvisorIdeaReviewQueueData } from "../types";
-import { useIdeaPresentationReceipts } from "../use-idea-presentation-receipts";
+import type { IdeaPresentationReceiptState } from "../use-idea-presentation-receipts";
 import styles from "./advisory-opportunities-workspace.module.css";
 
 import "ag-grid-community/styles/ag-grid.css";
@@ -20,22 +19,15 @@ import "ag-grid-community/styles/ag-theme-quartz.css";
 ensureAgGridModulesRegistered();
 
 export default function AdvisoryOpportunityGrid({
-  portfolioId,
-  queue,
+  containerRef,
+  receiptState,
   rows,
 }: {
-  portfolioId: string;
-  queue: AdvisorIdeaReviewQueueData;
+  containerRef: RefObject<HTMLDivElement | null>;
+  receiptState: IdeaPresentationReceiptState;
   rows: AdvisoryOpportunityRow[];
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const [filterText, setFilterText] = useState("");
-  const receiptState = useIdeaPresentationReceipts({
-    containerRef,
-    enabled: rows.length > 0,
-    portfolioId,
-    queue,
-  });
   const columnDefs = useMemo<ColDef<AdvisoryOpportunityRow>[]>(
     () => [
       {
@@ -114,13 +106,13 @@ export default function AdvisoryOpportunityGrid({
             </ActionButton>
           }
         >
-          Opportunity visibility could not be recorded. Review remains
-          available.
+          Opportunity visibility could not be recorded. Review is withheld
+          until visibility evidence is recorded.
         </Alert>
       ) : receiptState.status === "unavailable" ? (
         <Alert severity="warning" className={styles.receiptAlert}>
-          Opportunity visibility evidence is unavailable. Review remains
-          available; no viewing confirmation has been claimed.
+          Opportunity visibility evidence is unavailable. Review is withheld;
+          no viewing confirmation has been claimed.
         </Alert>
       ) : null}
       <div

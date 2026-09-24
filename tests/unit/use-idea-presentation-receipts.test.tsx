@@ -25,6 +25,7 @@ const queue: AdvisorIdeaReviewQueueData = {
       rank: 25,
       candidate: {
         candidateId: "idea-025",
+        evidencePacketId: "packet-idea-025",
         materialVersion: 2,
         evidenceVersion: 3,
         scorePolicyVersion: "ranking-v7",
@@ -36,6 +37,7 @@ const queue: AdvisorIdeaReviewQueueData = {
       rank: 26,
       candidate: {
         candidateId: "idea-026",
+        evidencePacketId: "packet-idea-026",
         materialVersion: 4,
         evidenceVersion: 5,
         scorePolicyVersion: "ranking-v7",
@@ -124,6 +126,10 @@ function Harness({
       </div>
       <span data-testid="receipt-status">{receiptState.status}</span>
       <span data-testid="failed-count">{receiptState.failedCount}</span>
+      <span data-testid="receipt-authority">
+        {receiptState.authorityByCandidateId.get("idea-025")?.receiptId ??
+          "none"}
+      </span>
       <button type="button" onClick={() => void receiptState.retryFailed()}>
         Retry
       </button>
@@ -170,7 +176,14 @@ describe("useIdeaPresentationReceipts", () => {
 
   beforeEach(() => {
     recordReceipt.mockReset();
-    recordReceipt.mockResolvedValue({ persistenceDecision: "accepted" });
+    recordReceipt.mockImplementation(async ({ candidateId, request }) => ({
+      receipt: {
+        ...request,
+        candidateId,
+        receiptId: `receipt-${candidateId}`,
+      },
+      persistenceDecision: "accepted",
+    }));
     TestIntersectionObserver.instances = [];
     vi.stubGlobal("IntersectionObserver", TestIntersectionObserver);
     Object.defineProperty(document, "visibilityState", {
@@ -184,6 +197,8 @@ describe("useIdeaPresentationReceipts", () => {
     const visibilityObserver = await observer();
     expect(visibilityObserver.root).toBeNull();
     expect(visibilityObserver.thresholds).toEqual([0.5]);
+    setVisualTop(screen.getByTestId("queue-viewport"), 0);
+    setVisualTop(marker("idea-025"), 10);
 
     await act(async () => {
       visibilityObserver.emit([
@@ -193,6 +208,7 @@ describe("useIdeaPresentationReceipts", () => {
           intersectionRatio: 0,
         },
       ]);
+      document.dispatchEvent(new Event("scroll", { bubbles: true }));
       await Promise.resolve();
     });
 
@@ -227,6 +243,11 @@ describe("useIdeaPresentationReceipts", () => {
     );
     expect(recordReceipt.mock.calls[0][0].request).not.toHaveProperty(
       "tenantId",
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("receipt-authority")).toHaveTextContent(
+        "receipt-idea-025",
+      ),
     );
   });
 
@@ -424,6 +445,7 @@ describe("useIdeaPresentationReceipts", () => {
         }}
       />,
     );
+    expect(screen.getByTestId("receipt-authority")).toHaveTextContent("none");
     await waitFor(() => {
       expect(TestIntersectionObserver.instances).toHaveLength(2);
     });

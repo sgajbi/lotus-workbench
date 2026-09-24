@@ -88,6 +88,14 @@ candidate material and evidence versions. Workbench measures the independently v
 set, preserves the same observation and idempotency key on retry, and accepts success only when the
 durable receipt returns the exact observation evidence. The BFF supplies entitled tenant scope;
 the browser cannot submit or override it, and a returned receipt for another tenant is rejected.
+Workbench retains the accepted receipt only for that candidate and queue snapshot. Review remains
+unavailable until the receipt agrees with the current detail's material/evidence versions,
+evidence packet and content hash, revision-vector digest, and source-cut posture. It submits that
+exact tuple with `reviewChannel=workbench`; no missing value is defaulted. Conversion remains
+unavailable until Idea accepts or exactly replays an approved review for the same tuple, then sends
+that accepted review identity with the conversion intent. Feedback does not depend on this review
+authority. A snapshot change, source restatement, failed receipt, or stale exact retry produces no
+review or conversion request.
 The governed HTTP runtime uses the same exact SHA-256 evidence contract as HTTPS. If required source
 versions are missing, the active queue snapshot remains unavailable until a changed valid snapshot
 arrives; an earlier receipt completing cannot turn that warning into a ready state.
@@ -103,8 +111,9 @@ decision path and a delayed prior-revision response cannot restore it. Workbench
 response that grants downstream authority or
 promotes unsupported capability, and requires an accepted evaluation before showing a served
 rationale. An unavailable response may include a source-prepared deterministic evidence summary;
-it is labelled as deterministic rather than AI output. Explanation failure never disables review,
-feedback, or conversion-intent controls.
+it is labelled as deterministic rather than AI output. Explanation failure does not alter review,
+feedback, or conversion authority; the receipt, evidence, and accepted-review controls above still
+apply.
 
 ## Screen States And Recovery
 
@@ -117,7 +126,10 @@ feedback, or conversion-intent controls.
 | Explanation not requested | Candidate facts and actions remain available; request it only when useful for the decision |
 | Explanation available | Review grounded claims, evidence limits, provenance, and the evaluation verdict before acting |
 | Explanation superseded | Request a rationale for the refreshed opportunity evidence; the earlier rationale is not presented as current |
-| AI explanation unavailable | Use the labelled deterministic evidence summary when supplied; candidate facts and actions remain available |
+| AI explanation unavailable | Use the labelled deterministic evidence summary when supplied; candidate facts and independently authorized actions remain available |
+| Review authority pending | Wait for the visible-presentation receipt and matching current candidate evidence; feedback remains available |
+| Conversion authority pending | Record an approved review for the exact current evidence before requesting conversion |
+| Candidate evidence changed | Review the refreshed facts and visible presentation; stale review or conversion retry is refused |
 | Evidence identity unavailable | Continue reviewing opportunity facts and actions; no current rationale is requested or claimed |
 | Explanation request failure | Retry the unchanged request or continue the candidate review without it |
 | Viewing evidence unavailable | Continue reviewing; no viewing confirmation is claimed |

@@ -13,6 +13,12 @@ import {
 } from "../api";
 import { buildIdeaBusinessReasonOptions } from "../idea-action-reasons";
 import {
+  buildIdeaConversionRequestAuthority,
+  buildIdeaReviewRequestAuthority,
+  type AcceptedIdeaReviewAuthority,
+  type IdeaCandidateActionAuthority,
+} from "../idea-action-authority";
+import {
   buildConversionIntent,
   buildReviewIntent,
   conversionRetryDetails,
@@ -37,6 +43,7 @@ import {
   usefulFeedbackReasonOption,
 } from "../idea-feedback";
 import type { AdvisorIdeaEvidenceIdentity } from "../idea-ai-explanation-contract";
+import type { IdeaPresentationAuthority } from "../use-idea-presentation-receipts";
 import type {
   AdvisorIdeaFeedbackOutcome,
   AdvisorIdeaFeedbackReason,
@@ -58,16 +65,22 @@ const FEEDBACK_OUTCOME_OPTIONS = [
 ] satisfies Array<{ key: AdvisorIdeaFeedbackOutcome; label: string }>;
 
 export default function IdeaCandidateActionPanel({
+  actionAuthority,
   candidateId,
   candidateReasonCodes,
   evidenceIdentity,
+  persistedAcceptedReviewAuthority,
   portfolioId,
+  presentationAuthority,
   onRecorded,
 }: {
+  actionAuthority?: IdeaCandidateActionAuthority;
   candidateId: string;
   candidateReasonCodes: readonly string[];
   evidenceIdentity?: AdvisorIdeaEvidenceIdentity;
+  persistedAcceptedReviewAuthority?: AcceptedIdeaReviewAuthority;
   portfolioId: string;
+  presentationAuthority?: IdeaPresentationAuthority;
   onRecorded: () => Promise<boolean>;
 }) {
   const feedbackRetryableSubmission = useRef<
@@ -117,6 +130,16 @@ export default function IdeaCandidateActionPanel({
     conversionReason,
     conversionTarget,
   });
+  const reviewRequestAuthority =
+    !sourceRefreshFailed && actionAuthority
+      ? buildIdeaReviewRequestAuthority(actionAuthority, presentationAuthority)
+      : undefined;
+  const conversionRequestAuthority = sourceRefreshFailed
+      ? undefined
+    : buildIdeaConversionRequestAuthority(
+        actionAuthority,
+        persistedAcceptedReviewAuthority,
+      );
   const retryableReview =
     retryableSubmissions.review?.kind === "review"
       ? retryableSubmissions.review
@@ -203,7 +226,6 @@ export default function IdeaCandidateActionPanel({
 
   function recordSubmission(submission: IdeaActionSubmission) {
     setLatestRecordedSubmission(undefined);
-    setSourceRefreshFailed(false);
     if (submission.kind === "feedback" && feedbackRetryableSubmission.current) {
       actionMutation.mutate(feedbackRetryableSubmission.current);
       return;
@@ -220,7 +242,30 @@ export default function IdeaCandidateActionPanel({
 
   function retryExactSubmission(submission: RetryableIdeaActionSubmission) {
     setLatestRecordedSubmission(undefined);
-    setSourceRefreshFailed(false);
+    if (
+      submission.kind === "review" &&
+      !matchesCurrentReviewAuthority(
+        submission.request,
+        reviewRequestAuthority,
+      )
+    ) {
+      setValidationMessage(
+        "The opportunity evidence changed. Refresh its visible presentation before recording this review.",
+      );
+      return;
+    }
+    if (
+      submission.kind === "conversion" &&
+      !matchesCurrentConversionAuthority(
+        submission.request,
+        conversionRequestAuthority,
+      )
+    ) {
+      setValidationMessage(
+        "The approved review or opportunity evidence changed. Record a current approved review before retrying conversion.",
+      );
+      return;
+    }
     actionMutation.mutate(submission);
   }
 
@@ -234,6 +279,12 @@ export default function IdeaCandidateActionPanel({
 
   function submitReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!reviewRequestAuthority) {
+      setValidationMessage(
+        "Wait for the visible opportunity receipt and current source evidence before recording a review.",
+      );
+      return;
+    }
     if (retryableReview && !reviewIntentChanged) {
       setValidationMessage(
         "Retry the exact unconfirmed review, or change its terms before recording a new review.",
@@ -253,6 +304,7 @@ export default function IdeaCandidateActionPanel({
       request: {
         reviewId: `ui-idea-review-${candidateId}-${Date.now()}`,
         ...currentReviewIntent,
+        ...reviewRequestAuthority,
         decidedAtUtc: new Date().toISOString(),
       },
     });
@@ -307,6 +359,12 @@ export default function IdeaCandidateActionPanel({
 
   function submitConversion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!conversionRequestAuthority) {
+      setValidationMessage(
+        "Approve this exact opportunity review before recording a conversion intent.",
+      );
+      return;
+    }
     if (retryableConversion && !conversionIntentChanged) {
       setValidationMessage(
         "Retry the exact unconfirmed conversion intent, or change its terms before recording a new intent.",
@@ -320,6 +378,7 @@ export default function IdeaCandidateActionPanel({
       request: {
         conversionIntentId: `ui-idea-conversion-${candidateId}-${Date.now()}`,
         ...currentConversionIntent,
+        ...conversionRequestAuthority,
         requestedAtUtc: new Date().toISOString(),
       },
     });
@@ -356,6 +415,7 @@ export default function IdeaCandidateActionPanel({
           onSuppressionReasonChange={setSuppressionReason}
           pendingKind={actionMutation.variables?.kind}
           retryableSubmission={retryableReview}
+          sourceAuthorityReady={Boolean(reviewRequestAuthority)}
           reviewAction={reviewAction}
           reviewReason={reviewReason}
           snoozedUntil={snoozedUntil}
@@ -463,6 +523,7 @@ export default function IdeaCandidateActionPanel({
           onTargetChange={setConversionTarget}
           pendingKind={actionMutation.variables?.kind}
           retryableSubmission={retryableConversion}
+          sourceAuthorityReady={Boolean(conversionRequestAuthority)}
         />
       </div>
       <Text variant="secondary">
@@ -538,5 +599,40 @@ export default function IdeaCandidateActionPanel({
         </Alert>
       ) : null}
     </section>
+  );
+}
+
+function matchesCurrentReviewAuthority(
+  request: AdvisorIdeaReviewActionRequest,
+  authority: ReturnType<typeof buildIdeaReviewRequestAuthority>,
+): boolean {
+  return Boolean(
+    authority &&
+      request.reviewChannel === authority.reviewChannel &&
+      request.presentationReceiptId === authority.presentationReceiptId &&
+      request.expectedMaterialVersion === authority.expectedMaterialVersion &&
+      request.expectedEvidenceVersion === authority.expectedEvidenceVersion &&
+      request.expectedEvidencePacketId === authority.expectedEvidencePacketId &&
+      request.expectedEvidenceContentHash === authority.expectedEvidenceContentHash &&
+      request.expectedSourceRevisionVectorDigest ===
+        authority.expectedSourceRevisionVectorDigest &&
+      request.expectedSourceCutPosture === authority.expectedSourceCutPosture,
+  );
+}
+
+function matchesCurrentConversionAuthority(
+  request: import("../types").AdvisorIdeaConversionIntentRequest,
+  authority: ReturnType<typeof buildIdeaConversionRequestAuthority>,
+): boolean {
+  return Boolean(
+    authority &&
+      request.expectedReviewId === authority.expectedReviewId &&
+      request.expectedMaterialVersion === authority.expectedMaterialVersion &&
+      request.expectedEvidenceVersion === authority.expectedEvidenceVersion &&
+      request.expectedEvidencePacketId === authority.expectedEvidencePacketId &&
+      request.expectedEvidenceContentHash === authority.expectedEvidenceContentHash &&
+      request.expectedSourceRevisionVectorDigest ===
+        authority.expectedSourceRevisionVectorDigest &&
+      request.expectedSourceCutPosture === authority.expectedSourceCutPosture,
   );
 }

@@ -41,14 +41,14 @@ export type RetryableSubmissionState = Partial<
   Record<RetryableIdeaActionSubmission["kind"], RetryableIdeaActionSubmission>
 >;
 
-export type ReviewIntent = Omit<
+export type ReviewIntent = Pick<
   AdvisorIdeaReviewActionRequest,
-  "reviewId" | "decidedAtUtc"
+  "action" | "reasonCodes" | "suppressionReason" | "snoozedUntilUtc"
 >;
 
-export type ConversionIntent = Omit<
+export type ConversionIntent = Pick<
   AdvisorIdeaConversionIntentRequest,
-  "conversionIntentId" | "requestedAtUtc"
+  "target" | "reasonCodes"
 >;
 
 export type IdeaActionRetryDetail = {

@@ -7,8 +7,8 @@ const portfolioId = "PB_SG_GLOBAL_BAL_001";
 const candidateId = "idea_high_cash_001";
 const candidateEvidenceIdentity = {
   evidencePacketId: "evidence_high_cash_001",
-  evidenceContentHash: "sha256:evidence-high-cash-001",
-  sourceRevisionVectorDigest: "sha256:revision-high-cash-001",
+  evidenceContentHash: `sha256:${"c".repeat(64)}`,
+  sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
 };
 const explanationEvidenceDirectory = process.env.ISSUE_996_EVIDENCE_DIR
   ? path.resolve(process.env.ISSUE_996_EVIDENCE_DIR)
@@ -35,7 +35,9 @@ async function mockIdeaCandidateActions(
     "high_cash_ratio",
     "review_required",
   ],
+  currentReviewDecisions: () => ReadonlyArray<Record<string, unknown>> = () => [],
 ) {
+  let presentationReceiptCount = 0;
   await page.route(
     "**/api/bff/api/v1/ideas/review-queues/advisor**",
     async (route) => {
@@ -59,6 +61,13 @@ async function mockIdeaCandidateActions(
                 reasonCodes: [...currentReasonCodes()],
                 candidate: {
                   candidateId,
+                  materialVersion: 1,
+                  evidenceVersion: 1,
+                  evidencePacketId: candidateEvidenceIdentity.evidencePacketId,
+                  scorePolicyVersion: "idle-liquidity-v2",
+                  sourceRevisionVectorDigest:
+                    candidateEvidenceIdentity.sourceRevisionVectorDigest,
+                  sourceCutPosture: "coherent",
                   family: "high_cash",
                   reviewPosture: "advisor_review_required",
                   score: "82",
@@ -79,16 +88,20 @@ async function mockIdeaCandidateActions(
           data: {
             candidate: {
               candidateId,
+              materialVersion: 1,
+              evidenceVersion: 1,
               family: "high_cash",
               lifecycleStatus: "generated",
               reviewPosture: "advisor_review_required",
             },
             evidence: {
               ...candidateEvidenceIdentity,
+              sourceCutPosture: "coherent",
               supportability: "ready",
               sourceRefs: [{ productId: "idea-source-001" }],
             },
             auditSummary: { eventCount: 1 },
+            reviewDecisions: [...currentReviewDecisions()],
             durableStorageBacked: true,
             supportedFeaturePromoted: false,
           },
@@ -96,7 +109,166 @@ async function mockIdeaCandidateActions(
       });
     },
   );
+  await page.route(
+    `**/api/bff/api/v1/ideas/candidates/${candidateId}/presentation-receipts`,
+    async (route) => {
+      const request = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 201,
+        json: {
+          data: {
+            receipt: {
+              ...request,
+              tenantId: "tenant_demo_sg",
+              receiptId: `presentation-receipt-${++presentationReceiptCount}`,
+              candidateId,
+              acceptedAtUtc: "2026-09-24T01:00:01Z",
+              acceptanceTimeSource: "server_accepted",
+              schemaVersion: "lotus-idea.candidate-presentation-receipt.v2",
+              surface: "advisor_review_queue",
+              producer: "lotus-workbench",
+            },
+            persistenceDecision: "accepted",
+            durableStorageBacked: true,
+          },
+        },
+      });
+    },
+  );
 }
+
+function reviewActionData(
+  request: Record<string, unknown>,
+  decision: "accepted" | "replayed" = "accepted",
+) {
+  return {
+    reviewDecision: {
+      reviewId: request.reviewId,
+      candidateId,
+      evidencePacketId: request.expectedEvidencePacketId,
+      evidenceContentHash: request.expectedEvidenceContentHash,
+      sourceRevisionVectorDigest: request.expectedSourceRevisionVectorDigest,
+      sourceCutPosture: request.expectedSourceCutPosture,
+      candidateMaterialVersion: request.expectedMaterialVersion,
+      candidateEvidenceVersion: request.expectedEvidenceVersion,
+      reviewChannel: request.reviewChannel,
+      presentationReceiptId: request.presentationReceiptId,
+      action: request.action,
+      resultingPosture: ({
+        approve_for_conversion: "approved_for_conversion",
+        reject: "rejected",
+        no_action: "no_action",
+        suppress: "suppressed",
+        snooze: "advisor_review_required",
+        escalate_to_pm: "pm_review_required",
+        escalate_to_compliance: "compliance_review_required",
+      } as Record<string, string>)[String(request.action)],
+      reasonCodes: request.reasonCodes,
+      decidedAtUtc: request.decidedAtUtc,
+      acceptedAtUtc: "2026-09-24T01:00:01Z",
+      acceptanceTimeSource: "server_accepted",
+      grantsDownstreamAuthority: false,
+    },
+    persistence: { decision },
+    durableStorageBacked: true,
+    supportedFeaturePromoted: false,
+  };
+}
+
+function conversionIntentData(
+  request: Record<string, unknown>,
+  decision: "accepted" | "replayed" = "accepted",
+) {
+  return {
+    conversionIntent: {
+      conversionIntentId: request.conversionIntentId,
+      candidateId,
+      target: request.target,
+      reviewId: request.expectedReviewId,
+      evidencePacketId: request.expectedEvidencePacketId,
+      evidenceContentHash: request.expectedEvidenceContentHash,
+      sourceRevisionVectorDigest: request.expectedSourceRevisionVectorDigest,
+      sourceCutPosture: request.expectedSourceCutPosture,
+      candidateMaterialVersion: request.expectedMaterialVersion,
+      candidateEvidenceVersion: request.expectedEvidenceVersion,
+      reasonCodes: request.reasonCodes,
+      requestedAtUtc: request.requestedAtUtc,
+      acceptedAtUtc: "2026-09-24T01:00:02Z",
+      acceptanceTimeSource: "server_accepted",
+      boundary: "intent_only",
+      grantsDownstreamAuthority: false,
+    },
+    persistence: { decision },
+    durableStorageBacked: true,
+    supportedFeaturePromoted: false,
+  };
+}
+
+async function openPresentedCandidate(
+  page: import("@playwright/test").Page,
+) {
+  await presentCurrentCandidate(page, async () => {
+    await page.goto(
+      `/recommendations?mode=opportunities&portfolioId=${portfolioId}`,
+      { waitUntil: "domcontentloaded" },
+    );
+  });
+  await page.getByRole("link", { name: new RegExp(candidateId, "i") }).click();
+  await expect(page.getByLabel("Idea candidate advisor actions")).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+async function presentCurrentCandidate(
+  page: import("@playwright/test").Page,
+  beforePresentation?: () => Promise<void>,
+) {
+  const presentationAccepted = page.waitForResponse(
+    (response) =>
+      response.url().endsWith(
+        `/api/bff/api/v1/ideas/candidates/${candidateId}/presentation-receipts`,
+      ) && response.status() === 201,
+  );
+  await beforePresentation?.();
+  const candidateLink = page.getByRole("link", {
+    name: new RegExp(candidateId, "i"),
+  });
+  await expect(candidateLink).toBeVisible({ timeout: 30_000 });
+  await candidateLink.evaluate((element) =>
+    element.scrollIntoView({ block: "center", inline: "nearest" }),
+  );
+  await presentationAccepted;
+}
+
+test("blocks review authority on an unpresented candidate deep link", async ({
+  page,
+}) => {
+  await mockIdeaCandidateActions(page);
+  let reviewRequestCount = 0;
+  await page.route(
+    `**/api/bff/api/v1/ideas/candidates/${candidateId}/review-actions`,
+    async (route) => {
+      reviewRequestCount += 1;
+      await route.abort();
+    },
+  );
+
+  await page.goto(
+    `/recommendations?mode=opportunities&portfolioId=${portfolioId}&candidateId=${candidateId}`,
+    { waitUntil: "domcontentloaded" },
+  );
+
+  await expect(page.getByLabel("Idea candidate advisor actions")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    page.getByRole("button", { name: "Record review" }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText(/Review becomes available after this opportunity is visibly presented/),
+  ).toBeVisible();
+  expect(reviewRequestCount).toBe(0);
+});
 
 test("records a source-owned Idea review without creating a proposal", async ({
   page,
@@ -107,29 +279,20 @@ test("records a source-owned Idea review without creating a proposal", async ({
   await page.route(
     `**/api/bff/api/v1/ideas/candidates/${candidateId}/review-actions`,
     async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
       recordedRequest = {
         headers: route.request().headers(),
-        body: route.request().postDataJSON(),
+        body,
       };
       await route.fulfill({
         json: {
-          data: {
-            persistence: {
-              decision: "accepted",
-              reviewPosture: "conversion_review_requested",
-            },
-            durableStorageBacked: true,
-            supportedFeaturePromoted: false,
-          },
+          data: reviewActionData(body),
         },
       });
     },
   );
 
-  await page.goto(
-    `/recommendations?mode=opportunities&portfolioId=${portfolioId}&candidateId=${candidateId}`,
-    { waitUntil: "domcontentloaded" },
-  );
+  await openPresentedCandidate(page);
 
   await expect(page.getByLabel("Idea candidate advisor actions")).toBeVisible();
   await expect(
@@ -171,23 +334,25 @@ test("keeps refreshed Idea action drafts visible and submits the displayed basis
     "high_cash_ratio",
     "review_required",
   ];
-  await mockIdeaCandidateActions(page, () => currentReasonCodes);
+  let currentReviewDecisions: Array<Record<string, unknown>> = [];
+  await mockIdeaCandidateActions(
+    page,
+    () => currentReasonCodes,
+    () => currentReviewDecisions,
+  );
   const reviewRequests: Array<Record<string, unknown>> = [];
   const conversionRequests: Array<Record<string, unknown>> = [];
   await page.route(
     `**/api/bff/api/v1/ideas/candidates/${candidateId}/review-actions`,
     async (route) => {
-      reviewRequests.push(
-        route.request().postDataJSON() as Record<string, unknown>,
-      );
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      reviewRequests.push(body);
       currentReasonCodes = ["concentration_attention"];
+      const data = reviewActionData(body);
+      currentReviewDecisions = [data.reviewDecision];
       await route.fulfill({
         json: {
-          data: {
-            persistence: { decision: "accepted" },
-            durableStorageBacked: true,
-            supportedFeaturePromoted: false,
-          },
+          data,
         },
       });
     },
@@ -195,25 +360,17 @@ test("keeps refreshed Idea action drafts visible and submits the displayed basis
   await page.route(
     `**/api/bff/api/v1/ideas/candidates/${candidateId}/conversion-intents`,
     async (route) => {
-      conversionRequests.push(
-        route.request().postDataJSON() as Record<string, unknown>,
-      );
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      conversionRequests.push(body);
       await route.fulfill({
         json: {
-          data: {
-            persistence: { decision: "accepted" },
-            durableStorageBacked: true,
-            supportedFeaturePromoted: false,
-          },
+          data: conversionIntentData(body),
         },
       });
     },
   );
 
-  await page.goto(
-    `/recommendations?mode=opportunities&portfolioId=${portfolioId}&candidateId=${candidateId}`,
-    { waitUntil: "domcontentloaded" },
-  );
+  await openPresentedCandidate(page);
 
   await expect(page.getByLabel("Review basis")).toHaveValue("high_cash_ratio");
   await page.getByRole("button", { name: "Record review" }).click();
@@ -271,6 +428,7 @@ test("keeps refreshed Idea action drafts visible and submits the displayed basis
   await expect(
     page.getByTestId("idea-review-business-reason-retained-draft"),
   ).toHaveCount(0);
+  await presentCurrentCandidate(page);
   await page.getByRole("button", { name: "Record review" }).click();
   await expect(page.getByTestId("idea-action-review-status")).toContainText(
     "Concentration requires attention",
@@ -288,7 +446,12 @@ test("keeps refreshed Idea action drafts visible and submits the displayed basis
 test("separates exact Idea retry from an edited advisor intent", async ({
   page,
 }, testInfo) => {
-  await mockIdeaCandidateActions(page);
+  let currentReviewDecisions: Array<Record<string, unknown>> = [];
+  await mockIdeaCandidateActions(
+    page,
+    undefined,
+    () => currentReviewDecisions,
+  );
   const reviewRequests: Array<{
     headers: Record<string, string>;
     body: Record<string, unknown>;
@@ -314,13 +477,11 @@ test("separates exact Idea retry from an edited advisor intent", async ({
         });
         return;
       }
+      const data = reviewActionData(reviewRequests.at(-1)!.body);
+      currentReviewDecisions = [data.reviewDecision];
       await route.fulfill({
         json: {
-          data: {
-            persistence: { decision: "accepted" },
-            durableStorageBacked: true,
-            supportedFeaturePromoted: false,
-          },
+          data,
         },
       });
     },
@@ -344,20 +505,13 @@ test("separates exact Idea retry from an edited advisor intent", async ({
       }
       await route.fulfill({
         json: {
-          data: {
-            persistence: { decision: "replayed" },
-            durableStorageBacked: true,
-            supportedFeaturePromoted: false,
-          },
+          data: conversionIntentData(conversionRequests.at(-1)!.body, "replayed"),
         },
       });
     },
   );
 
-  await page.goto(
-    `/recommendations?mode=opportunities&portfolioId=${portfolioId}&candidateId=${candidateId}`,
-    { waitUntil: "domcontentloaded" },
-  );
+  await openPresentedCandidate(page);
 
   await page.getByRole("button", { name: "Record review" }).click();
   const reviewRecovery = page.getByTestId("idea-review-retry");
@@ -387,7 +541,6 @@ test("separates exact Idea retry from an edited advisor intent", async ({
     });
   }
 
-  await page.getByLabel("Review action").selectOption("reject");
   await page.getByLabel("Review basis").selectOption("review_required");
   await page.getByRole("button", { name: "Record updated review" }).click();
   await expect(page.getByTestId("idea-action-review-status")).toHaveAttribute(
@@ -400,8 +553,8 @@ test("separates exact Idea retry from an edited advisor intent", async ({
     reviewRequests[0].headers["idempotency-key"],
   );
   expect(reviewRequests[1].body).toMatchObject({
-    action: "reject",
-    reasonCodes: ["review_rejected", "review_required"],
+    action: "approve_for_conversion",
+    reasonCodes: ["review_approved_for_conversion", "review_required"],
   });
 
   await page.getByRole("button", { name: "Record intent" }).click();
@@ -478,10 +631,7 @@ test("records every adviser-selected governed feedback reason through Gateway", 
     },
   );
 
-  await page.goto(
-    `/recommendations?mode=opportunities&portfolioId=${portfolioId}&candidateId=${candidateId}`,
-    { waitUntil: "domcontentloaded" },
-  );
+  await openPresentedCandidate(page);
 
   await expect(page.getByTestId("idea-feedback-reason-summary")).toContainText(
     "Relevant to this client",
@@ -654,10 +804,7 @@ test("renders a governed idea rationale with distinct evidence limits", async ({
     },
   );
 
-  await page.goto(
-    `/recommendations?mode=opportunities&portfolioId=${portfolioId}&candidateId=${candidateId}`,
-    { waitUntil: "domcontentloaded" },
-  );
+  await openPresentedCandidate(page);
   await page.getByRole("button", { name: "Explain this idea" }).click();
 
   const explanation = page.getByTestId("idea-candidate-explanation");
@@ -694,7 +841,7 @@ test("renders a governed idea rationale with distinct evidence limits", async ({
   }
 });
 
-test("keeps advisor actions available with deterministic evidence when AI is unavailable", async ({
+test("keeps independently authorized actions available with deterministic evidence when AI is unavailable", async ({
   page,
 }, testInfo) => {
   await mockIdeaCandidateActions(page);
@@ -735,10 +882,7 @@ test("keeps advisor actions available with deterministic evidence when AI is una
     },
   );
 
-  await page.goto(
-    `/recommendations?mode=opportunities&portfolioId=${portfolioId}&candidateId=${candidateId}`,
-    { waitUntil: "domcontentloaded" },
-  );
+  await openPresentedCandidate(page);
   await page.getByRole("button", { name: "Explain this idea" }).click();
 
   const explanation = page.getByTestId("idea-candidate-explanation");
@@ -762,7 +906,10 @@ test("keeps advisor actions available with deterministic evidence when AI is una
   ).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "Record intent" }),
-  ).toBeEnabled();
+  ).toBeDisabled();
+  await expect(
+    page.getByText(/Conversion becomes available after an approved review/),
+  ).toBeVisible();
   const screenshot = await page.screenshot({ fullPage: true });
   await testInfo.attach("idea-deterministic-fallback", {
     body: screenshot,

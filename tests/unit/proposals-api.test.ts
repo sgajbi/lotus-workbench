@@ -759,6 +759,23 @@ describe("proposal api", () => {
   });
 
   it("records an Idea review action through the Gateway BFF without browser authority headers", async () => {
+    const request = {
+      reviewId: "review_001",
+      action: "approve_for_conversion" as const,
+      reasonCodes: [
+        "review_approved_for_conversion" as const,
+        "high_cash_ratio" as const,
+      ],
+      decidedAtUtc: "2026-07-17T08:00:00Z",
+      reviewChannel: "workbench" as const,
+      expectedMaterialVersion: 1,
+      expectedEvidenceVersion: 1,
+      expectedEvidencePacketId: "evidence_high_cash_001",
+      expectedEvidenceContentHash: `sha256:${"c".repeat(64)}` as const,
+      expectedSourceRevisionVectorDigest: `sha256:${"b".repeat(64)}` as const,
+      expectedSourceCutPosture: "coherent" as const,
+      presentationReceiptId: "presentation_001",
+    };
     vi.stubGlobal(
       "fetch",
       vi.fn(
@@ -766,6 +783,26 @@ describe("proposal api", () => {
           new Response(
             JSON.stringify({
               data: {
+                reviewDecision: {
+                  reviewId: request.reviewId,
+                  candidateId: "idea_high_cash_001",
+                  evidencePacketId: request.expectedEvidencePacketId,
+                  evidenceContentHash: request.expectedEvidenceContentHash,
+                  sourceRevisionVectorDigest:
+                    request.expectedSourceRevisionVectorDigest,
+                  sourceCutPosture: request.expectedSourceCutPosture,
+                  candidateMaterialVersion: request.expectedMaterialVersion,
+                  candidateEvidenceVersion: request.expectedEvidenceVersion,
+                  reviewChannel: request.reviewChannel,
+                  presentationReceiptId: request.presentationReceiptId,
+                  action: request.action,
+                  resultingPosture: "approved_for_conversion",
+                  reasonCodes: request.reasonCodes,
+                  decidedAtUtc: request.decidedAtUtc,
+                  acceptedAtUtc: "2026-07-17T08:00:01Z",
+                  acceptanceTimeSource: "server_accepted",
+                  grantsDownstreamAuthority: false,
+                },
                 persistence: { decision: "accepted" },
                 durableStorageBacked: true,
                 supportedFeaturePromoted: false,
@@ -780,12 +817,7 @@ describe("proposal api", () => {
       candidateId: "idea_high_cash_001",
       portfolioId: "PB_SG_GLOBAL_BAL_001",
       idempotencyKey: "ui-idea-review-001",
-      request: {
-        reviewId: "review_001",
-        action: "approve_for_conversion",
-        reasonCodes: ["review_approved_for_conversion", "high_cash_ratio"],
-        decidedAtUtc: "2026-07-17T08:00:00Z",
-      },
+      request,
     });
 
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
@@ -801,12 +833,7 @@ describe("proposal api", () => {
     expect(headers.get("X-Caller-Portfolio-Ids")).toBeNull();
     expect(headers.get("Idempotency-Key")).toBe("ui-idea-review-001");
     expect(init.body).toBe(
-      JSON.stringify({
-        reviewId: "review_001",
-        action: "approve_for_conversion",
-        reasonCodes: ["review_approved_for_conversion", "high_cash_ratio"],
-        decidedAtUtc: "2026-07-17T08:00:00Z",
-      }),
+      JSON.stringify(request),
     );
     expect(result.supportedFeaturePromoted).toBe(false);
   });
@@ -1163,12 +1190,47 @@ describe("proposal api", () => {
   });
 
   it("records an Idea conversion intent without creating a proposal locally", async () => {
+    const request = {
+      conversionIntentId: "conversion_001",
+      target: "advise_proposal" as const,
+      reasonCodes: [
+        "review_approved_for_conversion" as const,
+        "high_cash_ratio" as const,
+      ],
+      requestedAtUtc: "2026-07-17T08:00:00Z",
+      expectedReviewId: "review_001",
+      expectedMaterialVersion: 1,
+      expectedEvidenceVersion: 1,
+      expectedEvidencePacketId: "evidence_high_cash_001",
+      expectedEvidenceContentHash: `sha256:${"c".repeat(64)}` as const,
+      expectedSourceRevisionVectorDigest: `sha256:${"b".repeat(64)}` as const,
+      expectedSourceCutPosture: "coherent" as const,
+    };
     vi.stubGlobal(
       "fetch",
       vi.fn(
         async () =>
           new Response(
             JSON.stringify({
+              conversionIntent: {
+                conversionIntentId: request.conversionIntentId,
+                candidateId: "idea_high_cash_001",
+                target: request.target,
+                reviewId: request.expectedReviewId,
+                evidencePacketId: request.expectedEvidencePacketId,
+                evidenceContentHash: request.expectedEvidenceContentHash,
+                sourceRevisionVectorDigest:
+                  request.expectedSourceRevisionVectorDigest,
+                sourceCutPosture: request.expectedSourceCutPosture,
+                candidateMaterialVersion: request.expectedMaterialVersion,
+                candidateEvidenceVersion: request.expectedEvidenceVersion,
+                reasonCodes: request.reasonCodes,
+                requestedAtUtc: request.requestedAtUtc,
+                acceptedAtUtc: "2026-07-17T08:00:01Z",
+                acceptanceTimeSource: "server_accepted",
+                boundary: "intent_only",
+                grantsDownstreamAuthority: false,
+              },
               persistence: { decision: "accepted" },
               durableStorageBacked: true,
               supportedFeaturePromoted: false,
@@ -1182,12 +1244,7 @@ describe("proposal api", () => {
       candidateId: "idea_high_cash_001",
       portfolioId: "PB_SG_GLOBAL_BAL_001",
       idempotencyKey: "ui-idea-conversion-001",
-      request: {
-        conversionIntentId: "conversion_001",
-        target: "advise_proposal",
-        reasonCodes: ["review_approved_for_conversion", "high_cash_ratio"],
-        requestedAtUtc: "2026-07-17T08:00:00Z",
-      },
+      request,
     });
 
     const fetchMock = global.fetch as unknown as ReturnType<typeof vi.fn>;
@@ -1197,12 +1254,7 @@ describe("proposal api", () => {
     );
     expect((init.headers as Headers).get("X-Caller-Capabilities")).toBeNull();
     expect(init.body).toBe(
-      JSON.stringify({
-        conversionIntentId: "conversion_001",
-        target: "advise_proposal",
-        reasonCodes: ["review_approved_for_conversion", "high_cash_ratio"],
-        requestedAtUtc: "2026-07-17T08:00:00Z",
-      }),
+      JSON.stringify(request),
     );
   });
 

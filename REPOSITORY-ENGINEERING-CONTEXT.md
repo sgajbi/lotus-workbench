@@ -207,7 +207,11 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   response may retain exact contributor facts, but it must remain visibly qualified and must not
   regain a ready visual through query-error recovery; unknown runtime states fail closed.
 - Idea explanations are source-bound to the displayed candidate evidence identity. Explanation
-  loading or failure never changes review, feedback, conversion, or other candidate actions.
+  loading or failure never changes action authority. Review requires a source-confirmed visible
+  presentation receipt plus the exact current candidate material/evidence versions, packet, hash,
+  revision digest, and source-cut posture. Conversion additionally requires an accepted approved
+  review for that same evidence tuple. Feedback remains independently available. Snapshot changes
+  clear presentation authority, and exact retries are refused after evidence restatement.
 - Report ordering accepts only receipts bound to the exact submitted request and preserves the
   difference between an accepted order and a failed history refresh. Advisor Commentary is
   selectable only from Gateway's accepted-brief availability for the exact report date and

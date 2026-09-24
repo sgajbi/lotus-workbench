@@ -57,6 +57,7 @@ describe("Idea presentation receipt contract", () => {
           rank: 25,
           candidate: {
             candidateId: "idea-025",
+            evidencePacketId: "packet-025",
             materialVersion: 2,
             evidenceVersion: 3,
             scorePolicyVersion: "ranking-v7",
@@ -67,6 +68,7 @@ describe("Idea presentation receipt contract", () => {
       ),
     ).toEqual({
       candidateId: "idea-025",
+      evidencePacketId: "packet-025",
       rank: 25,
       queuePolicyVersion: "queue-v4",
       rankingPolicyVersion: "ranking-v7",
@@ -116,6 +118,7 @@ describe("Idea presentation receipt contract", () => {
       presentedAtUtc: request.presentedAtUtc,
       source: {
         candidateId: "idea-025",
+        evidencePacketId: "packet-025",
         rank: 25,
         queuePolicyVersion: request.queuePolicyVersion,
         rankingPolicyVersion: request.rankingPolicyVersion,
