@@ -220,6 +220,10 @@ function summarizeSourceSupportability(items) {
   };
 }
 
+export function summarizePayloadSourceSupportability(...payloads) {
+  return summarizeSourceSupportability(readSourceSupportabilityItems(...payloads));
+}
+
 function recordSourceSupportabilityCheck(summary, panel, owner, items) {
   const supportability = summarizeSourceSupportability(items);
   summary.supportabilityChecks.push({

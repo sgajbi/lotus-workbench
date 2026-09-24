@@ -46,10 +46,10 @@ const IDEA_CALLER_CONTEXT_ENV_OVERRIDES = {
 const DEFAULT_IDEA_CALLER_CONTEXT = {
   subject: "workbench-advisor",
   roles: "advisor",
-  tenantIds: "tenant-private-bank-sg",
-  bookIds: "book-advisor-001",
+  tenantIds: "tenant-sg",
+  bookIds: "BOOK_SG_BALANCED_DPM",
   portfolioIds: "PB_SG_GLOBAL_BAL_001",
-  clientIds: "client-001",
+  clientIds: "CLIENT_SCOPE_PB_SG_GLOBAL_BAL_001",
 } as const;
 
 export const SERVER_DERIVED_CALLER_AUTHORITY_HEADERS = [

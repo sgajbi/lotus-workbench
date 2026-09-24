@@ -158,6 +158,8 @@ Assert-IdeaQueueSeed `
   -GatewayBaseUrl $GatewayBaseUrl `
   -PortfolioId $PortfolioId `
   -ExpectedCandidateId $ideaCandidateSeedEvidence.candidateId `
+  -ExpectedLifecycleStatus $ideaCandidateSeedEvidence.lifecycleStatus `
+  -ExpectedSourceCutPosture $ideaCandidateSeedEvidence.sourceCutPosture `
   -EvaluatedAtUtc $ideaCandidateSeedEvidence.queueEvaluatedAtUtc `
   -AccessScope $ideaCandidateSeedEvidence.accessScope
 if ($ValidationProfile -eq 'full' -and -not (Test-Path $ideaCapacitySeedEvidencePath)) {
@@ -183,7 +185,9 @@ try {
     "--validation-profile",
     $ValidationProfile,
     "--idea-candidate-id",
-    $ideaCandidateSeedEvidence.candidateId
+    $ideaCandidateSeedEvidence.candidateId,
+    "--idea-candidate-lifecycle",
+    $ideaCandidateSeedEvidence.lifecycleStatus
   )
   if ($ValidationProfile -eq 'full') {
     $validatorArguments += @("--idea-capacity-seed-evidence", $ideaCapacitySeedEvidencePath)

@@ -629,6 +629,11 @@ export type ProposalListData = {
 
 export type IdeaCandidateSummary = {
   candidateId: string;
+  identity?: {
+    materialVersion?: number;
+    evidenceVersion?: number;
+    [key: string]: unknown;
+  };
   materialVersion?: number;
   evidenceVersion?: number;
   family?: string;

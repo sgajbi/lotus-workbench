@@ -477,6 +477,7 @@ export function buildPerformanceWorkspaceDetails(
       },
       source_economics_evidence: {
         status: "SOURCE_LIMITED",
+        component_detail_status: "LIMITED",
         reason_codes: [
           "LOTUS_CORE_ANALYTICS_INPUTS_USED",
           "COMPONENT_PNL_NOT_SOURCE_AUTHORED",

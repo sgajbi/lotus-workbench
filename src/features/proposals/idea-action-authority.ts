@@ -39,6 +39,17 @@ export type AcceptedIdeaReviewAuthority = IdeaCandidateActionAuthority & {
   presentationReceiptId: string;
 };
 
+export function ideaSourceCutAuthorizesConversion(
+  authority: IdeaCandidateActionAuthority | undefined,
+): boolean {
+  return Boolean(
+    authority &&
+    (authority.expectedSourceCutPosture === "coherent" ||
+      authority.expectedSourceCutPosture ===
+        "coherent_with_declared_tolerance"),
+  );
+}
+
 export function buildIdeaCandidateActionAuthority({
   candidateId,
   detailCandidateId,
@@ -109,19 +120,7 @@ export function buildIdeaReviewRequestAuthority(
       | "snoozedUntilUtc"
     >
   | undefined {
-  if (
-    !presentation ||
-    presentation.candidateId !== authority.candidateId ||
-    presentation.evidencePacketId !== authority.expectedEvidencePacketId ||
-    presentation.candidateMaterialVersion !==
-      authority.expectedMaterialVersion ||
-    presentation.candidateEvidenceVersion !==
-      authority.expectedEvidenceVersion ||
-    presentation.sourceRevisionVectorDigest !==
-      authority.expectedSourceRevisionVectorDigest ||
-    presentation.sourceCutPosture !== authority.expectedSourceCutPosture ||
-    !presentation.receiptId.trim()
-  ) {
+  if (!matchesPresentationAuthority(authority, presentation)) {
     return undefined;
   }
   return {
@@ -258,6 +257,7 @@ export function matchesIdeaReviewResponse({
 export function buildIdeaConversionRequestAuthority(
   current: IdeaCandidateActionAuthority | undefined,
   review: AcceptedIdeaReviewAuthority | undefined,
+  presentation: IdeaPresentationAuthority | undefined,
 ):
   | Pick<
       AdvisorIdeaConversionIntentRequest,
@@ -270,13 +270,38 @@ export function buildIdeaConversionRequestAuthority(
       | "expectedSourceCutPosture"
     >
   | undefined {
-  if (!current || !review || !sameEvidenceAuthority(current, review)) {
+  if (
+    !current ||
+    !review ||
+    !ideaSourceCutAuthorizesConversion(current) ||
+    !sameEvidenceAuthority(current, review) ||
+    !matchesPresentationAuthority(current, presentation)
+  ) {
     return undefined;
   }
   return {
     expectedReviewId: review.reviewId,
     ...withoutCandidateId(current),
   };
+}
+
+function matchesPresentationAuthority(
+  authority: IdeaCandidateActionAuthority,
+  presentation: IdeaPresentationAuthority | undefined,
+): presentation is IdeaPresentationAuthority {
+  return Boolean(
+    presentation &&
+    presentation.candidateId === authority.candidateId &&
+    presentation.evidencePacketId === authority.expectedEvidencePacketId &&
+    presentation.candidateMaterialVersion ===
+      authority.expectedMaterialVersion &&
+    presentation.candidateEvidenceVersion ===
+      authority.expectedEvidenceVersion &&
+    presentation.sourceRevisionVectorDigest ===
+      authority.expectedSourceRevisionVectorDigest &&
+    presentation.sourceCutPosture === authority.expectedSourceCutPosture &&
+    presentation.receiptId.trim(),
+  );
 }
 
 export function matchesIdeaConversionResponse({
@@ -367,7 +392,7 @@ function sameStrings(left: string[] | undefined, right: string[]): boolean {
   );
 }
 
-function sameInstant(left: string | undefined, right: string): boolean {
+export function sameInstant(left: string | undefined, right: string): boolean {
   return utcTimestampsIdentifySameInstant(left, right);
 }
 

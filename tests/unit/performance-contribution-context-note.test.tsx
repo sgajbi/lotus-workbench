@@ -19,7 +19,10 @@ function buildContribution(
     levels: [],
     smoothing_evidence: {
       status: "APPLIED",
-      reason_codes: ["CARINO_FACTOR_APPLIED", "SMOOTHED_CONTRIBUTION_RECONCILES"],
+      reason_codes: [
+        "CARINO_FACTOR_APPLIED",
+        "SMOOTHED_CONTRIBUTION_RECONCILES",
+      ],
       raw_contribution_pct: 5.31,
       final_contribution_pct: 5.42,
       linked_return_pct: 5.42,
@@ -27,12 +30,19 @@ function buildContribution(
     },
     source_economics_evidence: {
       status: "SOURCE_LIMITED",
+      component_detail_status: "LIMITED",
       reason_codes: [
         "LOTUS_CORE_ANALYTICS_INPUTS_USED",
         "COMPONENT_PNL_NOT_SOURCE_AUTHORED",
       ],
-      source_contracts: ["PortfolioTimeseriesInput:v1", "PositionTimeseriesInput:v1"],
-      available_economics: ["portfolio_market_values", "position_market_values"],
+      source_contracts: [
+        "PortfolioTimeseriesInput:v1",
+        "PositionTimeseriesInput:v1",
+      ],
+      available_economics: [
+        "portfolio_market_values",
+        "position_market_values",
+      ],
       unsupported_economics: ["income_pnl", "tax_pnl"],
       degraded_economics: [],
       source_snapshot_count: 2,
@@ -45,6 +55,7 @@ function buildSourceBackedEvidence(contribution: ContributionSummaryView) {
   return {
     ...contribution.source_economics_evidence!,
     status: "SOURCE_BACKED",
+    component_detail_status: "COMPLETE",
     reason_codes: [
       "LOTUS_CORE_ANALYTICS_INPUTS_USED",
       "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE",
@@ -59,7 +70,11 @@ function openCalculationEvidence() {
   return screen.getByLabelText("Contribution calculation evidence");
 }
 
-function expectEvidenceValue(evidence: HTMLElement, label: string, value: string) {
+function expectEvidenceValue(
+  evidence: HTMLElement,
+  label: string,
+  value: string,
+) {
   const term = within(evidence).getByText(label);
   expect(term.nextElementSibling).toHaveTextContent(value);
 }
@@ -76,8 +91,14 @@ describe("PerformanceContributionContextNote", () => {
               "LOTUS_CORE_ANALYTICS_INPUTS_USED",
               "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE",
             ],
-            source_contracts: ["PortfolioTimeseriesInput:v1", "PositionTimeseriesInput:v1"],
-            available_economics: ["portfolio_market_values", "position_market_values"],
+            source_contracts: [
+              "PortfolioTimeseriesInput:v1",
+              "PositionTimeseriesInput:v1",
+            ],
+            available_economics: [
+              "portfolio_market_values",
+              "position_market_values",
+            ],
             unsupported_economics: [],
             degraded_economics: [],
             source_snapshot_count: 2,
@@ -91,20 +112,28 @@ describe("PerformanceContributionContextNote", () => {
     expect(note).toHaveTextContent("Contribution coverage is confirmed");
     expect(note).toHaveTextContent("100.00% of market value covered");
     expect(note).toHaveTextContent("Reconciles to return");
-    expect(screen.getByText("Calculation evidence").closest("details")).not.toHaveAttribute("open");
+    expect(
+      screen.getByText("Calculation evidence").closest("details"),
+    ).not.toHaveAttribute("open");
 
     const evidence = openCalculationEvidence();
     expect(within(evidence).getByText("SOURCE_BACKED")).toBeInTheDocument();
     expect(
-      within(evidence).getByText("UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE", { exact: false }),
+      within(evidence).getByText("UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE", {
+        exact: false,
+      }),
     ).toBeInTheDocument();
     expect(
-      within(evidence).getByText("PortfolioTimeseriesInput:v1, PositionTimeseriesInput:v1"),
+      within(evidence).getByText(
+        "PortfolioTimeseriesInput:v1, PositionTimeseriesInput:v1",
+      ),
     ).toBeInTheDocument();
   });
 
   it("translates source-limited economics into client-use guidance without hiding exact codes", () => {
-    render(<PerformanceContributionContextNote contribution={buildContribution()} />);
+    render(
+      <PerformanceContributionContextNote contribution={buildContribution()} />,
+    );
 
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "limited");
@@ -112,7 +141,9 @@ describe("PerformanceContributionContextNote", () => {
     expect(note).toHaveTextContent(
       "Review the stated exclusions before using the explanation with a client.",
     );
-    expect(note).toHaveTextContent("Not source-authored: income effects and tax effects.");
+    expect(note).toHaveTextContent(
+      "Not source-authored: income effects and tax effects.",
+    );
     expect(note).toHaveTextContent("98.70% of market value covered");
     expect(note).toHaveTextContent("Average-weight basis");
 
@@ -123,9 +154,71 @@ describe("PerformanceContributionContextNote", () => {
         "LOTUS_CORE_ANALYTICS_INPUTS_USED, COMPONENT_PNL_NOT_SOURCE_AUTHORED",
       ),
     ).toBeInTheDocument();
-    expect(within(evidence).getByText("income_pnl, tax_pnl")).toBeInTheDocument();
+    expect(
+      within(evidence).getByText("income_pnl, tax_pnl"),
+    ).toBeInTheDocument();
     expect(within(evidence).getByText("APPLIED")).toBeInTheDocument();
   });
+
+  it("confirms source-backed contribution while disclosing limited optional component detail", () => {
+    const contribution = buildContribution();
+    render(
+      <PerformanceContributionContextNote
+        contribution={{
+          ...contribution,
+          source_economics_evidence: {
+            ...contribution.source_economics_evidence!,
+            status: "SOURCE_BACKED",
+            component_detail_status: "LIMITED",
+            reason_codes: [
+              "LOTUS_CORE_ANALYTICS_INPUTS_USED",
+              "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE",
+              "COMPONENT_PNL_NOT_SOURCE_AUTHORED",
+            ],
+          },
+        }}
+      />,
+    );
+
+    const note = screen.getByTestId("performance-contribution-evidence");
+    expect(note).toHaveAttribute("data-tone", "confirmed");
+    expect(note).toHaveTextContent("Contribution calculation is supported");
+    expect(note).toHaveTextContent("Not source-authored:");
+    expectEvidenceValue(
+      openCalculationEvidence(),
+      "Component detail",
+      "LIMITED",
+    );
+  });
+
+  it.each(["unknown_economics", "fx_contribution"])(
+    "rejects source-backed component detail with an unsupported limitation mapping: %s",
+    (unsupportedEconomic) => {
+      const contribution = buildContribution();
+      render(
+        <PerformanceContributionContextNote
+          contribution={{
+            ...contribution,
+            source_economics_evidence: {
+              ...contribution.source_economics_evidence!,
+              status: "SOURCE_BACKED",
+              component_detail_status: "LIMITED",
+              reason_codes: [
+                "LOTUS_CORE_ANALYTICS_INPUTS_USED",
+                "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE",
+                "COMPONENT_PNL_NOT_SOURCE_AUTHORED",
+              ],
+              unsupported_economics: [unsupportedEconomic],
+            },
+          }}
+        />,
+      );
+
+      const note = screen.getByTestId("performance-contribution-evidence");
+      expect(note).toHaveAttribute("data-tone", "review");
+      expect(note).toHaveTextContent("Contribution evidence is inconsistent");
+    },
+  );
 
   it("rejects source-limited evidence when declared limitations have no reason evidence", () => {
     const contribution = buildContribution();
@@ -145,6 +238,77 @@ describe("PerformanceContributionContextNote", () => {
     expect(note).toHaveAttribute("data-tone", "review");
     expect(note).toHaveTextContent("Contribution evidence is inconsistent");
     expect(note).not.toHaveTextContent("Contribution coverage is limited");
+  });
+
+  it("rejects source-limited component exclusions reported as complete detail", () => {
+    const contribution = buildContribution();
+    render(
+      <PerformanceContributionContextNote
+        contribution={{
+          ...contribution,
+          source_economics_evidence: {
+            ...contribution.source_economics_evidence!,
+            component_detail_status: "COMPLETE",
+          },
+        }}
+      />,
+    );
+
+    const note = screen.getByTestId("performance-contribution-evidence");
+    expect(note).toHaveAttribute("data-tone", "review");
+    expect(note).toHaveTextContent("Contribution evidence is inconsistent");
+  });
+
+  it("allows complete component detail with an unrelated currency-contribution exclusion", () => {
+    const contribution = buildContribution({
+      source_economics_evidence: {
+        status: "SOURCE_LIMITED",
+        component_detail_status: "COMPLETE",
+        reason_codes: ["LOTUS_CORE_ANALYTICS_INPUTS_USED", "MISSING_FX"],
+        source_contracts: [
+          "PortfolioTimeseriesInput:v1",
+          "PositionTimeseriesInput:v1",
+        ],
+        available_economics: ["local_contribution"],
+        unsupported_economics: ["fx_contribution"],
+        degraded_economics: [],
+        source_snapshot_count: 2,
+      },
+    });
+    render(<PerformanceContributionContextNote contribution={contribution} />);
+
+    const note = screen.getByTestId("performance-contribution-evidence");
+    expect(note).toHaveAttribute("data-tone", "limited");
+    expect(note).toHaveTextContent("Contribution coverage is limited");
+  });
+
+  it("rejects degraded component availability reported as complete detail", () => {
+    const contribution = buildContribution({
+      source_economics_evidence: {
+        status: "SOURCE_LIMITED",
+        component_detail_status: "COMPLETE",
+        reason_codes: [
+          "LOTUS_CORE_ANALYTICS_INPUTS_USED",
+          "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE",
+        ],
+        source_contracts: [
+          "PortfolioTimeseriesInput:v1",
+          "PositionTimeseriesInput:v1",
+        ],
+        available_economics: [
+          "portfolio_market_values",
+          "position_market_values",
+        ],
+        unsupported_economics: [],
+        degraded_economics: ["performance_component_economics_unavailable"],
+        source_snapshot_count: 2,
+      },
+    });
+    render(<PerformanceContributionContextNote contribution={contribution} />);
+
+    const note = screen.getByTestId("performance-contribution-evidence");
+    expect(note).toHaveAttribute("data-tone", "review");
+    expect(note).toHaveTextContent("Contribution evidence is inconsistent");
   });
 
   it("does not confirm source-backed evidence when market-value coverage is absent", () => {
@@ -179,7 +343,9 @@ describe("PerformanceContributionContextNote", () => {
 
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "limited");
-    expect(note).toHaveTextContent("Contribution market-value coverage is limited");
+    expect(note).toHaveTextContent(
+      "Contribution market-value coverage is limited",
+    );
     expect(note).toHaveTextContent("82.50% of market value covered");
     expect(note).not.toHaveTextContent("Contribution coverage is confirmed");
   });
@@ -199,7 +365,11 @@ describe("PerformanceContributionContextNote", () => {
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "limited");
     expect(note).toHaveTextContent("<95.00% of market value covered");
-    expectEvidenceValue(openCalculationEvidence(), "Market-value coverage", "94.999%");
+    expectEvidenceValue(
+      openCalculationEvidence(),
+      "Market-value coverage",
+      "94.999%",
+    );
   });
 
   it("keeps source-limited evidence review-only when market-value coverage is absent", () => {
@@ -251,7 +421,9 @@ describe("PerformanceContributionContextNote", () => {
     );
 
     expect(
-      within(openCalculationEvidence()).getByText("FUTURE_SOURCE_EVIDENCE_CODE"),
+      within(openCalculationEvidence()).getByText(
+        "FUTURE_SOURCE_EVIDENCE_CODE",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -302,7 +474,11 @@ describe("PerformanceContributionContextNote", () => {
     expect(note).toHaveAttribute("data-tone", "review");
     expect(note).toHaveTextContent("Contribution evidence needs review");
     expect(note).not.toHaveTextContent("Contribution coverage is confirmed");
-    expectEvidenceValue(openCalculationEvidence(), "Source status", "source_backed");
+    expectEvidenceValue(
+      openCalculationEvidence(),
+      "Source status",
+      "source_backed",
+    );
   });
 
   it("rejects padded smoothing status evidence instead of silently canonicalizing it", () => {
@@ -347,8 +523,14 @@ describe("PerformanceContributionContextNote", () => {
 
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "review");
-    expect(note).toHaveTextContent("Contribution calculation evidence is incomplete");
-    expectEvidenceValue(openCalculationEvidence(), "Source status", "[empty value]");
+    expect(note).toHaveTextContent(
+      "Contribution calculation evidence is incomplete",
+    );
+    expectEvidenceValue(
+      openCalculationEvidence(),
+      "Source status",
+      "[empty value]",
+    );
   });
 
   it("rejects a limitation reason that does not explain the declared unsupported economics", () => {
@@ -356,8 +538,14 @@ describe("PerformanceContributionContextNote", () => {
       source_economics_evidence: {
         status: "SOURCE_LIMITED",
         reason_codes: ["LOTUS_CORE_ANALYTICS_INPUTS_USED", "MISSING_FX"],
-        source_contracts: ["PortfolioTimeseriesInput:v1", "PositionTimeseriesInput:v1"],
-        available_economics: ["portfolio_market_values", "position_market_values"],
+        source_contracts: [
+          "PortfolioTimeseriesInput:v1",
+          "PositionTimeseriesInput:v1",
+        ],
+        available_economics: [
+          "portfolio_market_values",
+          "position_market_values",
+        ],
         unsupported_economics: ["income_pnl"],
         degraded_economics: [],
         source_snapshot_count: 2,
@@ -376,7 +564,10 @@ describe("PerformanceContributionContextNote", () => {
       source_economics_evidence: {
         status: "SOURCE_LIMITED",
         reason_codes: ["LOTUS_CORE_ANALYTICS_INPUTS_USED", "MISSING_FX"],
-        source_contracts: ["PortfolioTimeseriesInput:v1", "PositionTimeseriesInput:v1"],
+        source_contracts: [
+          "PortfolioTimeseriesInput:v1",
+          "PositionTimeseriesInput:v1",
+        ],
         available_economics: ["local_contribution"],
         unsupported_economics: ["fx_contribution"],
         degraded_economics: [],
@@ -388,7 +579,9 @@ describe("PerformanceContributionContextNote", () => {
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "limited");
     expect(note).toHaveTextContent("Contribution coverage is limited");
-    expect(note).toHaveTextContent("Not source-authored: currency contribution.");
+    expect(note).toHaveTextContent(
+      "Not source-authored: currency contribution.",
+    );
   });
 
   it("rejects economics declared as both available and unsupported", () => {
@@ -396,7 +589,10 @@ describe("PerformanceContributionContextNote", () => {
       source_economics_evidence: {
         status: "SOURCE_LIMITED",
         reason_codes: ["LOTUS_CORE_ANALYTICS_INPUTS_USED", "MISSING_FX"],
-        source_contracts: ["PortfolioTimeseriesInput:v1", "PositionTimeseriesInput:v1"],
+        source_contracts: [
+          "PortfolioTimeseriesInput:v1",
+          "PositionTimeseriesInput:v1",
+        ],
         available_economics: ["local_contribution", "fx_contribution"],
         unsupported_economics: ["fx_contribution"],
         degraded_economics: [],
@@ -465,7 +661,9 @@ describe("PerformanceContributionContextNote", () => {
           available_economics: [availableEconomics],
         },
       });
-      render(<PerformanceContributionContextNote contribution={contribution} />);
+      render(
+        <PerformanceContributionContextNote contribution={contribution} />,
+      );
 
       const note = screen.getByTestId("performance-contribution-evidence");
       expect(note).toHaveAttribute("data-tone", "review");
@@ -539,8 +737,14 @@ describe("PerformanceContributionContextNote", () => {
           "LOTUS_CORE_ANALYTICS_INPUTS_USED",
           "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY",
         ],
-        source_contracts: ["PortfolioTimeseriesInput:v1", "PositionTimeseriesInput:v1"],
-        available_economics: ["portfolio_market_values", "position_market_values"],
+        source_contracts: [
+          "PortfolioTimeseriesInput:v1",
+          "PositionTimeseriesInput:v1",
+        ],
+        available_economics: [
+          "portfolio_market_values",
+          "position_market_values",
+        ],
         unsupported_economics: [],
         degraded_economics: ["upstream_snapshot_lineage_not_embedded"],
         source_snapshot_count: 0,
@@ -581,7 +785,9 @@ describe("PerformanceContributionContextNote", () => {
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "review");
     expect(note).toHaveTextContent("Contribution inputs need confirmation");
-    expect(note).not.toHaveTextContent("Contribution evidence has a methodology limitation");
+    expect(note).not.toHaveTextContent(
+      "Contribution evidence has a methodology limitation",
+    );
   });
 
   it("rejects a source-backed status that carries a limiting source reason", () => {
@@ -627,9 +833,9 @@ describe("PerformanceContributionContextNote", () => {
       />,
     );
 
-    expect(screen.getByTestId("performance-contribution-evidence")).toHaveTextContent(
-      "Contribution evidence is inconsistent",
-    );
+    expect(
+      screen.getByTestId("performance-contribution-evidence"),
+    ).toHaveTextContent("Contribution evidence is inconsistent");
   });
 
   it("requires source-backed lineage to agree with a positive snapshot count", () => {
@@ -713,7 +919,9 @@ describe("PerformanceContributionContextNote", () => {
     expect(note).toHaveAttribute("data-tone", "review");
     expect(note).toHaveTextContent("Contribution reconciliation needs review");
     expect(note).not.toHaveTextContent("Contribution coverage is confirmed");
-    const decision = screen.getByText("Contribution reconciliation needs review").parentElement;
+    const decision = screen.getByText(
+      "Contribution reconciliation needs review",
+    ).parentElement;
     expect(decision).toHaveTextContent("Calculation values do not reconcile");
     expect(decision).not.toHaveTextContent("Reconciles to return");
 
@@ -739,10 +947,14 @@ describe("PerformanceContributionContextNote", () => {
       />,
     );
 
-    expect(screen.getByTestId("performance-contribution-evidence")).toHaveTextContent(
-      "Contribution reconciliation needs review",
+    expect(
+      screen.getByTestId("performance-contribution-evidence"),
+    ).toHaveTextContent("Contribution reconciliation needs review");
+    expectEvidenceValue(
+      openCalculationEvidence(),
+      "Final contribution",
+      "Not published",
     );
-    expectEvidenceValue(openCalculationEvidence(), "Final contribution", "Not published");
   });
 
   it("rejects a changed raw contribution when smoothing was not requested", () => {
@@ -813,7 +1025,11 @@ describe("PerformanceContributionContextNote", () => {
     expect(note).toHaveAttribute("data-tone", "review");
     expect(note).toHaveTextContent("Contribution reconciliation needs review");
     expect(note).not.toHaveTextContent("Contribution coverage is confirmed");
-    expectEvidenceValue(openCalculationEvidence(), "Smoothing residual", "0.25%");
+    expectEvidenceValue(
+      openCalculationEvidence(),
+      "Smoothing residual",
+      "0.25%",
+    );
   });
 
   it("rejects source-backed evidence when the top-level contribution has a material return gap", () => {
@@ -828,9 +1044,9 @@ describe("PerformanceContributionContextNote", () => {
       />,
     );
 
-    expect(screen.getByTestId("performance-contribution-evidence")).toHaveTextContent(
-      "Contribution reconciliation needs review",
-    );
+    expect(
+      screen.getByTestId("performance-contribution-evidence"),
+    ).toHaveTextContent("Contribution reconciliation needs review");
     const evidence = openCalculationEvidence();
     expectEvidenceValue(evidence, "Portfolio contribution", "5.1%");
     expectEvidenceValue(evidence, "Portfolio TWR", "5.42%");
@@ -849,11 +1065,17 @@ describe("PerformanceContributionContextNote", () => {
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "review");
     expect(note).toHaveTextContent("Contribution coverage cannot be confirmed");
-    expect(note).toHaveTextContent("Lotus did not receive governed portfolio evidence");
+    expect(note).toHaveTextContent(
+      "Lotus did not receive governed portfolio evidence",
+    );
 
     const evidence = openCalculationEvidence();
-    expect(within(evidence).getAllByText("Not published").length).toBeGreaterThanOrEqual(3);
-    expect(within(evidence).getAllByText("None published").length).toBeGreaterThanOrEqual(4);
+    expect(
+      within(evidence).getAllByText("Not published").length,
+    ).toBeGreaterThanOrEqual(3);
+    expect(
+      within(evidence).getAllByText("None published").length,
+    ).toBeGreaterThanOrEqual(4);
   });
 
   it("does not confirm client use when source evidence exists without smoothing evidence", () => {
@@ -870,21 +1092,29 @@ describe("PerformanceContributionContextNote", () => {
 
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "review");
-    expect(note).toHaveTextContent("Contribution calculation evidence is incomplete");
+    expect(note).toHaveTextContent(
+      "Contribution calculation evidence is incomplete",
+    );
     expect(note).not.toHaveTextContent("Contribution coverage is confirmed");
-    expectEvidenceValue(openCalculationEvidence(), "Smoothing status", "Not published");
+    expectEvidenceValue(
+      openCalculationEvidence(),
+      "Smoothing status",
+      "Not published",
+    );
   });
 
   it("preserves an unfamiliar weighting basis in calculation evidence", () => {
     render(
       <PerformanceContributionContextNote
-        contribution={buildContribution({ weighting_scheme: "FUTURE_WEIGHTING_BASIS" })}
+        contribution={buildContribution({
+          weighting_scheme: "FUTURE_WEIGHTING_BASIS",
+        })}
       />,
     );
 
-    expect(screen.getByTestId("performance-contribution-evidence")).toHaveTextContent(
-      "Weighting basis published in calculation evidence",
-    );
+    expect(
+      screen.getByTestId("performance-contribution-evidence"),
+    ).toHaveTextContent("Weighting basis published in calculation evidence");
     expect(
       within(openCalculationEvidence()).getByText("FUTURE_WEIGHTING_BASIS"),
     ).toBeInTheDocument();
@@ -907,12 +1137,20 @@ describe("PerformanceContributionContextNote", () => {
 
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "limited");
-    expect(note).toHaveTextContent("Contribution evidence has a methodology limitation");
-    expect(note).toHaveTextContent("standard multi-period smoothing method could not be applied");
+    expect(note).toHaveTextContent(
+      "Contribution evidence has a methodology limitation",
+    );
+    expect(note).toHaveTextContent(
+      "standard multi-period smoothing method could not be applied",
+    );
 
     const evidence = openCalculationEvidence();
-    expect(within(evidence).getByText("INVALID_DOMAIN_FALLBACK")).toBeInTheDocument();
-    expect(within(evidence).getByText("CARINO_INVALID_DAILY_LOG_DOMAIN")).toBeInTheDocument();
+    expect(
+      within(evidence).getByText("INVALID_DOMAIN_FALLBACK"),
+    ).toBeInTheDocument();
+    expect(
+      within(evidence).getByText("CARINO_INVALID_DAILY_LOG_DOMAIN"),
+    ).toBeInTheDocument();
   });
 
   it("rejects smoothing fallback guidance when its numeric evidence is incomplete", () => {
@@ -935,8 +1173,14 @@ describe("PerformanceContributionContextNote", () => {
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "review");
     expect(note).toHaveTextContent("Contribution reconciliation needs review");
-    expect(note).not.toHaveTextContent("Contribution evidence has a methodology limitation");
-    expectEvidenceValue(openCalculationEvidence(), "Final contribution", "Not published");
+    expect(note).not.toHaveTextContent(
+      "Contribution evidence has a methodology limitation",
+    );
+    expectEvidenceValue(
+      openCalculationEvidence(),
+      "Final contribution",
+      "Not published",
+    );
   });
 
   it("rejects source-limited evidence with neither snapshots nor execution-only lineage", () => {
@@ -988,6 +1232,8 @@ describe("PerformanceContributionContextNote", () => {
     const note = screen.getByTestId("performance-contribution-evidence");
     expect(note).toHaveAttribute("data-tone", "review");
     expect(note).toHaveTextContent("Contribution evidence is inconsistent");
-    expect(note).not.toHaveTextContent("Contribution observations are unavailable");
+    expect(note).not.toHaveTextContent(
+      "Contribution observations are unavailable",
+    );
   });
 });

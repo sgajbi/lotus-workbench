@@ -25,11 +25,13 @@ import {
 import {
   assertPerformanceCalculationSanity,
   assertRiskCalculationSanity,
+  summarizePayloadSourceSupportability,
 } from "./validation/calculation-sanity.mjs";
 import {
   createBrowserValidationHelpers,
   validateAdvisoryJourneyScreens,
   validateCanonicalIdeaJourney,
+  validateCompletedCanonicalIdeaJourney,
   validateAdvisorBriefPanel,
   validateAdvisorBookPanel,
   validateBankDemoProofPanel,
@@ -86,10 +88,13 @@ const {
   canonicalStartDate,
   canonicalAsOfDate,
   ideaCandidateId,
+  ideaCandidateLifecycle,
   ideaCapacitySeedEvidencePath,
   validationProfile,
   mainlineSourceProvenancePath,
 } = resolveValidationConfig(process.argv.slice(2));
+const PERFORMANCE_CONTRIBUTION_READINESS_ATTEMPTS = 6;
+const PERFORMANCE_CONTRIBUTION_READINESS_DELAY_MS = 1_000;
 const { summaryPath, shotIndexPath } = buildSummaryPaths(outputDir);
 const canonicalContract = await loadCanonicalContractMetadata();
 const panelRegistry = await loadWorkbenchPanelRegistryMetadata();
@@ -890,7 +895,7 @@ async function run() {
   }
 
   const performanceSummaryUrl = `${gatewayBaseUrl}/api/v1/workbench/${portfolioId}/performance/summary?${canonicalPerformanceQuery()}`;
-  const performanceSummary = await fetchJsonUntil(
+  let performanceSummary = await fetchJsonUntil(
     summary,
     performanceSummaryUrl,
     "Performance summary evidence readiness",
@@ -923,10 +928,30 @@ async function run() {
         payload?.capabilities?.contribution_detail?.state ?? "missing"
       }; rows=${Array.isArray(rows) ? rows.length : "non-array"}`;
     },
+    {
+      attempts: PERFORMANCE_CONTRIBUTION_READINESS_ATTEMPTS,
+      delayMs: PERFORMANCE_CONTRIBUTION_READINESS_DELAY_MS,
+    },
   );
   if (!performanceDetails?.portfolio_id) {
     throw new Error("Performance details returned no portfolio payload.");
   }
+  performanceSummary = await fetchJsonUntil(
+    summary,
+    performanceSummaryUrl,
+    "Performance summary source readiness",
+    timeoutMs,
+    (payload) => {
+      const supportability = summarizePayloadSourceSupportability(payload);
+      return supportability.state === "ready"
+        ? true
+        : `source supportability is ${supportability.state}`;
+    },
+    {
+      attempts: PERFORMANCE_CONTRIBUTION_READINESS_ATTEMPTS,
+      delayMs: PERFORMANCE_CONTRIBUTION_READINESS_DELAY_MS,
+    },
+  );
 
   const riskSummary = await fetchJson(
     summary,
@@ -2165,6 +2190,7 @@ async function run() {
       workbenchBaseUrl,
       portfolioId,
       canonicalIdeaCandidateId: ideaCandidateId,
+      canonicalIdeaCandidateLifecycle: ideaCandidateLifecycle,
       portfolioWorkspace,
       timeoutMs,
       screenshotAdvisoryJourney: browserHelpers.screenshotAdvisoryJourney,
@@ -2249,7 +2275,11 @@ async function run() {
       timeoutMs,
       screenshotRegisteredPanel: browserHelpers.screenshotRegisteredPanel,
     });
-    await validateCanonicalIdeaJourney(page, preparedIdeaJourney);
+    if (preparedIdeaJourney.mutationsAllowed) {
+      await validateCanonicalIdeaJourney(page, preparedIdeaJourney);
+    } else {
+      await validateCompletedCanonicalIdeaJourney(page, preparedIdeaJourney);
+    }
   } finally {
     await browser.close();
   }

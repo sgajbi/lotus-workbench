@@ -47,6 +47,9 @@ export function validateIdeaCapacitySeedManifest(
   const serialized = JSON.stringify(payload);
   for (const forbidden of [
     "PB_SG_GLOBAL_BAL_001",
+    "CLIENT_SCOPE_PB_SG_GLOBAL_BAL_001",
+    "tenant-sg",
+    "BOOK_SG_BALANCED_DPM",
     "client-001",
     "tenant-private-bank-sg",
     "book-advisor-001",

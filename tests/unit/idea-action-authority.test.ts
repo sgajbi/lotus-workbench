@@ -233,6 +233,48 @@ describe("Idea action authority", () => {
       buildIdeaConversionRequestAuthority(
         { ...candidateAuthority, expectedEvidenceVersion: 4 },
         review,
+        presentationAuthority,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("requires a current exact presentation receipt before conversion", () => {
+    const review = {
+      ...candidateAuthority,
+      reviewId: "review-001",
+      presentationReceiptId: "receipt-prior-snapshot",
+    };
+
+    expect(
+      buildIdeaConversionRequestAuthority(
+        candidateAuthority,
+        review,
+        undefined,
+      ),
+    ).toBeUndefined();
+    expect(
+      buildIdeaConversionRequestAuthority(candidateAuthority, review, {
+        ...presentationAuthority,
+        candidateEvidenceVersion: 4,
+      }),
+    ).toBeUndefined();
+    expect(
+      buildIdeaConversionRequestAuthority(
+        candidateAuthority,
+        review,
+        presentationAuthority,
+      ),
+    ).toMatchObject({ expectedReviewId: "review-001" });
+
+    const nonAuthoritative = {
+      ...candidateAuthority,
+      expectedSourceCutPosture: "unknown" as const,
+    };
+    expect(
+      buildIdeaConversionRequestAuthority(
+        nonAuthoritative,
+        { ...review, expectedSourceCutPosture: "unknown" },
+        { ...presentationAuthority, sourceCutPosture: "unknown" },
       ),
     ).toBeUndefined();
   });

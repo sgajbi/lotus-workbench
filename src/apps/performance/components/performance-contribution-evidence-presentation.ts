@@ -34,6 +34,7 @@ export type ContributionEvidencePresentation = {
 type ContributionCoveragePosture = "adequate" | "limited" | "unconfirmed";
 
 const SOURCE_STATUSES = ["SOURCE_BACKED", "SOURCE_LIMITED", "CALLER_SUPPLIED"] as const;
+const COMPONENT_DETAIL_STATUSES = ["COMPLETE", "LIMITED"] as const;
 const SMOOTHING_STATUSES = [
   "APPLIED",
   "NOT_REQUESTED",
@@ -69,6 +70,9 @@ export function getContributionEvidencePresentation(
   const sourceEvidence = contribution.source_economics_evidence;
   const smoothingEvidence = contribution.smoothing_evidence;
   const sourceStatus = getPublishedEvidenceValue(sourceEvidence?.status);
+  const componentDetailStatus = getPublishedEvidenceValue(
+    sourceEvidence?.component_detail_status,
+  );
   const smoothingStatus = getPublishedEvidenceValue(smoothingEvidence?.status);
   const hasIncompleteEvidence = sourceStatus === null || smoothingStatus === null;
   const unknownSourceCodes = getUnknownValues(sourceEvidence?.reason_codes, SOURCE_REASON_CODES);
@@ -78,6 +82,8 @@ export function getContributionEvidencePresentation(
   );
   const hasUnknownStatus =
     (sourceStatus !== null && !includesEvidenceValue(SOURCE_STATUSES, sourceStatus)) ||
+    (componentDetailStatus !== null &&
+      !includesEvidenceValue(COMPONENT_DETAIL_STATUSES, componentDetailStatus)) ||
     (smoothingStatus !== null && !includesEvidenceValue(SMOOTHING_STATUSES, smoothingStatus));
   const hasUnknownEvidence =
     hasUnknownStatus || unknownSourceCodes.length > 0 || unknownSmoothingCodes.length > 0;
@@ -103,9 +109,8 @@ export function getContributionEvidencePresentation(
     hasUnknownEvidence,
     evidenceInconsistency,
     coveragePosture: getContributionCoveragePosture(contribution.coverage_mv_pct),
-    hasDeclaredSourceLimitations: Boolean(
-      sourceEvidence?.unsupported_economics.length || sourceEvidence?.degraded_economics.length,
-    ),
+    hasBlockingSourceLimitations: Boolean(sourceEvidence?.degraded_economics.length),
+    componentDetailStatus,
   });
 
   return {
@@ -124,7 +129,8 @@ function getContributionEvidenceDecision({
   hasUnknownEvidence,
   evidenceInconsistency,
   coveragePosture,
-  hasDeclaredSourceLimitations,
+  hasBlockingSourceLimitations,
+  componentDetailStatus,
 }: {
   hasSourceEvidence: boolean;
   hasIncompleteEvidence: boolean;
@@ -133,7 +139,8 @@ function getContributionEvidenceDecision({
   hasUnknownEvidence: boolean;
   evidenceInconsistency: ContributionEvidenceInconsistency | null;
   coveragePosture: ContributionCoveragePosture;
-  hasDeclaredSourceLimitations: boolean;
+  hasBlockingSourceLimitations: boolean;
+  componentDetailStatus: string | null;
 }): Pick<ContributionEvidencePresentation, "tone" | "title" | "body"> {
   if (!hasSourceEvidence) {
     return {
@@ -215,7 +222,18 @@ function getContributionEvidenceDecision({
       body: "The source economics are confirmed, but the calculation covers less than 95% of portfolio market value. Treat the driver ranking as partial until broader coverage is available.",
     };
   }
-  if (sourceStatus === "SOURCE_BACKED" && !hasDeclaredSourceLimitations) {
+  if (
+    sourceStatus === "SOURCE_BACKED" &&
+    componentDetailStatus === "LIMITED" &&
+    !hasBlockingSourceLimitations
+  ) {
+    return {
+      tone: "confirmed",
+      title: "Contribution calculation is supported",
+      body: "The driver ranking uses the portfolio valuations, cash flows and classifications received for this period. Some profit-and-loss breakdowns are unavailable and listed in calculation evidence.",
+    };
+  }
+  if (sourceStatus === "SOURCE_BACKED" && !hasBlockingSourceLimitations) {
     return {
       tone: "confirmed",
       title: "Contribution coverage is confirmed",
@@ -339,6 +357,10 @@ function buildContributionEvidenceItems(
 
   return [
     { label: "Source status", value: formatEvidenceScalar(sourceEvidence?.status) },
+    {
+      label: "Component detail",
+      value: formatEvidenceScalar(sourceEvidence?.component_detail_status),
+    },
     { label: "Source reason codes", value: formatEvidenceList(sourceEvidence?.reason_codes) },
     { label: "Source contracts", value: formatEvidenceList(sourceEvidence?.source_contracts) },
     { label: "Available economics", value: formatEvidenceList(sourceEvidence?.available_economics) },

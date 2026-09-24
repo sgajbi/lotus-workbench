@@ -19,11 +19,15 @@ New-Item -ItemType Directory -Path $fixtureRoot | Out-Null
 
 $portfolioId = "PB_SG_GLOBAL_BAL_001"
 $asOfDate = "2026-04-10"
-$candidateId = "idea_high_cash_0123456789abcdef"
+$candidateId = "idea_low_income_0123456789abcdef"
 $runId = "canonical-front-office-contract-run"
 $queueEvaluatedAtUtc = "2026-09-15T00:00:03.000Z"
 $script:versionReadCount = 0
 $script:queueReadCount = 0
+$script:detailReadCount = 0
+$script:detailLifecycleStatus = "ready_for_review"
+$script:detailSourceCutPosture = "coherent"
+$script:queueSourceCutPosture = "coherent"
 $script:observedQueueHeaders = $null
 
 $versionReader = {
@@ -44,21 +48,45 @@ $queueReader = {
   }
   return @{
     evaluatedAtUtc = $queueEvaluatedAtUtc
-    items = @(@{ candidate = @{ candidateId = $candidateId } })
+    items = @(@{ candidate = @{
+          candidateId = $candidateId
+          lifecycleStatus = "ready_for_review"
+          sourceCutPosture = $script:queueSourceCutPosture
+        } })
+  }
+}
+$detailReader = {
+  param([string]$Uri, [hashtable]$Headers)
+  $script:detailReadCount++
+  if ($Uri -notmatch [regex]::Escape("/api/v1/ideas/candidates/$candidateId")) {
+    throw "Detail reader did not receive the expected candidate identity."
+  }
+  return @{
+    candidate = @{
+      candidateId = $candidateId
+      lifecycleStatus = $script:detailLifecycleStatus
+    }
+    evidence = @{
+      sourceCutPosture = $script:detailSourceCutPosture
+    }
   }
 }
 
 function New-CandidateEvidence {
-  param([hashtable]$AccessScope)
+  param(
+    [hashtable]$AccessScope,
+    [string]$LifecycleStatus = "ready_for_review"
+  )
 
   return [ordered]@{
-    schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v3"
+    schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v4"
     runId = $runId
     candidateId = $candidateId
     portfolioId = $portfolioId
     accessScope = $AccessScope
     asOfDate = $asOfDate
-    lifecycleStatus = "ready_for_review"
+    lifecycleStatus = $LifecycleStatus
+    sourceCutPosture = "coherent"
     sourceObservedAtUtc = "2026-09-15T00:00:00.000Z"
     evaluatedAtUtc = "2026-09-15T00:00:01.000Z"
     lifecycleObservedAtUtc = "2026-09-15T00:00:02.000Z"
@@ -99,6 +127,8 @@ function Assert-EvidencePathRefusedBeforeIo {
       -GatewayBaseUrl "http://gateway.dev.lotus" `
       -PortfolioId $portfolioId `
       -ExpectedCandidateId $evidence.candidateId `
+      -ExpectedLifecycleStatus $evidence.lifecycleStatus `
+      -ExpectedSourceCutPosture $evidence.sourceCutPosture `
       -EvaluatedAtUtc $evidence.queueEvaluatedAtUtc `
       -AccessScope $evidence.accessScope `
       -QueueReader $queueReader
@@ -132,10 +162,10 @@ function Assert-ScopeRefusedBeforeIo {
 
 try {
   $validScope = @{
-    tenantId = "tenant-private-bank-sg"
-    bookId = "book-advisor-001"
+    tenantId = "tenant-sg"
+    bookId = "BOOK_SG_BALANCED_DPM"
     portfolioId = $portfolioId
-    clientId = "client-001"
+    clientId = "CLIENT_SCOPE_PB_SG_GLOBAL_BAL_001"
   }
   $validPath = Write-CandidateEvidence -Name "valid" -AccessScope $validScope
   $evidence = Read-IdeaCandidateSeedEvidence `
@@ -147,12 +177,132 @@ try {
     -GatewayBaseUrl "http://gateway.dev.lotus" `
     -PortfolioId $portfolioId `
     -ExpectedCandidateId $evidence.candidateId `
+    -ExpectedLifecycleStatus $evidence.lifecycleStatus `
+    -ExpectedSourceCutPosture $evidence.sourceCutPosture `
     -EvaluatedAtUtc $evidence.queueEvaluatedAtUtc `
     -AccessScope $evidence.accessScope `
-    -QueueReader $queueReader
+    -QueueReader $queueReader `
+    -DetailReader $detailReader
 
-  if ($script:versionReadCount -ne 1 -or $script:queueReadCount -ne 1) {
-    throw "Valid evidence did not perform exactly one version read and one queue read."
+  if (
+    $script:versionReadCount -ne 1 -or
+    $script:queueReadCount -ne 1 -or
+    $script:detailReadCount -ne 1
+  ) {
+    throw "Valid evidence did not perform exactly one version, queue, and detail read."
+  }
+  foreach ($lifecycleStatus in @("reviewed_by_advisor", "approved")) {
+    $participatingPath = Join-Path $fixtureRoot "$lifecycleStatus.json"
+    New-CandidateEvidence `
+      -AccessScope $validScope `
+      -LifecycleStatus $lifecycleStatus |
+      ConvertTo-Json -Depth 6 |
+      Set-Content -LiteralPath $participatingPath -Encoding utf8
+    $participatingEvidence = Read-IdeaCandidateSeedEvidence `
+      -Path $participatingPath `
+      -PortfolioId $portfolioId `
+      -AsOfDate $asOfDate `
+      -IdeaVersionReader $versionReader
+    if ([string]$participatingEvidence.lifecycleStatus -ne $lifecycleStatus) {
+      throw "Valid lifecycle '$lifecycleStatus' was not preserved in candidate evidence."
+    }
+  }
+  try {
+    $script:detailLifecycleStatus = "approved"
+    Assert-IdeaQueueSeed `
+      -GatewayBaseUrl "http://gateway.dev.lotus" `
+      -PortfolioId $portfolioId `
+      -ExpectedCandidateId $candidateId `
+      -ExpectedLifecycleStatus "approved" `
+      -ExpectedSourceCutPosture "coherent" `
+      -EvaluatedAtUtc $queueEvaluatedAtUtc `
+      -AccessScope ([pscustomobject]$validScope) `
+      -QueueReader $queueReader `
+      -DetailReader $detailReader
+    throw "Mismatched queue lifecycle unexpectedly passed canonical evidence validation."
+  } catch {
+    if ($_.Exception.Message -notmatch "lifecycle does not match current-run evidence") {
+      throw
+    }
+  }
+  $approvedAbsentQueueReader = {
+    param([string]$Uri, [hashtable]$Headers)
+    return @{ evaluatedAtUtc = $queueEvaluatedAtUtc; items = @() }
+  }
+  Assert-IdeaQueueSeed `
+    -GatewayBaseUrl "http://gateway.dev.lotus" `
+    -PortfolioId $portfolioId `
+    -ExpectedCandidateId $candidateId `
+    -ExpectedLifecycleStatus "approved" `
+    -ExpectedSourceCutPosture "coherent" `
+    -EvaluatedAtUtc $queueEvaluatedAtUtc `
+    -AccessScope ([pscustomobject]$validScope) `
+    -QueueReader $approvedAbsentQueueReader `
+    -DetailReader $detailReader
+  $script:detailLifecycleStatus = "ready_for_review"
+  $missingLifecycleQueueReader = {
+    param([string]$Uri, [hashtable]$Headers)
+    return @{
+      evaluatedAtUtc = $queueEvaluatedAtUtc
+      items = @(@{ candidate = @{ candidateId = $candidateId } })
+    }
+  }
+  try {
+    Assert-IdeaQueueSeed `
+      -GatewayBaseUrl "http://gateway.dev.lotus" `
+      -PortfolioId $portfolioId `
+      -ExpectedCandidateId $candidateId `
+      -ExpectedLifecycleStatus "ready_for_review" `
+      -ExpectedSourceCutPosture "coherent" `
+      -EvaluatedAtUtc $queueEvaluatedAtUtc `
+      -AccessScope ([pscustomobject]$validScope) `
+      -QueueReader $missingLifecycleQueueReader `
+      -DetailReader $detailReader
+    throw "Queue item without lifecycle unexpectedly passed canonical evidence validation."
+  } catch {
+    if ($_.Exception.Message -notmatch "lifecycle does not match current-run evidence") {
+      throw
+    }
+  }
+  try {
+    $script:detailSourceCutPosture = "mixed"
+    Assert-IdeaQueueSeed `
+      -GatewayBaseUrl "http://gateway.dev.lotus" `
+      -PortfolioId $portfolioId `
+      -ExpectedCandidateId $candidateId `
+      -ExpectedLifecycleStatus "ready_for_review" `
+      -ExpectedSourceCutPosture "coherent" `
+      -EvaluatedAtUtc $queueEvaluatedAtUtc `
+      -AccessScope ([pscustomobject]$validScope) `
+      -QueueReader $queueReader `
+      -DetailReader $detailReader
+    throw "Degraded live detail source cut unexpectedly passed canonical evidence validation."
+  } catch {
+    if ($_.Exception.Message -notmatch "lifecycle and source-cut evidence") {
+      throw
+    }
+  } finally {
+    $script:detailSourceCutPosture = "coherent"
+  }
+  try {
+    $script:queueSourceCutPosture = "partial"
+    Assert-IdeaQueueSeed `
+      -GatewayBaseUrl "http://gateway.dev.lotus" `
+      -PortfolioId $portfolioId `
+      -ExpectedCandidateId $candidateId `
+      -ExpectedLifecycleStatus "ready_for_review" `
+      -ExpectedSourceCutPosture "coherent" `
+      -EvaluatedAtUtc $queueEvaluatedAtUtc `
+      -AccessScope ([pscustomobject]$validScope) `
+      -QueueReader $queueReader `
+      -DetailReader $detailReader
+    throw "Degraded live queue source cut unexpectedly passed canonical evidence validation."
+  } catch {
+    if ($_.Exception.Message -notmatch "review queue source cut does not match") {
+      throw
+    }
+  } finally {
+    $script:queueSourceCutPosture = "coherent"
   }
   $expectedHeaders = @{
     "X-Caller-Tenant-Ids" = $validScope.tenantId
@@ -183,6 +333,20 @@ try {
       clientId = $validScope.clientId
     } `
     -ExpectedMessage "mismatched admitted portfolio scope"
+
+  $nonAuthoritativeSourcePath = Write-CandidateEvidence `
+    -Name "non-authoritative-source-cut" `
+    -AccessScope $validScope
+  $nonAuthoritativeSourceEvidence = Get-Content -LiteralPath $nonAuthoritativeSourcePath -Raw |
+    ConvertFrom-Json
+  $nonAuthoritativeSourceEvidence.sourceCutPosture = "unknown"
+  $nonAuthoritativeSourceEvidence |
+    ConvertTo-Json -Depth 6 |
+    Set-Content -LiteralPath $nonAuthoritativeSourcePath -Encoding utf8
+  Assert-EvidencePathRefusedBeforeIo `
+    -Case "non-authoritative-source-cut" `
+    -Path $nonAuthoritativeSourcePath `
+    -ExpectedMessage "no authoritative Core source cut"
 
   $invalidTimestampPath = Write-CandidateEvidence `
     -Name "noncanonical-timestamp" `
@@ -217,6 +381,11 @@ try {
     invalidCases = @(
       "missing-client",
       "mismatched-portfolio",
+      "non-authoritative-source-cut",
+      "mismatched-queue-lifecycle",
+      "missing-queue-lifecycle",
+      "degraded-detail-source-cut",
+      "degraded-queue-source-cut",
       "noncanonical-timestamp",
       "nested-timestamp-decoy"
     )

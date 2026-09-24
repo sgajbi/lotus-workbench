@@ -26,7 +26,7 @@ describe("live validation contract modules", () => {
         "--timeout-ms",
         "45000",
         "--idea-candidate-id",
-        "idea_high_cash_ef02ad8793485081",
+        "idea_low_income_ef02ad8793485081",
       ],
       "C:\\lotus-workbench"
     );
@@ -37,7 +37,8 @@ describe("live validation contract modules", () => {
     expect(config.gatewayBaseUrl).toBe("http://gateway.dev.lotus");
     expect(config.ideaBaseUrl).toBe("http://127.0.0.1:8330");
     expect(config.timeoutMs).toBe(45000);
-    expect(config.ideaCandidateId).toBe("idea_high_cash_ef02ad8793485081");
+    expect(config.ideaCandidateId).toBe("idea_low_income_ef02ad8793485081");
+    expect(config.ideaCandidateLifecycle).toBe("ready_for_review");
     expect(config.validationProfile).toBe("full");
     expect(config.outputDir).toContain("output");
     expect(config.outputDir).toContain("live-canonical");
@@ -45,6 +46,21 @@ describe("live validation contract modules", () => {
       "idea-capacity-seed-evidence.json",
     );
     expect(config.mainlineSourceProvenancePath).toBeNull();
+  });
+
+  it("accepts only governed Idea restart lifecycle states", () => {
+    expect(
+      resolveValidationConfig([
+        "--idea-candidate-lifecycle",
+        "approved",
+      ]).ideaCandidateLifecycle,
+    ).toBe("approved");
+    expect(() =>
+      resolveValidationConfig([
+        "--idea-candidate-lifecycle",
+        "generated",
+      ]),
+    ).toThrow("Unsupported canonical Idea candidate lifecycle");
   });
 
   it("requires an explicit supported demo profile and records its non-proof boundary", async () => {

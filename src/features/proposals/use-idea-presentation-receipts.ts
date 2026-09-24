@@ -21,7 +21,8 @@ import {
 import type { AdvisorIdeaReviewQueueData } from "./types";
 
 const VISIBILITY_THRESHOLD = 0.5;
-const MARKER_SELECTOR = "[data-idea-presentation-candidate]";
+const INITIAL_MARKER_ATTRIBUTE = "data-idea-presentation-candidate";
+const MARKER_SELECTOR = `[${INITIAL_MARKER_ATTRIBUTE}]`;
 
 function subscribeToStaticBrowserCapability() {
   return () => undefined;
@@ -37,6 +38,7 @@ function getServerIntersectionObserverSupport() {
 
 type ReceiptTransaction = {
   candidateId: string;
+  completion?: Promise<void>;
   evidencePacketId: string;
   idempotencyKey: string;
   request: IdeaPresentationReceiptDraft;
@@ -96,8 +98,9 @@ export function useIdeaPresentationReceipts({
   const snapshotKey = useMemo(
     () =>
       JSON.stringify([
-        queue?.evaluatedAtUtc,
+        portfolioId,
         queue?.policyVersion,
+        queue?.evaluatedAtUtc,
         (queue?.items ?? []).map((item) => [
           item.rank,
           item.candidate?.candidateId,
@@ -109,7 +112,7 @@ export function useIdeaPresentationReceipts({
           item.candidate?.sourceCutPosture,
         ]),
       ]),
-    [queue],
+    [portfolioId, queue],
   );
   const activeSnapshotKey = useRef(snapshotKey);
   const [summary, setSummary] = useState<
@@ -191,6 +194,13 @@ export function useIdeaPresentationReceipts({
           !draftingCandidates.current.has(candidateId),
       );
       if (pendingCandidateIds.length === 0) {
+        await Promise.all(
+          visibleCandidateIds.map(
+            (candidateId) =>
+              transactions.current.get(candidateId)?.completion ??
+              Promise.resolve(),
+          ),
+        );
         return;
       }
       for (const candidateId of pendingCandidateIds) {
@@ -227,7 +237,7 @@ export function useIdeaPresentationReceipts({
       if (observationGeneration.current !== generation) {
         return;
       }
-      const newTransactions = drafts
+      const newTransactions: ReceiptTransaction[] = drafts
         .filter(({ candidateId }) => pendingCandidateIds.includes(candidateId))
         .map(({ candidateId, request }) => ({
           candidateId,
@@ -242,7 +252,13 @@ export function useIdeaPresentationReceipts({
         transactions.current.set(transaction.candidateId, transaction);
       }
       refreshSummary();
-      await Promise.all(newTransactions.map(submit));
+      await Promise.all(
+        newTransactions.map((transaction) => {
+          const completion = submit(transaction);
+          transaction.completion = completion;
+          return completion;
+        }),
+      );
     },
     [refreshSummary, snapshotKey, sources, submit],
   );
@@ -283,9 +299,12 @@ export function useIdeaPresentationReceipts({
       const visibleCandidateIds = [
         ...new Set(
           markers
-            .map((marker) =>
-              marker.getAttribute("data-idea-presentation-candidate"),
-            )
+            .map((marker) => {
+              const candidateId = marker.getAttribute(
+                INITIAL_MARKER_ATTRIBUTE,
+              );
+              return candidateId || null;
+            })
             .filter((candidateId): candidateId is string =>
               Boolean(candidateId),
             ),
@@ -374,6 +393,7 @@ export function useIdeaPresentationReceipts({
     intersectionObserverSupported,
     queue,
     snapshotKey,
+    sources,
   ]);
 
   const retryFailed = useCallback(async () => {
@@ -384,7 +404,13 @@ export function useIdeaPresentationReceipts({
       transaction.status = "pending";
     }
     refreshSummary();
-    await Promise.all(failed.map(submit));
+    await Promise.all(
+      failed.map((transaction) => {
+        const completion = submit(transaction);
+        transaction.completion = completion;
+        return completion;
+      }),
+    );
   }, [refreshSummary, submit]);
 
   const currentSummary =

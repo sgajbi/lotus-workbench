@@ -16,6 +16,7 @@ replace source-service recovery procedures or turn diagnostic screenshots into r
 | Build fails after some canonical containers start | Keep the failed receipt and inspect the active reservation; retry only under the same unchanged source/holder or use governed teardown before a new lease | Repeat preflight must admit exact owned containers and reject foreign project/checkout labels; a partial stack is not demo-ready |
 | Core `/version` or OCI revision says `unknown` after a canonical rebuild | Inspect the [exact-source Core build and image check](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md#canonical-local-prerequisites) and rerun under the same governed reservation after source repair | A clean Git checkout alone does not qualify the built image; the launcher fails before seeding on metadata mismatch |
 | Proposal creation reports `PROPOSAL_STATEFUL_CONTEXT_RESOLUTION_UNAVAILABLE` | Compare Advise's `LOTUS_ADVISE_TENANT_ID` with the Platform contract's `portfolio.source_tenant_id`; rebuild under a fresh reservation after source repair | Advise and Core correlation plus a successful supported proposal request and Workbench presentation; hostname readiness is insufficient |
+| Advisor Opportunities is empty after a prior rehearsal approved its candidate | Under the same active reservation, run the shipped `scripts/live/Stop-LotusFrontOfficeCanonical.ps1` entry point with `-ProjectsRoot`, `-RemoveVolumes`, and `-KeepReservation`, then rerun the `client-demo` profile | A fresh, source-backed review candidate and passing queue/UI proof; completed candidates must not be made pending again |
 
 ## Important operational checks
 
@@ -55,6 +56,12 @@ npm run live:validate
 npm run live:evidence
 npm run live:stack:down
 ```
+
+The normal teardown preserves source databases. Invoke the shipped PowerShell teardown entry point
+directly with `-RemoveVolumes -KeepReservation` only when a clean canonical fixture is intentional,
+such as resetting an already approved demo candidate before a rehearsal. It removes admitted local
+Docker fixture data, so it is not a replay or durability test and must remain inside the same
+governed reservation.
 
 The canonical startup script defaults `lotus-ai` to `.env.example` for deterministic
 provider-disabled proof, even if a local `lotus-ai/.env` asks for a live or local provider. Pass

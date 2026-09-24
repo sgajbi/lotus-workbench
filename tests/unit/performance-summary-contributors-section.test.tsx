@@ -105,6 +105,7 @@ describe("PerformanceSummaryContributorsSection", () => {
       "Contribution calculation evidence"
     );
     expect(within(calculationEvidence).getByText("SOURCE_LIMITED")).toBeInTheDocument();
+    expect(within(calculationEvidence).getByText("LIMITED")).toBeInTheDocument();
     expect(within(calculationEvidence).getByText("APPLIED")).toBeInTheDocument();
     expect(within(calculationEvidence).getByText(
       "LOTUS_CORE_ANALYTICS_INPUTS_USED, COMPONENT_PNL_NOT_SOURCE_AUTHORED, UNSUPPORTED_SOURCE_CASH_FLOW_TYPES_PRESENT"

@@ -1,5 +1,11 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -28,14 +34,42 @@ type MockGridColumn = {
   hide?: boolean;
 };
 
+const gridApiMock = vi.hoisted(() => ({
+  ensureNodeVisible: vi.fn(),
+  getDisplayedRowAtIndex: vi.fn(),
+  getDisplayedRowCount: vi.fn(),
+  getRowNode: vi.fn(),
+  setGridAriaProperty: vi.fn(),
+}));
+
 vi.mock("ag-grid-react", () => ({
   AgGridReact: ({
     rowData = [],
     columnDefs = [],
+    onGridReady,
+    quickFilterText = "",
   }: {
     rowData?: MockGridRow[];
     columnDefs?: MockGridColumn[];
+    onGridReady?: (event: { api: typeof gridApiMock }) => void;
+    quickFilterText?: string;
   }) => {
+    const normalizedFilter = quickFilterText.trim().toLowerCase();
+    const displayedRows = normalizedFilter
+      ? rowData.filter((row) =>
+          JSON.stringify(row).toLowerCase().includes(normalizedFilter),
+        )
+      : rowData;
+    gridApiMock.getRowNode.mockImplementation((candidateId: string) => {
+      const data = rowData.find((row) => row.candidateId === candidateId);
+      return data ? { data, id: candidateId } : undefined;
+    });
+    gridApiMock.getDisplayedRowCount.mockReturnValue(displayedRows.length);
+    gridApiMock.getDisplayedRowAtIndex.mockImplementation((index: number) => {
+      const data = displayedRows[index];
+      return data ? { data, id: data.candidateId } : undefined;
+    });
+    onGridReady?.({ api: gridApiMock });
     const visibleColumns = columnDefs.filter((column) => !column.hide);
     return (
       <div role="grid" aria-label="Idea candidate review queue">
@@ -46,7 +80,7 @@ vi.mock("ag-grid-react", () => ({
             </div>
           ))}
         </div>
-        {rowData.map((row) => (
+        {displayedRows.map((row) => (
           <div role="row" key={row.candidateId}>
             {visibleColumns.map((column) => {
               const value = column.field ? row[column.field] : undefined;
@@ -77,57 +111,65 @@ function reviewContext(portfolioId: string): WorkspaceReviewContext {
   };
 }
 
-const getAdvisorIdeaReviewQueueMock = vi.fn(async (filters?: {
-  evaluatedAtUtc?: string;
-}) => ({
-  policyVersion: "idea-deterministic-ranking-v1",
-  evaluatedAtUtc: filters?.evaluatedAtUtc ?? "2026-06-21T10:10:00Z",
-  durableStorageBacked: true,
-  supportedFeaturePromoted: false,
-  exclusions: [],
-  items: [
-    {
-      rank: 1,
-      score: "82",
-      priorityBucket: "high",
-      reasonCodes: ["high_cash_ratio", "review_required"],
-      candidate: {
-        candidateId: "idea_high_cash_001",
-        evidencePacketId: "evidence_high_cash_001",
+const getAdvisorIdeaReviewQueueMock = vi.fn(
+  async (filters?: { evaluatedAtUtc?: string }) => ({
+    policyVersion: "idea-deterministic-ranking-v1",
+    evaluatedAtUtc: filters?.evaluatedAtUtc ?? "2026-06-21T10:10:00Z",
+    durableStorageBacked: true,
+    supportedFeaturePromoted: false,
+    exclusions: [],
+    items: [
+      {
+        rank: 1,
+        score: "82",
+        priorityBucket: "high",
+        reasonCodes: ["high_cash_ratio", "review_required"],
+        candidate: {
+          candidateId: "idea_high_cash_001",
+          evidencePacketId: "evidence_high_cash_001",
+          materialVersion: 1,
+          evidenceVersion: 1,
+          scorePolicyVersion: "idle-liquidity-v1",
+          sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+          sourceCutPosture: "coherent",
+          family: "high_cash",
+          reviewPosture: "advisor_review_required",
+          score: "82",
+          sourceSignalIds: ["signal_high_cash_001"],
+        },
+      },
+    ],
+  }),
+);
+function candidateDetail(reviewDecisions: Array<Record<string, unknown>> = []) {
+  return {
+    candidate: {
+      candidateId: "idea_high_cash_001",
+      identity: {
         materialVersion: 1,
         evidenceVersion: 1,
-        scorePolicyVersion: "idle-liquidity-v1",
-        sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
-        sourceCutPosture: "coherent",
-        family: "high_cash",
-        reviewPosture: "advisor_review_required",
-        score: "82",
-        sourceSignalIds: ["signal_high_cash_001"],
       },
+      family: "high_cash",
+      lifecycleStatus: "generated",
+      reviewPosture: "advisor_review_required",
     },
-  ],
-}));
-const getAdvisorIdeaCandidateDetailMock = vi.fn(async (_filters?: unknown) => ({
-  candidate: {
-    candidateId: "idea_high_cash_001",
-    materialVersion: 1,
-    evidenceVersion: 1,
-    family: "high_cash",
-    lifecycleStatus: "generated",
-    reviewPosture: "advisor_review_required",
-  },
-  evidence: {
-    evidencePacketId: "evidence_high_cash_001",
-    evidenceContentHash: `sha256:${"c".repeat(64)}`,
-    sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
-    sourceCutPosture: "coherent",
-    supportability: "ready",
-    sourceRefs: [{ productId: "lotus-core:PortfolioStateSnapshot:v1" }],
-  },
-  auditSummary: { eventCount: 1 },
-  durableStorageBacked: true,
-  supportedFeaturePromoted: false,
-}));
+    evidence: {
+      evidencePacketId: "evidence_high_cash_001",
+      evidenceContentHash: `sha256:${"c".repeat(64)}`,
+      sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+      sourceCutPosture: "coherent",
+      supportability: "ready",
+      sourceRefs: [{ productId: "lotus-core:PortfolioStateSnapshot:v1" }],
+    },
+    auditSummary: { eventCount: 1 },
+    durableStorageBacked: true,
+    supportedFeaturePromoted: false,
+    reviewDecisions,
+  };
+}
+const getAdvisorIdeaCandidateDetailMock = vi.fn(async (_filters?: unknown) =>
+  candidateDetail(),
+);
 const recordAdvisorIdeaReviewActionMock = vi.fn(
   async (input?: ReviewActionInput) => ({
     reviewDecision: {
@@ -184,13 +226,16 @@ const recordAdvisorIdeaPresentationReceiptMock = vi.fn(
     durableStorageBacked: true,
   }),
 );
-
 vi.mock("../../src/features/proposals/api", () => ({
   getAdvisorIdeaCandidateDetail: (filters: unknown) =>
     getAdvisorIdeaCandidateDetailMock(filters),
-  getAdvisorIdeaReviewQueue: (filters: {
-    evaluatedAtUtc?: string;
-  } | undefined) => getAdvisorIdeaReviewQueueMock(filters),
+  getAdvisorIdeaReviewQueue: (
+    filters:
+      | {
+          evaluatedAtUtc?: string;
+        }
+      | undefined,
+  ) => getAdvisorIdeaReviewQueueMock(filters),
   recordAdvisorIdeaReviewAction: (input: unknown) =>
     recordAdvisorIdeaReviewActionMock(input as ReviewActionInput),
   recordAdvisorIdeaFeedback: (input: unknown) =>
@@ -202,24 +247,34 @@ vi.mock("../../src/features/proposals/api", () => ({
 }));
 
 vi.mock("../../src/features/proposals/use-idea-presentation-receipts", () => ({
-  useIdeaPresentationReceipts: () => ({
+  useIdeaPresentationReceipts: ({
+    queue,
+  }: {
+    queue?: { items?: Array<{ candidate?: { candidateId?: string } }> };
+  }) => ({
     status: "ready",
     failedCount: 0,
     retryFailed: vi.fn(),
-    authorityByCandidateId: new Map([
-      [
-        "idea_high_cash_001",
-        {
-          candidateId: "idea_high_cash_001",
-          receiptId: "presentation-receipt-001",
-          evidencePacketId: "evidence_high_cash_001",
-          candidateMaterialVersion: 1,
-          candidateEvidenceVersion: 1,
-          sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
-          sourceCutPosture: "coherent",
-        },
-      ],
-    ]),
+    authorityByCandidateId: new Map(
+      queue?.items?.some(
+        (item) => item.candidate?.candidateId === "idea_high_cash_001",
+      )
+        ? [
+            [
+              "idea_high_cash_001",
+              {
+                candidateId: "idea_high_cash_001",
+                receiptId: "presentation-receipt-001",
+                evidencePacketId: "evidence_high_cash_001",
+                candidateMaterialVersion: 1,
+                candidateEvidenceVersion: 1,
+                sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+                sourceCutPosture: "coherent",
+              },
+            ],
+          ]
+        : [],
+    ),
   }),
 }));
 
@@ -244,6 +299,9 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     recordAdvisorIdeaFeedbackMock.mockClear();
     recordAdvisorIdeaConversionIntentMock.mockClear();
     recordAdvisorIdeaPresentationReceiptMock.mockClear();
+    gridApiMock.ensureNodeVisible.mockClear();
+    gridApiMock.getRowNode.mockClear();
+    gridApiMock.setGridAriaProperty.mockClear();
   });
 
   it("loads Gateway-backed Lotus Idea candidates", async () => {
@@ -261,9 +319,8 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
         evaluatedAtUtc: expect.any(String),
       });
     });
-    const [{ evaluatedAtUtc }] = getAdvisorIdeaReviewQueueMock.mock.calls[0] as [
-      { evaluatedAtUtc: string },
-    ];
+    const [{ evaluatedAtUtc }] = getAdvisorIdeaReviewQueueMock.mock
+      .calls[0] as [{ evaluatedAtUtc: string }];
     expect(Date.parse(evaluatedAtUtc)).toBeGreaterThanOrEqual(mountedAfterUtc);
     expect(Date.parse(evaluatedAtUtc)).toBeLessThanOrEqual(Date.now());
 
@@ -276,12 +333,9 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     expect(screen.getByLabelText("Idea candidates")).toHaveTextContent(
       /1\s*Idea candidates/,
     );
-    expect(screen.getByLabelText("Idea worklist evidence status")).toHaveTextContent(
-      "Policy: idea-deterministic-ranking-v1",
-    );
     expect(
-      screen.getByText("High Cash - idea_high_cash_001"),
-    ).toBeInTheDocument();
+      screen.getByLabelText("Idea worklist evidence status"),
+    ).toHaveTextContent("Policy: idea-deterministic-ranking-v1");
     expect(
       await screen.findByRole("grid", { name: "Idea candidate review queue" }),
     ).toBeInTheDocument();
@@ -289,7 +343,9 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
       screen.getByRole("columnheader", { name: "Next decision" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "High Cash - idea_high_cash_001" }),
+      await screen.findByRole("link", {
+        name: "Excess Cash - idea_high_cash_001",
+      }),
     ).toHaveAttribute(
       "href",
       "/recommendations?mode=opportunities&portfolioId=PB_SG_GLOBAL_BAL_001&candidateId=idea_high_cash_001",
@@ -302,6 +358,23 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
       "href",
       "/proposals/simulate?portfolioId=PB_SG_GLOBAL_BAL_001&asOfDate=2026-04-10&period=YTD&reportingCurrency=SGD",
     );
+  });
+
+  it("does not manufacture queue presentation evidence from action controls", async () => {
+    renderWithQueryClient(
+      <AdvisoryOpportunitiesWorkspace
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        reviewContext={reviewContext("PB_SG_GLOBAL_BAL_001")}
+        selectedCandidateId="idea_high_cash_001"
+      />,
+    );
+
+    const actionPanel = await screen.findByLabelText(
+      "Idea candidate advisor actions",
+    );
+    expect(
+      actionPanel.querySelector("[data-idea-presentation-candidate]"),
+    ).toBeNull();
   });
 
   it("explains the supported opportunity-review scope in business language", () => {
@@ -355,29 +428,48 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     expect(
       screen.getByText("Queue policy: idea-deterministic-ranking-v1"),
     ).toBeInTheDocument();
-    const [{ evaluatedAtUtc }] = getAdvisorIdeaReviewQueueMock.mock.calls[0] as [
-      { evaluatedAtUtc: string },
-    ];
+    const [{ evaluatedAtUtc }] = getAdvisorIdeaReviewQueueMock.mock
+      .calls[0] as [{ evaluatedAtUtc: string }];
     expect(
       screen.getByText(`Queue evaluated: ${evaluatedAtUtc}`),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        `Evidence hash: sha256:${"c".repeat(64)}`,
-      ),
+      screen.getByText(`Evidence hash: sha256:${"c".repeat(64)}`),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Close detail" })).toHaveAttribute(
       "href",
       "/recommendations?mode=opportunities&portfolioId=PB_SG_GLOBAL_BAL_001",
     );
+    expect(gridApiMock.ensureNodeVisible).not.toHaveBeenCalled();
+  });
+
+  it("preserves an adviser filter until a completed action refresh needs renewal", async () => {
+    renderWithQueryClient(
+      <AdvisoryOpportunitiesWorkspace
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        reviewContext={reviewContext("PB_SG_GLOBAL_BAL_001")}
+        selectedCandidateId="idea_high_cash_001"
+      />,
+    );
+
+    await screen.findByLabelText("Idea candidate advisor actions");
+    const filter = screen.getByRole("searchbox", {
+      name: "Find an opportunity",
+    });
+    fireEvent.change(filter, { target: { value: "another candidate" } });
+
+    expect(filter).toHaveValue("another candidate");
+    expect(gridApiMock.ensureNodeVisible).not.toHaveBeenCalled();
   });
 
   it("withholds review authority when Gateway returns detail for another candidate", async () => {
     getAdvisorIdeaCandidateDetailMock.mockResolvedValueOnce({
       candidate: {
         candidateId: "idea_high_cash_other",
-        materialVersion: 1,
-        evidenceVersion: 1,
+        identity: {
+          materialVersion: 1,
+          evidenceVersion: 1,
+        },
         family: "high_cash",
         lifecycleStatus: "generated",
         reviewPosture: "advisor_review_required",
@@ -393,6 +485,7 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
       auditSummary: { eventCount: 1 },
       durableStorageBacked: true,
       supportedFeaturePromoted: false,
+      reviewDecisions: [],
     });
 
     renderWithQueryClient(
@@ -404,7 +497,9 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     );
 
     await screen.findByLabelText("Idea candidate advisor actions");
-    expect(screen.getByRole("button", { name: "Record review" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Record review" }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Record review" }));
     expect(recordAdvisorIdeaReviewActionMock).not.toHaveBeenCalled();
   });
@@ -428,11 +523,14 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Idea queue unavailable")).toBeInTheDocument();
     expect(
-      screen.queryByText("High Cash - idea_high_cash_001"),
+      screen.queryByText("Excess Cash - idea_high_cash_001"),
     ).not.toBeInTheDocument();
   });
 
   it("records an advisor review through Gateway and refreshes source-owned detail", async () => {
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
     renderWithQueryClient(
       <AdvisoryOpportunitiesWorkspace
         portfolioId="PB_SG_GLOBAL_BAL_001"
@@ -442,6 +540,8 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     );
 
     await screen.findByLabelText("Idea candidate advisor actions");
+    gridApiMock.ensureNodeVisible.mockClear();
+    scrollIntoView.mockClear();
     fireEvent.click(screen.getByRole("button", { name: "Record review" }));
 
     await waitFor(() => {
@@ -451,10 +551,7 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
           portfolioId: "PB_SG_GLOBAL_BAL_001",
           request: expect.objectContaining({
             action: "approve_for_conversion",
-            reasonCodes: [
-              "review_approved_for_conversion",
-              "high_cash_ratio",
-            ],
+            reasonCodes: ["review_approved_for_conversion", "high_cash_ratio"],
           }),
         }),
       );
@@ -471,14 +568,92 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     );
     expect(recordAdvisorIdeaConversionIntentMock).not.toHaveBeenCalled();
     expect(getAdvisorIdeaReviewQueueMock).toHaveBeenCalledTimes(2);
-    const [initialFilters, refreshedFilters] =
-      getAdvisorIdeaReviewQueueMock.mock.calls as [
-        [{ evaluatedAtUtc: string }],
-        [{ evaluatedAtUtc: string }],
-      ];
+    const [initialFilters, refreshedFilters] = getAdvisorIdeaReviewQueueMock
+      .mock.calls as [
+      [{ evaluatedAtUtc: string }],
+      [{ evaluatedAtUtc: string }],
+    ];
     expect(Date.parse(refreshedFilters[0].evaluatedAtUtc)).toBeGreaterThan(
       Date.parse(initialFilters[0].evaluatedAtUtc),
     );
+    await waitFor(() => {
+      expect(gridApiMock.ensureNodeVisible).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "idea_high_cash_001" }),
+        "middle",
+      );
+      expect(scrollIntoView).toHaveBeenCalledWith({
+        block: "center",
+        inline: "nearest",
+      });
+    });
+    HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  it("clears a hiding filter when the refreshed boundary uses equivalent UTC precision", async () => {
+    const scrollIntoView = vi.fn();
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+    const refreshedQueue = {
+      policyVersion: "idea-deterministic-ranking-v1",
+      evaluatedAtUtc: "2026-09-24T01:00:02Z",
+      durableStorageBacked: true,
+      supportedFeaturePromoted: false,
+      exclusions: [],
+      items: [
+        {
+          rank: 1,
+          score: "82",
+          priorityBucket: "high",
+          reasonCodes: ["high_cash_ratio", "review_required"],
+          candidate: {
+            candidateId: "idea_high_cash_001",
+            evidencePacketId: "evidence_high_cash_001",
+            materialVersion: 1,
+            evidenceVersion: 1,
+            scorePolicyVersion: "idle-liquidity-v1",
+            sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+            sourceCutPosture: "coherent",
+            family: "high_cash",
+            reviewPosture: "approved_for_conversion",
+            score: "82",
+            sourceSignalIds: ["signal_high_cash_001"],
+          },
+        },
+      ],
+    };
+    renderWithQueryClient(
+      <AdvisoryOpportunitiesWorkspace
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        reviewContext={reviewContext("PB_SG_GLOBAL_BAL_001")}
+        selectedCandidateId="idea_high_cash_001"
+      />,
+    );
+
+    await screen.findByLabelText("Idea candidate advisor actions");
+    getAdvisorIdeaReviewQueueMock.mockImplementationOnce(async (filters) => ({
+      ...refreshedQueue,
+      evaluatedAtUtc: filters?.evaluatedAtUtc
+        ? `${filters.evaluatedAtUtc.slice(0, -1)}0Z`
+        : refreshedQueue.evaluatedAtUtc,
+    }));
+    const filter = screen.getByRole("searchbox", {
+      name: "Find an opportunity",
+    });
+    fireEvent.change(filter, { target: { value: "advisor_review_required" } });
+    expect(filter).toHaveValue("advisor_review_required");
+    gridApiMock.ensureNodeVisible.mockClear();
+    scrollIntoView.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+
+    await waitFor(() => expect(filter).toHaveValue(""));
+    await waitFor(() => {
+      expect(gridApiMock.ensureNodeVisible).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "idea_high_cash_001" }),
+        "middle",
+      );
+      expect(scrollIntoView).toHaveBeenCalled();
+    });
+    HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   });
 
   it("warns when a recorded advisor action cannot refresh source-owned posture", async () => {
@@ -509,6 +684,77 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     expect(refreshStatus).not.toHaveTextContent(
       "Opportunity detail and worklist are current.",
     );
+  });
+
+  it("does not reuse prior snapshot authority when an action removes the queue row", async () => {
+    renderWithQueryClient(
+      <AdvisoryOpportunitiesWorkspace
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        reviewContext={reviewContext("PB_SG_GLOBAL_BAL_001")}
+        selectedCandidateId="idea_high_cash_001"
+      />,
+    );
+
+    await screen.findByLabelText("Idea candidate advisor actions");
+    getAdvisorIdeaCandidateDetailMock.mockImplementationOnce(async () => {
+      const recordedRequest =
+        recordAdvisorIdeaReviewActionMock.mock.calls[0]?.[0]?.request;
+      if (!recordedRequest) {
+        throw new Error("Expected the review request before detail refresh.");
+      }
+      return candidateDetail([
+        {
+          reviewId: recordedRequest.reviewId,
+          candidateId: "idea_high_cash_001",
+          evidencePacketId: recordedRequest.expectedEvidencePacketId,
+          evidenceContentHash: recordedRequest.expectedEvidenceContentHash,
+          sourceRevisionVectorDigest:
+            recordedRequest.expectedSourceRevisionVectorDigest,
+          sourceCutPosture: recordedRequest.expectedSourceCutPosture,
+          candidateMaterialVersion: recordedRequest.expectedMaterialVersion,
+          candidateEvidenceVersion: recordedRequest.expectedEvidenceVersion,
+          reviewChannel: recordedRequest.reviewChannel,
+          presentationReceiptId: recordedRequest.presentationReceiptId,
+          action: recordedRequest.action,
+          resultingPosture: "approved_for_conversion",
+          reasonCodes: recordedRequest.reasonCodes,
+          decidedAtUtc: recordedRequest.decidedAtUtc,
+          acceptedAtUtc: "2026-09-24T01:00:01Z",
+          acceptanceTimeSource: "server_accepted",
+          grantsDownstreamAuthority: false,
+        },
+      ]);
+    });
+    getAdvisorIdeaReviewQueueMock.mockResolvedValueOnce({
+      policyVersion: "idea-deterministic-ranking-v1",
+      evaluatedAtUtc: "2026-09-24T01:00:02Z",
+      durableStorageBacked: true,
+      supportedFeaturePromoted: false,
+      exclusions: [],
+      items: [],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+
+    const recordedStatus = await screen.findByTestId(
+      "idea-action-review-status",
+    );
+    expect(recordedStatus).toHaveAttribute(
+      "data-action-state",
+      "recorded-and-refreshed",
+    );
+    expect(recordedStatus).toHaveTextContent(
+      "Review saved. Opportunity detail and worklist are current.",
+    );
+    expect(recordedStatus).not.toHaveTextContent("could not be loaded");
+    const acceptedReviewRequest =
+      recordAdvisorIdeaReviewActionMock.mock.calls[0]?.[0]?.request;
+    expect(acceptedReviewRequest).toBeDefined();
+    const conversionButton = screen.getByRole("button", {
+      name: "Record intent",
+    });
+    expect(conversionButton).toBeDisabled();
+    fireEvent.click(conversionButton);
+    expect(recordAdvisorIdeaConversionIntentMock).not.toHaveBeenCalled();
   });
 
   it("shows an explicit failure state when Gateway cannot record an action", async () => {

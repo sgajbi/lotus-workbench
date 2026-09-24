@@ -171,16 +171,17 @@ LOTUS_ENVIRONMENT=dev
 WORKBENCH_IDEA_AUTH_MODE=development_configured
 WORKBENCH_IDEA_CALLER_SUBJECT=workbench-advisor
 WORKBENCH_IDEA_CALLER_ROLES=advisor
-WORKBENCH_IDEA_CALLER_TENANT_IDS=tenant-private-bank-sg
-WORKBENCH_IDEA_CALLER_BOOK_IDS=book-advisor-001
+WORKBENCH_IDEA_CALLER_TENANT_IDS=tenant-sg
+WORKBENCH_IDEA_CALLER_BOOK_IDS=BOOK_SG_BALANCED_DPM
 WORKBENCH_IDEA_CALLER_PORTFOLIO_IDS=PB_SG_GLOBAL_BAL_001
-WORKBENCH_IDEA_CALLER_CLIENT_IDS=client-001
+WORKBENCH_IDEA_CALLER_CLIENT_IDS=CLIENT_SCOPE_PB_SG_GLOBAL_BAL_001
 ```
 
 The Idea values are a complete local-development caller fixture for Lotus Idea BFF routes, not an
 identity-provider integration. Workbench derives the subject, role, tenant, book, portfolio, and
 client scope after discarding browser authority; Docker forwards the same configurable defaults.
-They are rejected outside `dev`, `development`, `local`, or `test`;
+The defaults match the governed tenant, DPM book, portfolio, and Idea client scope consumed by the
+canonical candidate seed. They are rejected outside `dev`, `development`, `local`, or `test`;
 an unset environment and all other environments require an authenticated principal and the BFF returns `401` before calling
 Gateway until the session/claims resolver tracked in platform issue #563 and Workbench issue #436
 is delivered.
@@ -226,15 +227,16 @@ That script performs:
 2. preview the canonical hosts block from `lotus-platform`
 3. `docker compose up -d` for `lotus-core` with `DEMO_DATA_PACK_ENABLED=false` and exact-source
    build metadata; built-image mode verifies Core query `/version` and OCI identity before seeding
-4. `docker compose up -d` for `lotus-performance`, `lotus-risk`, `lotus-ai`, `lotus-advise`, `lotus-manage`, `lotus-report`, and `lotus-idea`
-5. seed the governed Lotus Idea advisor queue through `lotus-idea` using a deterministic canonical high-cash candidate for `PB_SG_GLOBAL_BAL_001`, then progress that exact candidate through Idea's public lifecycle API to source-confirmed review readiness
-6. start `lotus-archive` and `lotus-render`
-7. direct ingress restart on port `80` using `lotus-platform/platform-stack/dev-ingress/Caddyfile.direct-host`
-8. canonical `lotus-gateway` exposure on port `8100`
-9. governed `lotus-core` seed for `PB_SG_GLOBAL_BAL_001`
-10. governed DPM command-center seed through `lotus-platform`
-11. in the default `full` profile, create an isolated Lotus Idea downstream-capacity resource and run one report-only downstream-submission probe
-12. `docker compose up -d` for `lotus-workbench` on port `3000`
+4. materialize the governed `PB_SG_GLOBAL_BAL_001` portfolio in Core without waiting for downstream products that have not started
+5. `docker compose up -d` for `lotus-performance`, `lotus-risk`, `lotus-ai`, `lotus-advise`, `lotus-manage`, `lotus-report`, and `lotus-idea`
+6. evaluate the materialized cash-movement and projection products through `lotus-idea`, persist the resulting low-income liquidity candidate, and progress that exact persisted candidate through Idea's public lifecycle API to source-confirmed review readiness
+7. start `lotus-archive` and `lotus-render`
+8. direct ingress restart on port `80` using `lotus-platform/platform-stack/dev-ingress/Caddyfile.direct-host`
+9. canonical `lotus-gateway` exposure on port `8100`
+10. verify the materialized Core portfolio through the live Gateway and downstream performance products without re-ingesting it
+11. governed DPM command-center seed through `lotus-platform`
+12. in the default `full` profile, create an isolated Lotus Idea downstream-capacity resource and run one report-only downstream-submission probe
+13. `docker compose up -d` for `lotus-workbench` on port `3000`
 
 Docker is the default for every canonical front-office app. The startup flow replaces stale local
 listeners on canonical app ports before Docker startup, while leaving Docker-owned listeners in
@@ -293,13 +295,15 @@ Idea-owned lifecycle transition. It advances only the required next state, treat
 source-confirmed state within the same run as idempotent replay evidence, and fails on gaps,
 mismatched identity, or a state outside the seedable path. Workbench does not calculate or bypass
 Idea lifecycle policy.
-After the source queue returns that candidate exactly once, startup records
-`output/canonical-front-office/idea-candidate-seed-evidence.json` using schema v3. The receipt carries
+After source-owned detail confirms the candidate identity, source cut, and lifecycle, startup records
+`output/canonical-front-office/idea-candidate-seed-evidence.json` using schema v4. The receipt carries
 the exact tenant, book, portfolio, and client scope admitted by the seed request. Validation rejects
 a missing, malformed, incomplete-scope, scope-mismatched, non-UTC, out-of-order, or non-reviewable
 artifact; forwards the recorded scope unchanged when it asks Gateway for the queue at the recorded
-queue-evaluation boundary; proves the same candidate exactly once; and rejects evidence whose run
-identity differs from the active Idea `/version` build identity.
+queue-evaluation boundary; requires the review-ready candidate exactly once; allows a source-confirmed
+reviewed or approved candidate to be absent from the pending queue; and rejects evidence whose run
+identity differs from the active Idea `/version` build identity. A completed-candidate restart is
+validated read-only through Gateway and does not manufacture another review or conversion mutation.
 Earlier unconverted candidates, stale artifacts, and fixed example-time defaults therefore cannot
 stand in for current-run browser evidence.
 
@@ -468,6 +472,23 @@ state behind, use `-CleanCoreState` on the startup script to run `docker compose
 --remove-orphans` in `lotus-core` before the canonical rebuild and reseed. This reset is explicit
 because routine front-office bring-up only seeds the governed `PB_SG_GLOBAL_BAL_001` portfolio and
 does not include the separate `1000`-portfolio load scenario.
+
+An ordinary restart after an earlier run approved the canonical Idea candidate preserves the durable
+candidate, accepts its intentional absence from the pending review queue, and validates the completed
+detail read-only. To rehearse the mutating advisor flow again from review readiness, keep the active
+reservation and deliberately reset the canonical fixture volumes before startup:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -RemoveVolumes -KeepReservation
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -RunValidation -BuildImages -ValidationProfile client-demo
+```
+
+Run both commands from `lotus-workbench` with the same admitted
+`LOTUS_CANONICAL_RUNTIME_HOLDER`. `-RemoveVolumes` deletes only the Docker volumes owned by the
+admitted canonical Compose projects, but it destroys their local fixture data; use it only when a
+clean rehearsal is intended. An approved candidate is completed work and is correctly absent from
+the advisor-review queue. Do not rewind it, expand the queue contract, or use a volume reset as
+accepted-then-replayed durability evidence.
 
 ## Canonical bring-up with validation
 

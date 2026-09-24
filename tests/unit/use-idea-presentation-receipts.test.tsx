@@ -103,26 +103,40 @@ class TestIntersectionObserver implements IntersectionObserver {
 
 function Harness({
   candidateIds = ["idea-025", "idea-026"],
+  detailCandidateId,
+  portfolioId = "PB_SG_GLOBAL_BAL_001",
   sourceQueue = queue,
 }: {
   candidateIds?: string[];
+  detailCandidateId?: string;
+  portfolioId?: string;
   sourceQueue?: AdvisorIdeaReviewQueueData;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const receiptState = useIdeaPresentationReceipts({
     containerRef,
     enabled: true,
-    portfolioId: "PB_SG_GLOBAL_BAL_001",
+    portfolioId,
     queue: sourceQueue,
   });
   return (
     <>
-      <div ref={containerRef} data-testid="queue-viewport">
-        {candidateIds.map((candidateId) => (
-          <div key={candidateId} data-idea-presentation-candidate={candidateId}>
-            {candidateId}
+      <div ref={containerRef} data-testid="presentation-surfaces">
+        {detailCandidateId ? (
+          <div data-testid="detail-action-surface">
+            {detailCandidateId} actions
           </div>
-        ))}
+        ) : null}
+        <div data-testid="queue-viewport">
+          {candidateIds.map((candidateId) => (
+            <div
+              key={candidateId}
+              data-idea-presentation-candidate={candidateId}
+            >
+              {candidateId}
+            </div>
+          ))}
+        </div>
       </div>
       <span data-testid="receipt-status">{receiptState.status}</span>
       <span data-testid="failed-count">{receiptState.failedCount}</span>
@@ -463,6 +477,71 @@ describe("useIdeaPresentationReceipts", () => {
     expect(recordReceipt.mock.calls[1][0].request.sourceRevisionVectorDigest).toBe(
       changedDigest,
     );
+  });
+
+  it("requires a fresh visible-row receipt for a newer queue evaluation boundary", async () => {
+    const view = render(
+      <Harness
+        candidateIds={["idea-025"]}
+        detailCandidateId="idea-025"
+      />,
+    );
+    const initialObserver = await observer();
+    const initialQueueMarker = marker("idea-025");
+
+    await act(async () => {
+      initialObserver.emit([
+        {
+          target: initialQueueMarker,
+          isIntersecting: true,
+          intersectionRatio: 1,
+        },
+      ]);
+    });
+    await waitFor(() => expect(recordReceipt).toHaveBeenCalledTimes(1));
+
+    view.rerender(
+      <Harness
+        candidateIds={["idea-025"]}
+        detailCandidateId="idea-025"
+        sourceQueue={{
+          ...queue,
+          evaluatedAtUtc: "2026-08-31T10:16:00Z",
+        }}
+      />,
+    );
+    expect(screen.getByTestId("receipt-authority")).toHaveTextContent("none");
+    expect(recordReceipt).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(TestIntersectionObserver.instances).toHaveLength(2);
+    });
+    await act(async () => {
+      TestIntersectionObserver.instances[1].emit([
+        {
+          target: marker("idea-025"),
+          isIntersecting: true,
+          intersectionRatio: 1,
+        },
+      ]);
+    });
+
+    await waitFor(() => expect(recordReceipt).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("receipt-authority")).toHaveTextContent(
+      "receipt-idea-025",
+    );
+  });
+
+  it("does not treat an action detail surface as queue presentation", async () => {
+    render(
+      <Harness candidateIds={[]} detailCandidateId="idea-025" />,
+    );
+    await waitFor(() => {
+      expect(TestIntersectionObserver.instances).toHaveLength(1);
+    });
+
+    expect(TestIntersectionObserver.instances[0].targets.size).toBe(0);
+    expect(recordReceipt).not.toHaveBeenCalled();
+    expect(screen.getByTestId("receipt-authority")).toHaveTextContent("none");
   });
 
   it("does not emit when an observed row unmounts while its receipt draft is pending", async () => {

@@ -434,8 +434,8 @@ exit $global:proofDpmStatus
   # Actual strict evidence reader; controlled HTTP/browser transports only prove fencing.
   $evidence = Join-Path $fixtureRoot 'evidence'
   New-Item -ItemType Directory -Path $evidence | Out-Null
-  @{schemaVersion='lotus-workbench.idea-candidate-seed-evidence.v3'; portfolioId='PB_SG_GLOBAL_BAL_001';
-    asOfDate='2026-04-10'; candidateId='idea_high_cash_0123456789abcdef'; lifecycleStatus='ready_for_review';
+  @{schemaVersion='lotus-workbench.idea-candidate-seed-evidence.v4'; portfolioId='PB_SG_GLOBAL_BAL_001';
+    asOfDate='2026-04-10'; candidateId='idea_low_income_0123456789abcdef'; lifecycleStatus='ready_for_review'; sourceCutPosture='coherent';
     runId='controlled-run'; accessScope=@{tenantId='fixture-tenant'; bookId='fixture-book'; portfolioId='PB_SG_GLOBAL_BAL_001'; clientId='fixture-client'};
     sourceObservedAtUtc='2026-09-15T00:00:00.000Z'; evaluatedAtUtc='2026-09-15T00:00:00.000Z';
     lifecycleObservedAtUtc='2026-09-15T00:00:00.000Z'; queueEvaluatedAtUtc='2026-09-15T00:00:00.000Z'
@@ -451,7 +451,14 @@ exit $global:proofDpmStatus
     param($Uri,$TimeoutSec,$Headers)
     Assert-ProofValidationFence
     if ($Uri -like '*/version') { return @{build=@{ciRunId='controlled-run'}} }
-    return @{evaluatedAtUtc='2026-09-15T00:00:00.000Z'; items=@(@{candidate=@{candidateId='idea_high_cash_0123456789abcdef'}})}
+    if ($Uri -like '*/api/v1/ideas/candidates/*') {
+      return @{candidate=@{
+        candidateId='idea_low_income_0123456789abcdef'; lifecycleStatus='ready_for_review'
+      }; evidence=@{sourceCutPosture='coherent'}}
+    }
+    return @{evaluatedAtUtc='2026-09-15T00:00:00.000Z'; items=@(@{candidate=@{
+      candidateId='idea_low_income_0123456789abcdef'; lifecycleStatus='ready_for_review'; sourceCutPosture='coherent'
+    }})}
   }
   function global:node { Assert-ProofValidationFence; $global:LASTEXITCODE=$global:proofBrowserStatus }
   foreach ($mode in @('standalone','nested','browser-failure','client-demo')) {

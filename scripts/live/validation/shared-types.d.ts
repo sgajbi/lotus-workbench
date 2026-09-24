@@ -18,6 +18,7 @@ export interface ValidationConfig {
   timeoutMs: number;
   canonicalAsOfDate: string;
   ideaCandidateId: string | null;
+  ideaCandidateLifecycle: "ready_for_review" | "reviewed_by_advisor" | "approved";
   ideaCapacitySeedEvidencePath: string;
   validationProfile: "full" | "client-demo";
   mainlineSourceProvenancePath: string | null;

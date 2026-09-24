@@ -244,6 +244,7 @@ export type ContributionSmoothingEvidenceView = {
 
 export type ContributionSourceEconomicsEvidenceView = {
   status: string | null;
+  component_detail_status?: string | null;
   reason_codes: string[];
   source_contracts: string[];
   available_economics: string[];

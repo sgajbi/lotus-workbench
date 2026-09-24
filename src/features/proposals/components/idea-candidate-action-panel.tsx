@@ -15,6 +15,7 @@ import { buildIdeaBusinessReasonOptions } from "../idea-action-reasons";
 import {
   buildIdeaConversionRequestAuthority,
   buildIdeaReviewRequestAuthority,
+  ideaSourceCutAuthorizesConversion,
   type AcceptedIdeaReviewAuthority,
   type IdeaCandidateActionAuthority,
 } from "../idea-action-authority";
@@ -134,11 +135,15 @@ export default function IdeaCandidateActionPanel({
     !sourceRefreshFailed && actionAuthority
       ? buildIdeaReviewRequestAuthority(actionAuthority, presentationAuthority)
       : undefined;
+  const conversionApprovalReady =
+    Boolean(reviewRequestAuthority) &&
+    ideaSourceCutAuthorizesConversion(actionAuthority);
   const conversionRequestAuthority = sourceRefreshFailed
-      ? undefined
+    ? undefined
     : buildIdeaConversionRequestAuthority(
         actionAuthority,
         persistedAcceptedReviewAuthority,
+        presentationAuthority,
       );
   const retryableReview =
     retryableSubmissions.review?.kind === "review"
@@ -244,10 +249,7 @@ export default function IdeaCandidateActionPanel({
     setLatestRecordedSubmission(undefined);
     if (
       submission.kind === "review" &&
-      !matchesCurrentReviewAuthority(
-        submission.request,
-        reviewRequestAuthority,
-      )
+      !matchesCurrentReviewAuthority(submission.request, reviewRequestAuthority)
     ) {
       setValidationMessage(
         "The opportunity evidence changed. Refresh its visible presentation before recording this review.",
@@ -282,6 +284,12 @@ export default function IdeaCandidateActionPanel({
     if (!reviewRequestAuthority) {
       setValidationMessage(
         "Wait for the visible opportunity receipt and current source evidence before recording a review.",
+      );
+      return;
+    }
+    if (reviewAction === "approve_for_conversion" && !conversionApprovalReady) {
+      setValidationMessage(
+        "Conversion approval requires a coherent authoritative Core source cut. Choose another review action or wait for current source evidence.",
       );
       return;
     }
@@ -405,6 +413,7 @@ export default function IdeaCandidateActionPanel({
       <div className={styles.actionForms}>
         <IdeaReviewActionForm
           businessReasonOptions={businessReasonOptions}
+          conversionApprovalReady={conversionApprovalReady}
           intentChanged={reviewIntentChanged}
           isPending={actionMutation.isPending}
           onActionChange={setReviewAction}
@@ -608,15 +617,16 @@ function matchesCurrentReviewAuthority(
 ): boolean {
   return Boolean(
     authority &&
-      request.reviewChannel === authority.reviewChannel &&
-      request.presentationReceiptId === authority.presentationReceiptId &&
-      request.expectedMaterialVersion === authority.expectedMaterialVersion &&
-      request.expectedEvidenceVersion === authority.expectedEvidenceVersion &&
-      request.expectedEvidencePacketId === authority.expectedEvidencePacketId &&
-      request.expectedEvidenceContentHash === authority.expectedEvidenceContentHash &&
-      request.expectedSourceRevisionVectorDigest ===
-        authority.expectedSourceRevisionVectorDigest &&
-      request.expectedSourceCutPosture === authority.expectedSourceCutPosture,
+    request.reviewChannel === authority.reviewChannel &&
+    request.presentationReceiptId === authority.presentationReceiptId &&
+    request.expectedMaterialVersion === authority.expectedMaterialVersion &&
+    request.expectedEvidenceVersion === authority.expectedEvidenceVersion &&
+    request.expectedEvidencePacketId === authority.expectedEvidencePacketId &&
+    request.expectedEvidenceContentHash ===
+      authority.expectedEvidenceContentHash &&
+    request.expectedSourceRevisionVectorDigest ===
+      authority.expectedSourceRevisionVectorDigest &&
+    request.expectedSourceCutPosture === authority.expectedSourceCutPosture,
   );
 }
 
@@ -626,13 +636,14 @@ function matchesCurrentConversionAuthority(
 ): boolean {
   return Boolean(
     authority &&
-      request.expectedReviewId === authority.expectedReviewId &&
-      request.expectedMaterialVersion === authority.expectedMaterialVersion &&
-      request.expectedEvidenceVersion === authority.expectedEvidenceVersion &&
-      request.expectedEvidencePacketId === authority.expectedEvidencePacketId &&
-      request.expectedEvidenceContentHash === authority.expectedEvidenceContentHash &&
-      request.expectedSourceRevisionVectorDigest ===
-        authority.expectedSourceRevisionVectorDigest &&
-      request.expectedSourceCutPosture === authority.expectedSourceCutPosture,
+    request.expectedReviewId === authority.expectedReviewId &&
+    request.expectedMaterialVersion === authority.expectedMaterialVersion &&
+    request.expectedEvidenceVersion === authority.expectedEvidenceVersion &&
+    request.expectedEvidencePacketId === authority.expectedEvidencePacketId &&
+    request.expectedEvidenceContentHash ===
+      authority.expectedEvidenceContentHash &&
+    request.expectedSourceRevisionVectorDigest ===
+      authority.expectedSourceRevisionVectorDigest &&
+    request.expectedSourceCutPosture === authority.expectedSourceCutPosture,
   );
 }

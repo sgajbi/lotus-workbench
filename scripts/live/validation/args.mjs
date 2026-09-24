@@ -23,6 +23,12 @@ export function resolveValidationConfig(argv, cwd = process.cwd()) {
   if (validationProfile !== "full" && validationProfile !== "client-demo") {
     throw new Error(`Unsupported canonical validation profile: ${validationProfile}`);
   }
+  const ideaCandidateLifecycle = args.get("idea-candidate-lifecycle") ?? "ready_for_review";
+  if (
+    !["ready_for_review", "reviewed_by_advisor", "approved"].includes(ideaCandidateLifecycle)
+  ) {
+    throw new Error(`Unsupported canonical Idea candidate lifecycle: ${ideaCandidateLifecycle}`);
+  }
 
   return {
     args,
@@ -40,6 +46,7 @@ export function resolveValidationConfig(argv, cwd = process.cwd()) {
     canonicalStartDate: args.get("start-date") ?? "2025-03-31",
     canonicalAsOfDate: args.get("as-of-date") ?? "2026-04-10",
     ideaCandidateId: args.get("idea-candidate-id") ?? null,
+    ideaCandidateLifecycle,
     ideaCapacitySeedEvidencePath: path.resolve(
       cwd,
       args.get("idea-capacity-seed-evidence") ??

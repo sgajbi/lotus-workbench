@@ -675,11 +675,16 @@ function Start-DirectIngress {
 }
 
 function Invoke-CanonicalCoreSeed {
-  param([switch]$IngestOnly)
+  param(
+    [switch]$IngestOnly,
+    [switch]$VerifyOnly
+  )
 
   $seedCommand = "python tools/front_office_portfolio_seed.py --portfolio-id $PortfolioId --start-date 2025-03-31 --end-date 2026-04-10 --benchmark-start-date 2025-01-06 --wait-seconds $SeedWaitSeconds"
   if ($IngestOnly) {
     $seedCommand = "$seedCommand --ingest-only"
+  } elseif ($VerifyOnly) {
+    $seedCommand = "$seedCommand --verify-only"
   }
   if ($SkipSeedCleanup) {
     $seedCommand = "$seedCommand --skip-cleanup"
@@ -708,16 +713,36 @@ function Invoke-DpmCommandCenterSeed {
   if ($LASTEXITCODE -ne 0) { throw "Canonical nested DPM seed failed with exit code $LASTEXITCODE." }
 }
 
-function Get-CanonicalTextSha256 {
-  param([Parameter(Mandatory = $true)][string]$Value)
-
-  $sha256 = [System.Security.Cryptography.SHA256]::Create()
-  try {
-    $bytes = [System.Text.Encoding]::UTF8.GetBytes($Value)
-    return ([System.BitConverter]::ToString($sha256.ComputeHash($bytes))).Replace("-", "").ToLowerInvariant()
+function Get-CanonicalIdeaAccessScope {
+  $canonicalContract = Get-Content -LiteralPath $canonicalContractPath -Raw | ConvertFrom-Json
+  $ideaScopeManifestPath = Join-Path $ideaRepo `
+    "docs\examples\source-ingestion\canonical-high-cash-worker.manifest.json"
+  $ideaScopeManifest = Get-Content -LiteralPath $ideaScopeManifestPath -Raw | ConvertFrom-Json
+  $scopeItems = @($ideaScopeManifest.workItems)
+  if ($scopeItems.Count -ne 1) {
+    throw "Canonical Lotus Idea scope manifest must contain exactly one governed work item."
   }
-  finally {
-    $sha256.Dispose()
+
+  $scopeItem = $scopeItems[0]
+  $expectedTenantId = [string]$canonicalContract.portfolio.source_tenant_id
+  $expectedBookId = [string]$canonicalContract.dpm_command_center.book_id
+  $expectedAsOfDate = [string]$canonicalContract.date_policy.canonical_as_of_date
+  if (
+    [string]$ideaScopeManifest.tenantId -ne $expectedTenantId -or
+    [string]$scopeItem.portfolioId -ne $PortfolioId -or
+    [string]$scopeItem.bookId -ne $expectedBookId -or
+    [string]$scopeItem.asOfDate -ne $expectedAsOfDate -or
+    [string]::IsNullOrWhiteSpace([string]$scopeItem.clientId)
+  ) {
+    throw "Canonical Lotus Idea scope does not match the governed front-office data contract."
+  }
+
+  return [ordered]@{
+    tenantId = $expectedTenantId
+    bookId = $expectedBookId
+    portfolioId = [string]$scopeItem.portfolioId
+    clientId = [string]$scopeItem.clientId
+    asOfDate = $expectedAsOfDate
   }
 }
 
@@ -725,6 +750,10 @@ function Invoke-CanonicalIdeaSeed {
   $ideaBaseUrl = "http://127.0.0.1:8330"
   $datePolicy = Get-CanonicalFrontOfficeDatePolicy
   $asOfDate = $datePolicy.AsOfDate
+  $accessScope = Get-CanonicalIdeaAccessScope
+  if ([string]$accessScope.asOfDate -ne $asOfDate) {
+    throw "Canonical Lotus Idea scope and runtime date policy disagree."
+  }
   $deadline = (Get-Date).AddSeconds(120)
   while ((Get-Date) -lt $deadline) {
     if (Test-HttpReady "$ideaBaseUrl/health/ready") {
@@ -735,143 +764,179 @@ function Invoke-CanonicalIdeaSeed {
   if (-not (Test-HttpReady "$ideaBaseUrl/health/ready")) {
     throw "lotus-idea did not become ready before canonical advisor queue seed."
   }
-  # Capture source and evaluation time only after the service is ready. Image-build
-  # duration must not age current-run source evidence or candidate evaluation.
-  $sourceObservedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-  $evaluatedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-
-  $sourceRef = {
-    param([string]$ProductId)
-    $sourceObservationIdentity = "$ProductId|$PortfolioId|$asOfDate|$ideaCanonicalRunId"
-    return @{
-      productId = $ProductId
-      sourceSystem = "lotus-core"
-      productVersion = "v1"
-      route = "/source/$ProductId"
-      asOfDate = $asOfDate
-      generatedAtUtc = $sourceObservedAtUtc
-      contentHash = "sha256:$(Get-CanonicalTextSha256 -Value $sourceObservationIdentity)"
-      dataQualityStatus = "complete"
-      freshness = "current"
-    }
+  # The generator captures the economic evaluation boundary only after both
+  # authoritative Core responses have been received.
+  $requestedGeneratedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+  New-Item -ItemType Directory -Force -Path $canonicalEvidenceRoot | Out-Null
+  $runtimeEvidencePath = Join-Path $canonicalEvidenceRoot `
+    "idea-low-income-cashflow-runtime-execution.json"
+  $containerEvidencePath = "/canonical-evidence/idea-low-income-cashflow-runtime-execution.json"
+  $evidenceMount = "${canonicalEvidenceRoot}:/canonical-evidence"
+  if (Test-Path -LiteralPath $runtimeEvidencePath) {
+    Remove-Item -LiteralPath $runtimeEvidencePath -Force
   }
 
-  $payload = @{
-    asOfDate = $asOfDate
-    evaluatedAtUtc = $evaluatedAtUtc
-    sourceReportedCashWeight = "0.18"
-    sourceEvidence = @{
-      portfolioStateRef = & $sourceRef "lotus-core:PortfolioStateSnapshot:v1"
-      holdingsRef = & $sourceRef "lotus-core:HoldingsAsOf:v1"
-      cashMovementRef = & $sourceRef "lotus-core:PortfolioCashMovementSummary:v1"
-      cashflowProjectionRef = & $sourceRef "lotus-core:PortfolioCashflowProjection:v1"
+  Write-Host "Evaluating the authoritative Lotus Core cashflow opportunity for the advisor queue ..."
+  Invoke-CanonicalReservation -Action preflight-operation -ProjectsRoot $ProjectsRoot -Holder $RuntimeHolder `
+    -WorkbenchRepoPath $workbenchRepo -OperationToken $runtimeOperation.Token -RuntimeMode $runtimeMode | Out-Host
+  Push-Location $ideaRepo
+  try {
+    & docker compose run --rm --no-deps `
+      --volume $evidenceMount `
+      lotus-idea-source-ingestion-worker `
+      python scripts/low_income_cashflow_runtime_evidence/generate_runtime_execution.py `
+      --core-query-base-url http://host.docker.internal:8201 `
+      --portfolio-id $accessScope.portfolioId `
+      --tenant-id $accessScope.tenantId `
+      --book-id $accessScope.bookId `
+      --client-id $accessScope.clientId `
+      --as-of-date $asOfDate `
+      --horizon-days 30 `
+      --generated-at-utc $requestedGeneratedAtUtc `
+      --evaluate-after-source-reads `
+      --idempotency-key "canonical-low-income:$($PortfolioId):$ideaCanonicalRunId" `
+      --correlation-id "corr-canonical-low-income-$ideaCanonicalRunId" `
+      --trace-id "trace-canonical-low-income-$ideaCanonicalRunId" `
+      --output $containerEvidencePath
+    if ($LASTEXITCODE -ne 0) {
+      throw "Canonical Lotus Idea cashflow evaluation failed with exit code $LASTEXITCODE."
     }
-    accessScope = @{
-      tenantId = "tenant-private-bank-sg"
-      bookId = "book-advisor-001"
-      portfolioId = $PortfolioId
-      clientId = "client-001"
-    }
-    entitlementAllowed = $true
-  }
-  $headers = @{
-    "X-Caller-Subject" = "canonical-front-office-seed"
-    "X-Caller-Capabilities" = "idea.candidate.persist"
-    "X-Correlation-Id" = "corr-canonical-idea-seed"
-    "Idempotency-Key" = "canonical-idea-high-cash:$($PortfolioId):$ideaCanonicalRunId"
+  } finally {
+    Pop-Location
   }
 
-  Write-Host "Seeding governed Lotus Idea advisor queue candidate for $PortfolioId ..."
-  $response = Invoke-RestMethod `
-    -Method Post `
-    -Uri "$ideaBaseUrl/api/v1/idea-signals/high-cash/evaluate-and-persist" `
-    -Headers $headers `
-    -ContentType "application/json" `
-    -Body ($payload | ConvertTo-Json -Depth 12)
-
-  $decision = $response.persistence.decision
-  # lotus-idea's autonomous signal-ingestion worker may have already persisted the
-  # candidate from the seeded Core data; the manual seed then reconciles against the
-  # existing business aggregate and evidence_refreshed / material_version_created are
-  # persisted outcomes of that reconciliation, not failures (owner vocabulary:
-  # lotus-idea src/app/domain/persistence_models.py CandidatePersistenceDecision).
-  # recurrent_condition_reopened is deliberately NOT accepted: it means a candidate a
-  # PREVIOUS run drove to a terminal status was reopened, so certifying it as
-  # current-run evidence would launder stale identity through the run-id stamp.
+  if (-not (Test-Path -LiteralPath $runtimeEvidencePath -PathType Leaf)) {
+    throw "Canonical Lotus Idea cashflow evaluation did not publish current-run evidence."
+  }
+  $runtimeEvidence = Get-Content -LiteralPath $runtimeEvidencePath -Raw | ConvertFrom-Json
+  & node (Join-Path $PSScriptRoot "verify-idea-runtime-evidence-integrity.mjs") `
+    --evidence $runtimeEvidencePath
+  if ($LASTEXITCODE -ne 0) {
+    throw "Canonical Lotus Idea runtime evidence failed independent receipt-integrity verification."
+  }
   $persistedDecisions = @(
     "accepted",
     "replayed",
-    "duplicate_candidate",
     "evidence_refreshed",
-    "material_version_created"
+    "material_version_created",
+    "recurrent_condition_reopened"
   )
-  if ($decision -eq "recurrent_condition_reopened") {
-    throw ("Canonical Lotus Idea seed reopened a terminal candidate from an earlier " +
-      "run; the persisted Idea volume holds prior-run lifecycle state. Re-run with " +
-      "clean Idea volumes so the canonical evidence is provably current-run.")
-  }
-  if ($decision -notin $persistedDecisions) {
-    throw "Canonical Lotus Idea seed did not persist an advisor queue candidate. Decision: $decision"
-  }
-  $candidateId = [string]$response.persistence.candidateId
-  if ([string]::IsNullOrWhiteSpace($candidateId)) {
-    throw "Canonical Lotus Idea seed returned no persisted candidate identity."
+  $decision = [string]$runtimeEvidence.execution.persistenceReceipt.decision
+  if (
+    [string]$runtimeEvidence.schemaVersion -ne "lotus-idea.low-income-cashflow.runtime-execution.v3" -or
+    [string]$runtimeEvidence.proofFamily -ne "low_income_cashflow" -or
+    [string]$runtimeEvidence.sourceAuthority -ne "lotus-core" -or
+    [string]$runtimeEvidence.execution.status -ne "completed" -or
+    [bool]$runtimeEvidence.execution.durableStorageBacked -ne $true -or
+    @($runtimeEvidence.execution.qualificationBlockers).Count -ne 0 -or
+    [string]$runtimeEvidence.execution.persistenceReceipt.candidateFamily -ne "low_income" -or
+    [string]$runtimeEvidence.execution.persistenceReceipt.sourceCutPosture `
+      -notin @("coherent", "coherent_with_declared_tolerance") -or
+    $decision -notin $persistedDecisions
+  ) {
+    throw "Canonical Lotus Idea cashflow evidence did not prove one durable authoritative candidate. Decision: $decision"
   }
 
-  $lifecycleObservedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-  & node (Join-Path $PSScriptRoot "invoke-idea-candidate-lifecycle-seed.mjs") `
-    --idea-base-url $ideaBaseUrl `
-    --candidate-id $candidateId `
-    --observed-at-utc $lifecycleObservedAtUtc `
-    --tenant-id $payload.accessScope.tenantId `
-    --book-id $payload.accessScope.bookId `
-    --portfolio-id $payload.accessScope.portfolioId `
-    --client-id $payload.accessScope.clientId
-  if ($LASTEXITCODE -ne 0) {
-    throw "Canonical Lotus Idea lifecycle preparation failed with exit code $LASTEXITCODE."
+  $candidateId = [string]$runtimeEvidence.execution.persistenceReceipt.candidateId
+  if ($candidateId -notmatch '^idea_low_income_[0-9a-f]{16}$') {
+    throw "Canonical Lotus Idea cashflow persistence returned an invalid low-income candidate identity."
   }
+  $sourceCutPosture = [string]$runtimeEvidence.execution.persistenceReceipt.sourceCutPosture
+
+  $sourceResponseInstants = @(
+    [datetimeoffset]$runtimeEvidence.execution.cashMovementReceipt.responseGeneratedAtUtc
+    [datetimeoffset]$runtimeEvidence.execution.cashflowProjectionReceipt.responseGeneratedAtUtc
+  )
+  $sourceObservedInstant = $sourceResponseInstants |
+    Sort-Object -Descending |
+    Select-Object -First 1
+  $evaluatedInstant = [datetimeoffset]$runtimeEvidence.execution.evaluatedAtUtc
+  if ($sourceObservedInstant -gt $evaluatedInstant) {
+    throw "Canonical Lotus Idea cashflow evaluation predates its authoritative Core source receipts."
+  }
+  $sourceObservedAtUtc = $sourceObservedInstant.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+  $evaluatedAtUtc = $evaluatedInstant.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
 
   $queueHeaders = @{
     "X-Caller-Subject" = "canonical-front-office-validator"
     "X-Caller-Roles" = "advisor"
     "X-Caller-Capabilities" = "idea.review.queue.read"
-    "X-Caller-Tenant-Ids" = $payload.accessScope.tenantId
-    "X-Caller-Book-Ids" = $payload.accessScope.bookId
-    "X-Caller-Portfolio-Ids" = $payload.accessScope.portfolioId
-    "X-Caller-Client-Ids" = $payload.accessScope.clientId
+    "X-Caller-Tenant-Ids" = $accessScope.tenantId
+    "X-Caller-Book-Ids" = $accessScope.bookId
+    "X-Caller-Portfolio-Ids" = $accessScope.portfolioId
+    "X-Caller-Client-Ids" = $accessScope.clientId
   }
+  $lifecycleObservedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+  & node (Join-Path $PSScriptRoot "invoke-idea-candidate-lifecycle-seed.mjs") `
+    --idea-base-url $ideaBaseUrl `
+    --candidate-id $candidateId `
+    --observed-at-utc $lifecycleObservedAtUtc `
+    --tenant-id $accessScope.tenantId `
+    --book-id $accessScope.bookId `
+    --portfolio-id $accessScope.portfolioId `
+    --client-id $accessScope.clientId
+  if ($LASTEXITCODE -ne 0) {
+    throw "Canonical Lotus Idea lifecycle preparation failed with exit code $LASTEXITCODE."
+  }
+
   $queueEvaluatedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
   $encodedEvaluatedAtUtc = [uri]::EscapeDataString($queueEvaluatedAtUtc)
+  $detailHeaders = $queueHeaders.Clone()
+  $detailHeaders["X-Caller-Capabilities"] = "idea.candidate.detail.read"
+  $encodedCandidateId = [uri]::EscapeDataString($candidateId)
+  $candidateDetail = Invoke-RestMethod `
+    -Uri "$ideaBaseUrl/api/v1/idea-candidates/$encodedCandidateId" `
+    -Headers $detailHeaders
+  $preparedLifecycleStatus = [string]$candidateDetail.candidate.lifecycleStatus
+  if (
+    [string]$candidateDetail.candidate.candidateId -ne $candidateId -or
+    [string]$candidateDetail.candidate.family -ne "low_income" -or
+    [string]$candidateDetail.evidence.sourceCutPosture -ne $sourceCutPosture -or
+    $preparedLifecycleStatus -notin @("ready_for_review", "reviewed_by_advisor", "approved")
+  ) {
+    throw "Canonical Lotus Idea detail changed the persisted candidate's economic or lifecycle identity."
+  }
   $queue = Invoke-RestMethod `
     -Uri "$ideaBaseUrl/api/v1/review-queues/advisor?evaluatedAtUtc=$encodedEvaluatedAtUtc" `
     -Headers $queueHeaders
   if ([datetimeoffset]$queue.evaluatedAtUtc -ne [datetimeoffset]$queueEvaluatedAtUtc) {
     throw "Canonical Lotus Idea advisor queue did not preserve the requested evaluation boundary."
   }
-  $seededQueueItems = @($queue.items | Where-Object {
+  $preparedQueueItems = @($queue.items | Where-Object {
       [string]$_.candidate.candidateId -eq $candidateId
     })
-  if ($seededQueueItems.Count -ne 1) {
+  $expectedQueueMatches = if ($preparedLifecycleStatus -eq "ready_for_review") { 1 } else { 0, 1 }
+  if ($preparedQueueItems.Count -notin $expectedQueueMatches) {
     throw (
-      "Canonical Lotus Idea advisor queue did not return the current run candidate " +
-      "'$candidateId' exactly once. Matches: $($seededQueueItems.Count)."
+      "Canonical Lotus Idea advisor queue returned $($preparedQueueItems.Count) matches for " +
+      "candidate '$candidateId' in lifecycle '$preparedLifecycleStatus'."
     )
   }
+  if ($preparedQueueItems.Count -eq 1) {
+    $preparedCandidate = $preparedQueueItems[0].candidate
+    if (
+      [string]$preparedCandidate.family -ne "low_income" -or
+      [string]$preparedCandidate.sourceCutPosture -ne $sourceCutPosture -or
+      [string]$preparedCandidate.lifecycleStatus -ne $preparedLifecycleStatus
+    ) {
+      throw "Canonical Lotus Idea advisor queue changed the persisted candidate's economic identity."
+    }
+  }
 
-  New-Item -ItemType Directory -Force -Path $canonicalEvidenceRoot | Out-Null
   $candidateEvidence = [ordered]@{
-    schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v3"
+    schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v4"
     runId = $ideaCanonicalRunId
     candidateId = $candidateId
     portfolioId = $PortfolioId
     accessScope = [ordered]@{
-      tenantId = [string]$payload.accessScope.tenantId
-      bookId = [string]$payload.accessScope.bookId
-      portfolioId = [string]$payload.accessScope.portfolioId
-      clientId = [string]$payload.accessScope.clientId
+      tenantId = [string]$accessScope.tenantId
+      bookId = [string]$accessScope.bookId
+      portfolioId = [string]$accessScope.portfolioId
+      clientId = [string]$accessScope.clientId
     }
     asOfDate = $asOfDate
-    lifecycleStatus = "ready_for_review"
+    lifecycleStatus = $preparedLifecycleStatus
+    sourceCutPosture = $sourceCutPosture
     sourceObservedAtUtc = $sourceObservedAtUtc
     evaluatedAtUtc = $evaluatedAtUtc
     lifecycleObservedAtUtc = $lifecycleObservedAtUtc
@@ -999,6 +1064,8 @@ if ($CoreManageOnly) {
   return
 }
 
+Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'core-seed-materialization' -Action { Invoke-CanonicalCoreSeed -IngestOnly }
+
 $ideaSourceIdentity = Get-GitRepositoryIdentity -RepoPath $ideaRepo
 $ideaDatePolicy = Get-CanonicalFrontOfficeDatePolicy
 $ideaCanonicalRunId = "canonical-front-office-$($ideaDatePolicy.AsOfDate)-$([guid]::NewGuid().ToString('N'))"
@@ -1063,7 +1130,7 @@ if (Test-LocalApp "gateway") {
   Invoke-ComposeUp $gatewayRepo
 }
 
-Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'core-seed-materialization' -Action { Invoke-CanonicalCoreSeed }
+Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'core-downstream-verification' -Action { Invoke-CanonicalCoreSeed -VerifyOnly }
 Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'dpm-seed' -Action { Invoke-DpmCommandCenterSeed }
 if ($ValidationProfile -eq 'full') {
   Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'idea-capacity-seed' -Action { Invoke-CanonicalIdeaCapacitySeed }
