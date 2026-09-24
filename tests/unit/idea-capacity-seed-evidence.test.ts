@@ -161,6 +161,12 @@ describe("Idea capacity seed evidence", () => {
     ["certification inflation", { productionCapacityCertified: true }],
     ["feature inflation", { supportedFeaturePromoted: true }],
     ["canonical portfolio leakage", { runId: "PB_SG_GLOBAL_BAL_001" }],
+    ["canonical tenant leakage", { runId: "tenant-sg" }],
+    ["canonical book leakage", { runId: "BOOK_SG_BALANCED_DPM" }],
+    [
+      "canonical client leakage",
+      { runId: "CLIENT_SCOPE_PB_SG_GLOBAL_BAL_001" },
+    ],
     ["unapproved path", { downstreamSubmissionPath: "/api/v1/clients/1" }],
     ["unapproved synthetic namespace", { syntheticNamespace: "OTHER_SYNTHETIC_001" }],
   ])("rejects %s", (_name, mutation) => {

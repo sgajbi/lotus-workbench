@@ -41,7 +41,7 @@ describe("buildAdvisoryOpportunitiesModel", () => {
     expect(model.rows).toEqual([
       expect.objectContaining({
         candidateId: "idea_high_cash_001",
-        title: "High Cash - idea_high_cash_001",
+        title: "Excess Cash - idea_high_cash_001",
         rank: 1,
         priority: "High",
         reviewPosture: "Advisor Review Required",
@@ -52,6 +52,27 @@ describe("buildAdvisoryOpportunitiesModel", () => {
           "&candidateId=idea_high_cash_001",
       }),
     ]);
+  });
+
+  it("presents the low-income signal as an advisor-facing cash shortfall", () => {
+    const model = buildAdvisoryOpportunitiesModel({
+      portfolioId: "PB_SG_GLOBAL_BAL_001",
+      queue: {
+        items: [
+          {
+            rank: 1,
+            candidate: {
+              candidateId: "idea_low_income_0123456789abcdef",
+              family: "low_income",
+            },
+          },
+        ],
+      },
+    });
+
+    expect(model.rows[0]?.title).toBe(
+      "Projected Cash Shortfall - idea_low_income_0123456789abcdef",
+    );
   });
 
   it("preserves Idea queue positions as numeric grid sort values", () => {

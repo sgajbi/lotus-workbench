@@ -14,6 +14,10 @@ const SOURCE_LIMITATION_REASON_CODES = [
   "MISSING_LOCAL_ECONOMICS",
   "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY",
 ] as const;
+const COMPONENT_DETAIL_LIMITATION_REASON_CODE =
+  "COMPONENT_PNL_NOT_SOURCE_AUTHORED";
+const COMPONENT_AVAILABILITY_LIMITATION_REASON_CODE =
+  "PERFORMANCE_COMPONENT_ECONOMICS_UNAVAILABLE";
 
 const COMMON_SMOOTHING_RESIDUAL_CODES = [
   "RAW_CONTRIBUTION_DIFFERS_FROM_LINKED_RETURN",
@@ -23,8 +27,7 @@ const COMMON_SMOOTHING_RESIDUAL_CODES = [
 const CONTRIBUTION_RECONCILIATION_TOLERANCE_PCT = 0.005;
 
 export type ContributionEvidenceInconsistency =
-  | "numeric_reconciliation"
-  | "status_or_reason";
+  "numeric_reconciliation" | "status_or_reason";
 
 export function getContributionEvidenceInconsistency(
   contribution: ContributionSummaryView,
@@ -57,11 +60,15 @@ function isSourceEvidenceConsistent(
 ): boolean {
   const sourceEvidence = contribution.source_economics_evidence;
   const reasonCodes = sourceEvidence?.reason_codes ?? [];
+  const unsupportedEconomics = sourceEvidence?.unsupported_economics ?? [];
+  const degradedEconomics = sourceEvidence?.degraded_economics ?? [];
   const hasDeclaredLimitations = Boolean(
-    sourceEvidence?.unsupported_economics.length || sourceEvidence?.degraded_economics.length,
+    unsupportedEconomics.length || degradedEconomics.length,
   );
-  const hasLimitationReason = SOURCE_LIMITATION_REASON_CODES.some((reasonCode) =>
-    reasonCodes.includes(reasonCode),
+  const hasBlockingLimitationReason = SOURCE_LIMITATION_REASON_CODES.some(
+    (reasonCode) =>
+      reasonCode !== COMPONENT_DETAIL_LIMITATION_REASON_CODE &&
+      reasonCodes.includes(reasonCode),
   );
   const hasCallerSuppliedReason = reasonCodes.includes(
     "STATELESS_CALLER_SUPPLIED_SOURCE_ECONOMICS",
@@ -70,7 +77,9 @@ function isSourceEvidenceConsistent(
     sourceEvidence?.available_economics ?? [],
     sourceEvidence?.unsupported_economics ?? [],
   );
-  const hasPublishedSourceContracts = hasNonBlankValues(sourceEvidence?.source_contracts ?? []);
+  const hasPublishedSourceContracts = hasNonBlankValues(
+    sourceEvidence?.source_contracts ?? [],
+  );
   const hasPublishedAvailableEconomics = hasNonBlankValues(
     sourceEvidence?.available_economics ?? [],
   );
@@ -83,17 +92,26 @@ function isSourceEvidenceConsistent(
     reasonCodes,
     sourceEvidence?.source_snapshot_count,
   );
-  const hasSupportedDeclaredLimitations = hasReasonEvidenceForDeclaredLimitations(
-    sourceEvidence?.unsupported_economics ?? [],
-    sourceEvidence?.degraded_economics ?? [],
+  const hasSupportedDeclaredLimitations =
+    hasReasonEvidenceForDeclaredLimitations(
+      unsupportedEconomics,
+      degradedEconomics,
+      reasonCodes,
+    );
+  const hasConsistentComponentDetail = isComponentDetailStatusConsistent(
+    sourceEvidence?.component_detail_status,
+    unsupportedEconomics,
+    degradedEconomics,
     reasonCodes,
   );
 
   switch (sourceStatus) {
     case "SOURCE_BACKED":
       return (
-        !hasDeclaredLimitations &&
-        !hasLimitationReason &&
+        degradedEconomics.length === 0 &&
+        !hasBlockingLimitationReason &&
+        hasSupportedDeclaredLimitations &&
+        hasConsistentComponentDetail &&
         !hasCallerSuppliedReason &&
         !hasContradictoryEconomics &&
         hasPublishedSourceContracts &&
@@ -107,6 +125,7 @@ function isSourceEvidenceConsistent(
       return (
         hasDeclaredLimitations &&
         hasSupportedDeclaredLimitations &&
+        hasConsistentComponentDetail &&
         !hasCallerSuppliedReason &&
         !hasContradictoryEconomics &&
         hasPublishedSourceContracts &&
@@ -117,6 +136,43 @@ function isSourceEvidenceConsistent(
       );
     case "CALLER_SUPPLIED":
       return hasCallerSuppliedReason;
+    default:
+      return false;
+  }
+}
+
+function isComponentDetailStatusConsistent(
+  componentDetailStatus: string | null | undefined,
+  unsupportedEconomics: string[],
+  degradedEconomics: string[],
+  reasonCodes: string[],
+): boolean {
+  const hasUnsupportedComponentDetails = unsupportedEconomics.some(
+    (economics) =>
+      UNSUPPORTED_ECONOMICS_VOCABULARY[economics]?.reasonCode ===
+      COMPONENT_DETAIL_LIMITATION_REASON_CODE,
+  );
+  const hasDegradedComponentDetails = degradedEconomics.some(
+    (economics) =>
+      DEGRADED_ECONOMICS_VOCABULARY[economics]?.reasonCode ===
+      COMPONENT_AVAILABILITY_LIMITATION_REASON_CODE,
+  );
+  const hasComponentLimitation =
+    hasUnsupportedComponentDetails || hasDegradedComponentDetails;
+  const hasComponentLimitationReason = reasonCodes.some((reasonCode) =>
+    [
+      COMPONENT_DETAIL_LIMITATION_REASON_CODE,
+      COMPONENT_AVAILABILITY_LIMITATION_REASON_CODE,
+    ].includes(reasonCode),
+  );
+  switch (componentDetailStatus) {
+    case "COMPLETE":
+      return !hasComponentLimitation && !hasComponentLimitationReason;
+    case "LIMITED":
+      return hasComponentLimitation && hasComponentLimitationReason;
+    case null:
+    case undefined:
+      return !hasComponentLimitation && !hasComponentLimitationReason;
     default:
       return false;
   }
@@ -157,7 +213,8 @@ function hasValuesForAvailableContributionEconomics(
 
 function hasPublishedContributionDimension(
   contribution: ContributionSummaryView,
-  portfolioField: "portfolio_local_contribution_pct" | "portfolio_fx_contribution_pct",
+  portfolioField:
+    "portfolio_local_contribution_pct" | "portfolio_fx_contribution_pct",
   rowField: "local_contribution_pct" | "fx_contribution_pct",
 ): boolean {
   return (
@@ -181,7 +238,9 @@ function isSnapshotLineageConsistent(
     return false;
   }
 
-  const hasEmbeddedLineage = reasonCodes.includes("UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE");
+  const hasEmbeddedLineage = reasonCodes.includes(
+    "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE",
+  );
   const hasExecutionOnlyLineage = reasonCodes.includes(
     "UPSTREAM_SNAPSHOT_LINEAGE_AVAILABLE_VIA_EXECUTION_ONLY",
   );
@@ -206,20 +265,27 @@ function hasReasonEvidenceForDeclaredLimitations(
     ...unsupportedEconomics.map(
       (item) => UNSUPPORTED_ECONOMICS_VOCABULARY[item]?.reasonCode,
     ),
-    ...degradedEconomics.map((item) => DEGRADED_ECONOMICS_VOCABULARY[item]?.reasonCode),
+    ...degradedEconomics.map(
+      (item) => DEGRADED_ECONOMICS_VOCABULARY[item]?.reasonCode,
+    ),
   ];
   if (
     expectedLimitationReasons.some((reasonCode) => reasonCode === undefined) ||
-    expectedLimitationReasons.some((reasonCode) => !reasonCodes.includes(reasonCode))
+    expectedLimitationReasons.some(
+      (reasonCode) => !reasonCodes.includes(reasonCode),
+    )
   ) {
     return false;
   }
 
   const expectedReasonSet = new Set(
-    expectedLimitationReasons.filter((reasonCode): reasonCode is string => reasonCode !== undefined),
+    expectedLimitationReasons.filter(
+      (reasonCode): reasonCode is string => reasonCode !== undefined,
+    ),
   );
   return SOURCE_LIMITATION_REASON_CODES.every(
-    (reasonCode) => !reasonCodes.includes(reasonCode) || expectedReasonSet.has(reasonCode),
+    (reasonCode) =>
+      !reasonCodes.includes(reasonCode) || expectedReasonSet.has(reasonCode),
   );
 }
 
@@ -253,7 +319,10 @@ function isSmoothingEvidenceConsistent(
       return (
         hasOnlyExpectedReasons(
           publishedReasonCodes,
-          ["CARINO_INVALID_DAILY_LOG_DOMAIN", ...COMMON_SMOOTHING_RESIDUAL_CODES],
+          [
+            "CARINO_INVALID_DAILY_LOG_DOMAIN",
+            ...COMMON_SMOOTHING_RESIDUAL_CODES,
+          ],
           "CARINO_INVALID_DAILY_LOG_DOMAIN",
         ) && hasConsistentResidualReasons(contribution, publishedReasonCodes)
       );
@@ -299,7 +368,9 @@ function hasOnlyExpectedReasons(
 ): boolean {
   return (
     publishedReasonCodes.includes(requiredReasonCode) &&
-    publishedReasonCodes.every((reasonCode) => expectedReasonCodes.includes(reasonCode))
+    publishedReasonCodes.every((reasonCode) =>
+      expectedReasonCodes.includes(reasonCode),
+    )
   );
 }
 

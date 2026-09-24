@@ -8,13 +8,13 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-const CANDIDATE_ID = "idea_high_cash_contract_001";
+const CANDIDATE_ID = "idea_low_income_0123456789abcdef";
 const OBSERVED_AT_UTC = "2026-09-07T01:07:19.124Z";
 const ACCESS_SCOPE = {
-  bookId: "book-advisor-001",
-  clientId: "client-001",
+  bookId: "BOOK_SG_BALANCED_DPM",
+  clientId: "CLIENT_SCOPE_PB_SG_GLOBAL_BAL_001",
   portfolioId: "PB_SG_GLOBAL_BAL_001",
-  tenantId: "tenant-private-bank-sg",
+  tenantId: "tenant-sg",
 } as const;
 const EXPECTED_STATUSES = [
   "enriched",
@@ -103,9 +103,10 @@ async function runLifecycleSeed(
     requestedStatus: string,
   ) => string,
   runs = 1,
+  initialStatus = "generated",
 ): Promise<ScriptResult> {
   const requests: ObservedRequest[] = [];
-  let sourceStatus = "generated";
+  let sourceStatus = initialStatus;
   let transitionCount = 0;
   const server = createServer(async (request, response) => {
     const bodyText = await readRequestBody(request);
@@ -239,6 +240,40 @@ describe("canonical Idea lifecycle seed", () => {
     ).toHaveLength(2);
     expect(result.stderr).toContain(
       "returned state 'enriched' instead of 'scored' after persistence",
+    );
+  }, 30_000);
+
+  it.each(["reviewed_by_advisor", "approved"])(
+    "accepts an existing source-owned %s lifecycle without replaying setup transitions",
+    async (sourceStatus) => {
+      const result = await runLifecycleSeed(
+        (_index, requestedStatus) => requestedStatus,
+        1,
+        sourceStatus,
+      );
+
+      expect(result.exitCode, result.stderr).toBe(0);
+      expect(result.requests).toHaveLength(1);
+      expect(result.requests[0]?.method).toBe("GET");
+      expectCompleteAdmittedAuthority(result.requests[0]!);
+      expect(result.stdout).toContain(
+        `already exceeds the required review-ready lifecycle at '${sourceStatus}'`,
+      );
+    },
+    30_000,
+  );
+
+  it("rejects a terminal lifecycle that cannot participate in the advisor demo", async () => {
+    const result = await runLifecycleSeed(
+      (_index, requestedStatus) => requestedStatus,
+      1,
+      "rejected",
+    );
+
+    expect(result.exitCode).not.toBe(0);
+    expect(result.requests).toHaveLength(1);
+    expect(result.stderr).toContain(
+      "candidate is in non-seedable source state 'rejected'",
     );
   }, 30_000);
 });

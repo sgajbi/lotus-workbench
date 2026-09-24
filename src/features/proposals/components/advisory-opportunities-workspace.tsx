@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { GridApi } from "ag-grid-community";
 import { Alert, CircularProgress, Stack } from "@mui/material";
 
 import { ScreenStatePanel, SectionBlock, Text } from "@/design-system";
@@ -16,10 +17,14 @@ import {
   getAdvisorIdeaCandidateDetail,
   getAdvisorIdeaReviewQueue,
 } from "../api";
-import { buildAdvisoryOpportunitiesModel } from "../advisory-opportunities-view-model";
+import {
+  buildAdvisoryOpportunitiesModel,
+  type AdvisoryOpportunityRow,
+} from "../advisory-opportunities-view-model";
 import {
   buildIdeaCandidateActionAuthority,
   readPersistedAcceptedIdeaReviewAuthority,
+  sameInstant,
 } from "../idea-action-authority";
 import { readAdvisorIdeaEvidenceIdentity } from "../idea-ai-explanation-contract";
 import type {
@@ -54,6 +59,59 @@ function nextQueueEvaluationBoundary(previousBoundary: string): string {
   ).toISOString();
 }
 
+function gridDisplaysCandidate(
+  gridApi: GridApi<AdvisoryOpportunityRow>,
+  candidateId: string,
+): boolean {
+  for (let index = 0; index < gridApi.getDisplayedRowCount(); index += 1) {
+    const rowNode = gridApi.getDisplayedRowAtIndex(index);
+    if (
+      rowNode?.id === candidateId ||
+      rowNode?.data?.candidateId === candidateId
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function revealCandidateQueueRow(
+  container: HTMLElement | null,
+  gridApi: GridApi<AdvisoryOpportunityRow> | null,
+  candidateId: string,
+): Promise<void> {
+  const waitForRender = () =>
+    new Promise<void>((resolve) => {
+      if (typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(() => resolve());
+        return;
+      }
+      window.setTimeout(resolve, 0);
+    });
+  await waitForRender();
+  if (gridApi) {
+    const rowNode = gridApi.getRowNode(candidateId);
+    if (rowNode) {
+      gridApi.ensureNodeVisible(rowNode, "middle");
+      await waitForRender();
+    }
+  }
+  if (!container) {
+    return;
+  }
+  const marker = Array.from(
+    container.querySelectorAll<HTMLElement>(
+      "[data-idea-presentation-candidate]",
+    ),
+  ).find(
+    (element) => element.dataset.ideaPresentationCandidate === candidateId,
+  );
+  if (!marker) {
+    return;
+  }
+  marker.scrollIntoView?.({ block: "center", inline: "nearest" });
+}
+
 export default function AdvisoryOpportunitiesWorkspace({
   portfolioId,
   reviewContext,
@@ -64,11 +122,19 @@ export default function AdvisoryOpportunitiesWorkspace({
   selectedCandidateId?: string;
 }) {
   const queryClient = useQueryClient();
-  const queueContainerRef = useRef<HTMLDivElement>(null);
+  const presentationContainerRef = useRef<HTMLDivElement>(null);
+  const opportunityGridApiRef = useRef<GridApi<AdvisoryOpportunityRow> | null>(
+    null,
+  );
   const isCanonicalIdeaPortfolio = portfolioId === CANONICAL_IDEA_PORTFOLIO_ID;
   const [queueEvaluatedAtUtc, setQueueEvaluatedAtUtc] = useState(() =>
     new Date().toISOString(),
   );
+  const [opportunityFilterText, setOpportunityFilterText] = useState("");
+  const [presentationRenewal, setPresentationRenewal] = useState<{
+    candidateId: string;
+    evaluatedAtUtc: string;
+  }>();
   const { data, isLoading, error } = useQuery({
     ...advisorIdeaQueueQueryOptions(portfolioId, queueEvaluatedAtUtc),
     enabled: isCanonicalIdeaPortfolio,
@@ -103,15 +169,56 @@ export default function AdvisoryOpportunitiesWorkspace({
     [data?.items, selectedCandidate],
   );
   const receiptState = useIdeaPresentationReceipts({
-    containerRef: queueContainerRef,
+    containerRef: presentationContainerRef,
     enabled: model.rows.length > 0,
     portfolioId,
     queue: data,
   });
-  const proposalBuilderHref = buildReviewContextHref(
-    "/proposals/simulate",
-    { ...reviewContext, portfolioId },
-  );
+  const currentPresentationAuthority = selectedCandidate
+    ? receiptState.authorityByCandidateId.get(selectedCandidate)
+    : undefined;
+  const [retainedPresentedCandidate, setRetainedPresentedCandidate] = useState<{
+    candidateId: string;
+    queueItem: AdvisorIdeaQueueItem;
+  }>();
+  const retainedSelectedCandidate =
+    retainedPresentedCandidate?.candidateId === selectedCandidate
+      ? retainedPresentedCandidate
+      : undefined;
+  const selectedPresentedQueueItem =
+    selectedQueueItem ?? retainedSelectedCandidate?.queueItem;
+  useEffect(() => {
+    if (
+      !data ||
+      !presentationRenewal ||
+      !sameInstant(data.evaluatedAtUtc, presentationRenewal.evaluatedAtUtc)
+    ) {
+      return;
+    }
+    const renewalCandidateId = presentationRenewal.candidateId;
+    const gridApi = opportunityGridApiRef.current;
+    if (!gridApi?.getRowNode(renewalCandidateId)) {
+      setPresentationRenewal(undefined);
+      return;
+    }
+    if (
+      opportunityFilterText &&
+      !gridDisplaysCandidate(gridApi, renewalCandidateId)
+    ) {
+      setOpportunityFilterText("");
+      return;
+    }
+    void revealCandidateQueueRow(
+      presentationContainerRef.current,
+      gridApi,
+      renewalCandidateId,
+    );
+    setPresentationRenewal(undefined);
+  }, [data, opportunityFilterText, presentationRenewal]);
+  const proposalBuilderHref = buildReviewContextHref("/proposals/simulate", {
+    ...reviewContext,
+    portfolioId,
+  });
 
   if (!isCanonicalIdeaPortfolio) {
     return (
@@ -139,11 +246,9 @@ export default function AdvisoryOpportunitiesWorkspace({
     <SectionBlock
       title="Opportunities And Ideas"
       subtitle="Advisor-use triage of Lotus Idea candidates through the governed Gateway contract."
+      bodyRef={presentationContainerRef}
       actions={
-        <Link
-          className="nav-link"
-          href={proposalBuilderHref}
-        >
+        <Link className="nav-link" href={proposalBuilderHref}>
           Open Proposal Builder
         </Link>
       }
@@ -169,7 +274,10 @@ export default function AdvisoryOpportunitiesWorkspace({
         </div>
       </div>
 
-      <div className={styles.proofStrip} aria-label="Idea worklist evidence status">
+      <div
+        className={styles.proofStrip}
+        aria-label="Idea worklist evidence status"
+      >
         <span>Policy: {model.policyVersion}</span>
         <span>Evaluated: {model.evaluatedAtUtc}</span>
         <span>
@@ -189,19 +297,24 @@ export default function AdvisoryOpportunitiesWorkspace({
           error={candidateDetailError}
           isLoading={isCandidateDetailLoading}
           portfolioId={portfolioId}
-          presentationAuthority={receiptState.authorityByCandidateId.get(
-            selectedCandidate,
-          )}
-          candidateReasonCodes={selectedQueueItem?.reasonCodes ?? []}
-          queueItem={selectedQueueItem}
+          presentationAuthority={currentPresentationAuthority}
+          candidateReasonCodes={selectedPresentedQueueItem?.reasonCodes ?? []}
+          queueItem={selectedPresentedQueueItem}
           queueEvaluatedAtUtc={data?.evaluatedAtUtc}
           queuePolicyVersion={data?.policyVersion}
           selectedCandidateId={selectedCandidate}
-          sourceSignalIds={selectedQueueItem?.candidate?.sourceSignalIds ?? []}
+          sourceSignalIds={
+            selectedPresentedQueueItem?.candidate?.sourceSignalIds ?? []
+          }
           onActionRecorded={async () => {
-            const refreshedQueueEvaluatedAtUtc = nextQueueEvaluationBoundary(
-              queueEvaluatedAtUtc,
-            );
+            if (selectedQueueItem && currentPresentationAuthority) {
+              setRetainedPresentedCandidate({
+                candidateId: selectedCandidate,
+                queueItem: selectedQueueItem,
+              });
+            }
+            const refreshedQueueEvaluatedAtUtc =
+              nextQueueEvaluationBoundary(queueEvaluatedAtUtc);
             const detailQueryKey = [
               "advisory-opportunity-detail",
               portfolioId,
@@ -225,6 +338,10 @@ export default function AdvisoryOpportunitiesWorkspace({
                   { throwOnError: true },
                 ),
               ]);
+              setPresentationRenewal({
+                candidateId: selectedCandidate,
+                evaluatedAtUtc: refreshedQueueEvaluatedAtUtc,
+              });
               setQueueEvaluatedAtUtc(refreshedQueueEvaluatedAtUtc);
               return true;
             } catch {
@@ -247,10 +364,7 @@ export default function AdvisoryOpportunitiesWorkspace({
           title="No Idea candidates ready for review"
           body="Lotus Idea did not return reviewable candidates for this portfolio scope."
           action={
-            <Link
-              className="nav-link"
-              href={proposalBuilderHref}
-            >
+            <Link className="nav-link" href={proposalBuilderHref}>
               Open proposal builder
             </Link>
           }
@@ -258,7 +372,11 @@ export default function AdvisoryOpportunitiesWorkspace({
         />
       ) : data ? (
         <AdvisoryOpportunityGrid
-          containerRef={queueContainerRef}
+          filterText={opportunityFilterText}
+          onFilterTextChange={setOpportunityFilterText}
+          onGridApiReady={(api) => {
+            opportunityGridApiRef.current = api;
+          }}
           receiptState={receiptState}
           rows={model.rows}
         />
@@ -304,8 +422,10 @@ function IdeaCandidateDetailPanel({
     detailCandidateId: candidate?.candidateId,
     candidateMaterialVersion: queueItem?.candidate?.materialVersion,
     candidateEvidenceVersion: queueItem?.candidate?.evidenceVersion,
-    detailCandidateMaterialVersion: candidate?.materialVersion,
-    detailCandidateEvidenceVersion: candidate?.evidenceVersion,
+    detailCandidateMaterialVersion:
+      candidate?.identity?.materialVersion ?? candidate?.materialVersion,
+    detailCandidateEvidenceVersion:
+      candidate?.identity?.evidenceVersion ?? candidate?.evidenceVersion,
     evidenceIdentity,
     detailSourceCutPosture: evidence?.sourceCutPosture,
     queueEvidencePacketId: queueItem?.candidate?.evidencePacketId,
@@ -374,9 +494,7 @@ function IdeaCandidateDetailPanel({
               Source signals:{" "}
               {sourceSignalIds.length > 0 ? sourceSignalIds.join(", ") : "None"}
             </span>
-            <span>
-              Queue policy: {queuePolicyVersion ?? "Policy pending"}
-            </span>
+            <span>Queue policy: {queuePolicyVersion ?? "Policy pending"}</span>
             <span>
               Queue evaluated: {queueEvaluatedAtUtc ?? "Evaluation pending"}
             </span>
@@ -402,7 +520,9 @@ function IdeaCandidateDetailPanel({
               candidateReasonCodes={candidateReasonCodes}
               actionAuthority={actionAuthority}
               evidenceIdentity={evidenceIdentity}
-              persistedAcceptedReviewAuthority={persistedAcceptedReviewAuthority}
+              persistedAcceptedReviewAuthority={
+                persistedAcceptedReviewAuthority
+              }
               portfolioId={portfolioId}
               presentationAuthority={presentationAuthority}
               onRecorded={onActionRecorded}

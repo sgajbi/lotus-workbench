@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, type RefObject } from "react";
-import type { ColDef, ICellRendererParams } from "ag-grid-community";
+import { useMemo } from "react";
+import type { ColDef, GridApi, ICellRendererParams } from "ag-grid-community";
 import { AgGridReact } from "ag-grid-react";
 import { Alert } from "@mui/material";
 
@@ -19,15 +19,18 @@ import "ag-grid-community/styles/ag-theme-quartz.css";
 ensureAgGridModulesRegistered();
 
 export default function AdvisoryOpportunityGrid({
-  containerRef,
+  filterText,
+  onFilterTextChange,
+  onGridApiReady,
   receiptState,
   rows,
 }: {
-  containerRef: RefObject<HTMLDivElement | null>;
+  filterText: string;
+  onFilterTextChange: (value: string) => void;
+  onGridApiReady: (api: GridApi<AdvisoryOpportunityRow> | null) => void;
   receiptState: IdeaPresentationReceiptState;
   rows: AdvisoryOpportunityRow[];
 }) {
-  const [filterText, setFilterText] = useState("");
   const columnDefs = useMemo<ColDef<AdvisoryOpportunityRow>[]>(
     () => [
       {
@@ -87,7 +90,7 @@ export default function AdvisoryOpportunityGrid({
           <input
             type="search"
             value={filterText}
-            onChange={(event) => setFilterText(event.target.value)}
+            onChange={(event) => onFilterTextChange(event.target.value)}
             placeholder="Candidate, priority or evidence"
           />
         </label>
@@ -116,7 +119,6 @@ export default function AdvisoryOpportunityGrid({
         </Alert>
       ) : null}
       <div
-        ref={containerRef}
         className={`ag-theme-quartz ${styles.opportunityGrid}`}
         style={{ height }}
         aria-label="Idea candidate review queue"
@@ -135,9 +137,11 @@ export default function AdvisoryOpportunityGrid({
           rowBuffer={2}
           suppressColumnVirtualisation
           suppressRowVirtualisation={false}
-          onGridReady={({ api }) =>
-            api.setGridAriaProperty("label", "Idea candidate review queue")
-          }
+          onGridReady={({ api }) => {
+            api.setGridAriaProperty("label", "Idea candidate review queue");
+            onGridApiReady(api);
+          }}
+          onGridPreDestroyed={() => onGridApiReady(null)}
           onFirstDataRendered={({ api }) =>
             api.setGridAriaProperty("label", "Idea candidate review queue")
           }

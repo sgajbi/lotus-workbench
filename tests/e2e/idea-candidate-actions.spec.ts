@@ -88,8 +88,10 @@ async function mockIdeaCandidateActions(
           data: {
             candidate: {
               candidateId,
-              materialVersion: 1,
-              evidenceVersion: 1,
+              identity: {
+                materialVersion: 1,
+                evidenceVersion: 1,
+              },
               family: "high_cash",
               lifecycleStatus: "generated",
               reviewPosture: "advisor_review_required",
@@ -238,6 +240,13 @@ async function presentCurrentCandidate(
     element.scrollIntoView({ block: "center", inline: "nearest" }),
   );
   await presentationAccepted;
+}
+
+async function renewCurrentCandidatePresentation(
+  page: import("@playwright/test").Page,
+  actionName: "Record review" | "Record intent",
+) {
+  await expect(page.getByRole("button", { name: actionName })).toBeEnabled();
 }
 
 test("blocks review authority on an unpresented candidate deep link", async ({
@@ -413,6 +422,7 @@ test("keeps refreshed Idea action drafts visible and submits the displayed basis
     });
   }
 
+  await renewCurrentCandidatePresentation(page, "Record intent");
   await page.getByRole("button", { name: "Record intent" }).click();
   const conversionStatus = page.getByTestId("idea-action-conversion-status");
   await expect(conversionStatus).toContainText("Cash balance requires review");
@@ -428,7 +438,7 @@ test("keeps refreshed Idea action drafts visible and submits the displayed basis
   await expect(
     page.getByTestId("idea-review-business-reason-retained-draft"),
   ).toHaveCount(0);
-  await presentCurrentCandidate(page);
+  await renewCurrentCandidatePresentation(page, "Record review");
   await page.getByRole("button", { name: "Record review" }).click();
   await expect(page.getByTestId("idea-action-review-status")).toContainText(
     "Concentration requires attention",
@@ -557,6 +567,7 @@ test("separates exact Idea retry from an edited advisor intent", async ({
     reasonCodes: ["review_approved_for_conversion", "review_required"],
   });
 
+  await renewCurrentCandidatePresentation(page, "Record intent");
   await page.getByRole("button", { name: "Record intent" }).click();
   const conversionRecovery = page.getByTestId("idea-conversion-retry");
   await expect(conversionRecovery).toContainText("Advise proposal review");
@@ -631,7 +642,16 @@ test("records every adviser-selected governed feedback reason through Gateway", 
     },
   );
 
-  await openPresentedCandidate(page);
+  await page.goto(
+    `/recommendations?mode=opportunities&portfolioId=${portfolioId}&candidateId=${candidateId}`,
+    { waitUntil: "domcontentloaded" },
+  );
+  await expect(page.getByLabel("Idea candidate advisor actions")).toBeVisible({
+    timeout: 30_000,
+  });
+  await expect(
+    page.getByRole("button", { name: "Record review" }),
+  ).toBeDisabled();
 
   await expect(page.getByTestId("idea-feedback-reason-summary")).toContainText(
     "Relevant to this client",
@@ -664,6 +684,10 @@ test("records every adviser-selected governed feedback reason through Gateway", 
   await expect(status).toContainText(
     "Feedback saved. Opportunity detail and worklist are current.",
   );
+  await renewCurrentCandidatePresentation(page, "Record review");
+  await expect(
+    page.getByRole("button", { name: "Record review" }),
+  ).toBeEnabled();
   expect(recordedRequests[0]).toMatchObject({
     headers: { "idempotency-key": expect.stringMatching(/^ui-idea-feedback-/) },
     body: {

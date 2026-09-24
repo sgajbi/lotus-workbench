@@ -49,7 +49,7 @@ function Read-IdeaCandidateSeedEvidence {
   } else {
     $evidence = $rawEvidence | ConvertFrom-Json
   }
-  if ($evidence.schemaVersion -ne "lotus-workbench.idea-candidate-seed-evidence.v3") {
+  if ($evidence.schemaVersion -ne "lotus-workbench.idea-candidate-seed-evidence.v4") {
     throw "Canonical Lotus Idea candidate seed evidence has an unsupported schema version."
   }
   if ([string]$evidence.portfolioId -ne $PortfolioId) {
@@ -58,11 +58,20 @@ function Read-IdeaCandidateSeedEvidence {
   if ([string]$evidence.asOfDate -ne $AsOfDate) {
     throw "Canonical Lotus Idea candidate seed evidence does not match business date $AsOfDate."
   }
-  if ([string]$evidence.candidateId -notmatch '^idea_high_cash_[0-9a-f]{16}$') {
+  if ([string]$evidence.candidateId -notmatch '^idea_low_income_[0-9a-f]{16}$') {
     throw "Canonical Lotus Idea candidate seed evidence has an invalid candidate identity."
   }
-  if ([string]$evidence.lifecycleStatus -ne "ready_for_review") {
-    throw "Canonical Lotus Idea candidate seed evidence is not ready for advisor review."
+  if (
+    [string]$evidence.lifecycleStatus -notin @(
+      "ready_for_review",
+      "reviewed_by_advisor",
+      "approved"
+    )
+  ) {
+    throw "Canonical Lotus Idea candidate seed evidence has no demo-participating lifecycle."
+  }
+  if ([string]$evidence.sourceCutPosture -notin @("coherent", "coherent_with_declared_tolerance")) {
+    throw "Canonical Lotus Idea candidate seed evidence has no authoritative Core source cut."
   }
   if ([string]::IsNullOrWhiteSpace([string]$evidence.runId)) {
     throw "Canonical Lotus Idea candidate seed evidence has no run identity."
@@ -127,9 +136,15 @@ function Assert-IdeaQueueSeed {
     [string]$GatewayBaseUrl,
     [string]$PortfolioId,
     [string]$ExpectedCandidateId,
+    [string]$ExpectedLifecycleStatus,
+    [string]$ExpectedSourceCutPosture,
     [string]$EvaluatedAtUtc,
     [pscustomobject]$AccessScope,
     [scriptblock]$QueueReader = {
+      param([string]$Uri, [hashtable]$Headers)
+      Invoke-RestMethod -Uri $Uri -Headers $Headers -TimeoutSec 45
+    },
+    [scriptblock]$DetailReader = {
       param([string]$Uri, [hashtable]$Headers)
       Invoke-RestMethod -Uri $Uri -Headers $Headers -TimeoutSec 45
     }
@@ -150,16 +165,57 @@ function Assert-IdeaQueueSeed {
   if ([datetimeoffset]$queue.evaluatedAtUtc -ne [datetimeoffset]$EvaluatedAtUtc) {
     throw "Gateway Idea review queue did not preserve the canonical evaluatedAtUtc boundary."
   }
+  $encodedCandidateId = [uri]::EscapeDataString($ExpectedCandidateId)
+  $detailUrl = "$GatewayBaseUrl/api/v1/ideas/candidates/$encodedCandidateId"
+  $detail = & $DetailReader $detailUrl $headers
+  if (
+    [string]$detail.candidate.candidateId -ne $ExpectedCandidateId -or
+    [string]$detail.candidate.lifecycleStatus -ne $ExpectedLifecycleStatus -or
+    [string]$detail.evidence.sourceCutPosture -ne $ExpectedSourceCutPosture
+  ) {
+    throw "Gateway Idea candidate detail does not match current-run lifecycle and source-cut evidence."
+  }
   $matchingItems = @($queue.items | Where-Object {
       [string]$_.candidate.candidateId -eq $ExpectedCandidateId
     })
-  if ($matchingItems.Count -ne 1) {
+  $expectedMatchCounts = if ($ExpectedLifecycleStatus -eq "ready_for_review") { 1 } else { 0, 1 }
+  if ($matchingItems.Count -notin $expectedMatchCounts) {
     throw (
       "Gateway Idea review queue did not expose current-run candidate '$ExpectedCandidateId' " +
-      "exactly once for $PortfolioId. Matches: $($matchingItems.Count)."
+      "with the expected lifecycle participation for $PortfolioId. Matches: $($matchingItems.Count)."
     )
   }
-  Write-Host "[ok] Gateway Idea review queue contains current-run candidate $ExpectedCandidateId -> $url"
+  if ($matchingItems.Count -eq 1) {
+    $candidate = $matchingItems[0].candidate
+    $lifecycleStatus = if ($candidate -is [Collections.IDictionary]) {
+      [string]$candidate["lifecycleStatus"]
+    } else {
+      $lifecycleProperty = $candidate.PSObject.Properties["lifecycleStatus"]
+      if ($null -eq $lifecycleProperty) { "" } else { [string]$lifecycleProperty.Value }
+    }
+    if ($lifecycleStatus -ne $ExpectedLifecycleStatus) {
+      throw (
+        "Gateway Idea review queue lifecycle does not match current-run evidence for " +
+        "'$ExpectedCandidateId'."
+      )
+    }
+    $sourceCutPosture = if ($candidate -is [Collections.IDictionary]) {
+      [string]$candidate["sourceCutPosture"]
+    } else {
+      $sourceCutProperty = $candidate.PSObject.Properties["sourceCutPosture"]
+      if ($null -eq $sourceCutProperty) { "" } else { [string]$sourceCutProperty.Value }
+    }
+    if ($sourceCutPosture -ne $ExpectedSourceCutPosture) {
+      throw (
+        "Gateway Idea review queue source cut does not match current-run evidence for " +
+        "'$ExpectedCandidateId'."
+      )
+    }
+  }
+  Write-Host (
+    "[ok] Gateway Idea lifecycle is source-confirmed for $ExpectedCandidateId " +
+    "($ExpectedLifecycleStatus; queue matches: $($matchingItems.Count)) -> $url"
+  )
 }
 
 Export-ModuleMember -Function Read-IdeaCandidateSeedEvidence, Assert-IdeaQueueSeed

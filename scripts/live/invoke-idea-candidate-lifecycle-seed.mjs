@@ -21,6 +21,8 @@ const LIFECYCLE_RANK = new Map([
   ["scored", 2],
   ["governance_checked", 3],
   ["ready_for_review", 4],
+  ["reviewed_by_advisor", 5],
+  ["approved", 6],
 ]);
 
 function readOptions() {
@@ -107,6 +109,13 @@ async function seedCandidateLifecycle() {
   }
 
   let currentStatus = await getSourceLifecycleStatus();
+  if (
+    LIFECYCLE_RANK.get(currentStatus) > LIFECYCLE_RANK.get("ready_for_review")
+  ) {
+    console.log(
+      `Canonical Lotus Idea candidate already exceeds the required review-ready lifecycle at '${currentStatus}'.`,
+    );
+  }
   for (const targetStatus of LIFECYCLE_STATUSES) {
     if (LIFECYCLE_RANK.get(currentStatus) > LIFECYCLE_RANK.get(targetStatus)) {
       continue;

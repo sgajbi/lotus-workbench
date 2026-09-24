@@ -1,5 +1,17 @@
 import type { ValidationPanelState, ValidationSummary } from "./shared-types";
 
+export function summarizePayloadSourceSupportability(
+  ...payloads: unknown[]
+): {
+  itemCount: number;
+  services: string[];
+  staleCount: number;
+  partialCount: number;
+  actionRequiredCount: number;
+  unconfirmedCount: number;
+  state: "ready" | "partial" | "action_required" | "unknown";
+};
+
 export function assertRiskAttributionReconciliation(attributionSet: {
   total_value?: number;
   reconciled_sum?: number;

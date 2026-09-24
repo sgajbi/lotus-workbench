@@ -28,8 +28,8 @@ const {
   readAdvisorBriefReviewEvidence,
   waitForAdvisorBriefReviewConfirmation,
   navigateForBusinessProof,
-  resolveHighCashIdeaCandidateId,
-  requireHighCashIdeaCandidateId,
+  resolveLowIncomeIdeaCandidateId,
+  requireLowIncomeIdeaCandidateId,
   validateAdvisorBriefPanel,
   validateAdvisoryJourneyScreens,
   validatePmOperatingQualityPanel,
@@ -156,11 +156,11 @@ const {
     route: string,
     options: { timeout: number },
   ) => Promise<{ ok: () => boolean; status: () => number }>;
-  resolveHighCashIdeaCandidateId: (
+  resolveLowIncomeIdeaCandidateId: (
     candidateHref: string | null,
     workbenchBaseUrl: string,
   ) => string;
-  requireHighCashIdeaCandidateId: (candidateId: string | null) => string;
+  requireLowIncomeIdeaCandidateId: (candidateId: string | null) => string;
   validateAdvisorBriefPanel: (...args: unknown[]) => Promise<void>;
   validateAdvisoryJourneyScreens: (...args: unknown[]) => Promise<void>;
   validatePmOperatingQualityPanel: (...args: unknown[]) => Promise<void>;
@@ -1022,24 +1022,24 @@ describe("live validation browser workflow helpers", () => {
     expect(source).not.toContain('getByLabel("Advisory journey screens")');
   });
 
-  it("derives the source-owned high-cash candidate identity from its queue link", () => {
+  it("derives the source-owned cash-shortfall candidate identity from its queue link", () => {
     expect(
-      resolveHighCashIdeaCandidateId(
-        "/recommendations?mode=opportunities&candidateId=idea_high_cash_ef02ad8793485081",
+      resolveLowIncomeIdeaCandidateId(
+        "/recommendations?mode=opportunities&candidateId=idea_low_income_ef02ad8793485081",
         "http://workbench.dev.lotus",
       ),
-    ).toBe("idea_high_cash_ef02ad8793485081");
+    ).toBe("idea_low_income_ef02ad8793485081");
   });
 
   it("requires the candidate identity bound to the current canonical run", () => {
     expect(
-      requireHighCashIdeaCandidateId("idea_high_cash_ef02ad8793485081"),
-    ).toBe("idea_high_cash_ef02ad8793485081");
-    expect(() => requireHighCashIdeaCandidateId(null)).toThrow(
-      /current-run high-cash candidate/i,
+      requireLowIncomeIdeaCandidateId("idea_low_income_ef02ad8793485081"),
+    ).toBe("idea_low_income_ef02ad8793485081");
+    expect(() => requireLowIncomeIdeaCandidateId(null)).toThrow(
+      /current-run cash-shortfall candidate/i,
     );
-    expect(() => requireHighCashIdeaCandidateId("idea_high_cash_001")).toThrow(
-      /current-run high-cash candidate/i,
+    expect(() => requireLowIncomeIdeaCandidateId("idea_low_income_001")).toThrow(
+      /current-run cash-shortfall candidate/i,
     );
   });
 
@@ -1048,11 +1048,11 @@ describe("live validation browser workflow helpers", () => {
       canonicalIdeaOpportunitiesRoute({
         workbenchBaseUrl: "http://workbench.dev.lotus",
         portfolioId: "PB_SG_GLOBAL_BAL_001",
-        candidateId: "idea_high_cash_ef02ad8793485081",
+        candidateId: "idea_low_income_ef02ad8793485081",
       }),
     ).toBe(
       "http://workbench.dev.lotus/recommendations?mode=opportunities" +
-        "&candidateId=idea_high_cash_ef02ad8793485081" +
+        "&candidateId=idea_low_income_ef02ad8793485081" +
         "&portfolioId=PB_SG_GLOBAL_BAL_001",
     );
   });
@@ -1074,7 +1074,7 @@ describe("live validation browser workflow helpers", () => {
       data: {
         receipt: {
           ...requestBody,
-          candidateId: "idea_high_cash_ef02ad8793485081",
+          candidateId: "idea_low_income_ef02ad8793485081",
           tenantId: "tenant-sg-private-bank",
           receiptId: "receipt-001",
           acceptedAtUtc: "2026-08-31T07:00:00.100000Z",
@@ -1095,14 +1095,14 @@ describe("live validation browser workflow helpers", () => {
     it("preserves independent global rank and visible count", () => {
       expect(
         assertCanonicalIdeaPresentationReceiptEvidence({
-          expectedCandidateId: "idea_high_cash_ef02ad8793485081",
+          expectedCandidateId: "idea_low_income_ef02ad8793485081",
           expectedSourceLineage,
           idempotencyKey: "presentation-001",
           requestBody,
           responseBody,
         }),
       ).toMatchObject({
-        candidateId: "idea_high_cash_ef02ad8793485081",
+        candidateId: "idea_low_income_ef02ad8793485081",
         rankAtPresentation: 25,
         visibleCandidateCount: 1,
         tenantAuthority: "workbench-bff-derived",
@@ -1196,7 +1196,7 @@ describe("live validation browser workflow helpers", () => {
     ])("rejects %s", (_case, request, response, key: string | null = "presentation-001") => {
       expect(() =>
         assertCanonicalIdeaPresentationReceiptEvidence({
-          expectedCandidateId: "idea_high_cash_ef02ad8793485081",
+          expectedCandidateId: "idea_low_income_ef02ad8793485081",
           expectedSourceLineage,
           idempotencyKey: key,
           requestBody: request,
@@ -1209,15 +1209,15 @@ describe("live validation browser workflow helpers", () => {
   it.each([
     null,
     "/recommendations?mode=opportunities",
-    "/recommendations?candidateId=idea_high_cash_001",
+    "/recommendations?candidateId=idea_low_income_001",
     "/recommendations?candidateId=idea_concentration_ef02ad8793485081",
   ])("rejects a non-canonical Idea candidate queue link: %s", (candidateHref) => {
     expect(() =>
-      resolveHighCashIdeaCandidateId(
+      resolveLowIncomeIdeaCandidateId(
         candidateHref,
         "http://workbench.dev.lotus",
       ),
-    ).toThrow(/high-cash candidate/i);
+    ).toThrow(/cash-shortfall candidate/i);
   });
 
   it("binds Advisor Book proof to portfolio context and collapsed operating evidence", () => {

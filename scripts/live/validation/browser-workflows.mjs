@@ -5,7 +5,7 @@ import { validateAdvisorBookRenderPageEvidence } from "./advisor-book-proof.mjs"
 import { buildRiskMandateSourceRenderRows } from "./risk-mandate-proof.mjs";
 import { assertExactSourceRenderProof } from "./source-render-proof.mjs";
 
-const HIGH_CASH_IDEA_CANDIDATE_PATTERN = /^idea_high_cash_[0-9a-f]{16}$/;
+const LOW_INCOME_IDEA_CANDIDATE_PATTERN = /^idea_low_income_[0-9a-f]{16}$/;
 const SHA256_DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/;
 const IDEA_SOURCE_CUT_POSTURES = new Set([
   "coherent",
@@ -70,27 +70,27 @@ export async function navigateForBusinessProof(page, route, options) {
   return response;
 }
 
-export function resolveHighCashIdeaCandidateId(candidateHref, workbenchBaseUrl) {
+export function resolveLowIncomeIdeaCandidateId(candidateHref, workbenchBaseUrl) {
   if (!candidateHref) {
-    throw new Error("The canonical high-cash candidate link has no href.");
+    throw new Error("The canonical cash-shortfall candidate link has no href.");
   }
 
   const candidateId = new URL(candidateHref, workbenchBaseUrl).searchParams.get(
     "candidateId",
   );
-  if (!candidateId || !HIGH_CASH_IDEA_CANDIDATE_PATTERN.test(candidateId)) {
+  if (!candidateId || !LOW_INCOME_IDEA_CANDIDATE_PATTERN.test(candidateId)) {
     throw new Error(
-      `The canonical Idea queue exposed an invalid high-cash candidate id: ${candidateId ?? "missing"}.`,
+      `The canonical Idea queue exposed an invalid cash-shortfall candidate id: ${candidateId ?? "missing"}.`,
     );
   }
 
   return candidateId;
 }
 
-export function requireHighCashIdeaCandidateId(candidateId) {
-  if (!candidateId || !HIGH_CASH_IDEA_CANDIDATE_PATTERN.test(candidateId)) {
+export function requireLowIncomeIdeaCandidateId(candidateId) {
+  if (!candidateId || !LOW_INCOME_IDEA_CANDIDATE_PATTERN.test(candidateId)) {
     throw new Error(
-      `Canonical validation received an invalid current-run high-cash candidate id: ${candidateId ?? "missing"}.`,
+      `Canonical validation received an invalid current-run cash-shortfall candidate id: ${candidateId ?? "missing"}.`,
     );
   }
   return candidateId;
@@ -437,7 +437,7 @@ export function canonicalIdeaOpportunitiesRoute({
   portfolioId,
   candidateId,
 }) {
-  const expectedCandidateId = requireHighCashIdeaCandidateId(candidateId);
+  const expectedCandidateId = requireLowIncomeIdeaCandidateId(candidateId);
   return advisoryJourneyRoute({
     workbenchBaseUrl,
     portfolioId,
@@ -980,15 +980,17 @@ export async function validateAdvisoryJourneyScreens(
     workbenchBaseUrl,
     portfolioId,
     canonicalIdeaCandidateId,
+    canonicalIdeaCandidateLifecycle,
     portfolioWorkspace,
     timeoutMs,
     screenshotAdvisoryJourney,
     assertGridHasRows,
   },
 ) {
-  const expectedIdeaCandidateId = requireHighCashIdeaCandidateId(
+  const expectedIdeaCandidateId = requireLowIncomeIdeaCandidateId(
     canonicalIdeaCandidateId,
   );
+  const ideaMutationsAllowed = canonicalIdeaCandidateLifecycle === "ready_for_review";
   const recommendationsRoute = advisoryJourneyRoute({
     workbenchBaseUrl,
     portfolioId,
@@ -1124,6 +1126,7 @@ export async function validateAdvisoryJourneyScreens(
     owner: "lotus-idea",
     sourcePosture: "idea-review-queue-through-gateway",
     expectedIdeaCandidateId,
+    mutationsAllowed: ideaMutationsAllowed,
     screenshotAdvisoryJourney,
     validate: async () => {
       await expect(page.getByLabel("Idea candidates")).toBeVisible({
@@ -1142,6 +1145,45 @@ export async function validateAdvisoryJourneyScreens(
         "Durable storage: Backed",
         { timeout: timeoutMs },
       );
+      if (!ideaMutationsAllowed) {
+        const candidateDetailPanel = page.getByLabel(
+          "Idea candidate source-safe detail",
+        );
+        await expect(candidateDetailPanel).toBeVisible({ timeout: timeoutMs });
+        const expectedLifecycleLabel =
+          canonicalIdeaCandidateLifecycle === "approved"
+            ? "Approved"
+            : "Reviewed By Advisor";
+        await expect(
+          candidateDetailPanel.getByText(
+            `Lifecycle: ${expectedLifecycleLabel}`,
+            { exact: true },
+          ),
+        ).toBeVisible({ timeout: timeoutMs });
+        await expect(
+          candidateDetailPanel.getByText(expectedIdeaCandidateId, {
+            exact: true,
+          }),
+        ).toBeVisible({ timeout: timeoutMs });
+        summary.uiChecks.push({
+          description: "Lotus Idea completed-candidate restart evidence",
+          kind: "idea-completed-candidate-browser-proof",
+          route: "/recommendations?mode=opportunities",
+          owner: "lotus-idea",
+          gatewayBacked: true,
+          selectedCandidateId: expectedIdeaCandidateId,
+          lifecycleStatus: canonicalIdeaCandidateLifecycle,
+          sourceRefresh: "read_only_restart_verification",
+          nonClaims: [
+            "new_review_action",
+            "new_conversion_intent",
+            "supported_feature_promotion",
+          ],
+        });
+        return {
+          evidencePosture: "completed-candidate-detail-through-gateway",
+        };
+      }
       const candidateGrid = page.getByRole("grid", {
         name: "Idea candidate review queue",
         exact: true,
@@ -1152,11 +1194,11 @@ export async function validateAdvisoryJourneyScreens(
         "Idea candidate review queue",
       );
       const canonicalCandidateLink = candidateGrid.getByRole("link", {
-        name: `High Cash - ${expectedIdeaCandidateId}`,
+        name: `Projected Cash Shortfall - ${expectedIdeaCandidateId}`,
         exact: true,
       });
       await expect(canonicalCandidateLink).toBeVisible({ timeout: timeoutMs });
-      const canonicalCandidateId = resolveHighCashIdeaCandidateId(
+      const canonicalCandidateId = resolveLowIncomeIdeaCandidateId(
         await canonicalCandidateLink.getAttribute("href"),
         workbenchBaseUrl,
       );
@@ -1227,6 +1269,9 @@ export async function validateAdvisoryJourneyScreens(
         "Feedback saved. Opportunity detail and worklist are current.",
       );
 
+      await expect(
+        actionPanel.getByRole("button", { name: "Record review" }),
+      ).toBeEnabled({ timeout: timeoutMs });
       await actionPanel.getByRole("button", { name: "Record review" }).click();
       const reviewStatus = page.getByTestId("idea-action-review-status");
       await expect(reviewStatus).toBeVisible({ timeout: timeoutMs });
@@ -1238,6 +1283,9 @@ export async function validateAdvisoryJourneyScreens(
         "Review saved. Opportunity detail and worklist are current.",
       );
 
+      await expect(
+        actionPanel.getByRole("button", { name: "Record intent" }),
+      ).toBeEnabled({ timeout: timeoutMs });
       await actionPanel.getByRole("button", { name: "Record intent" }).click();
       const conversionStatus = page.getByTestId(
         "idea-action-conversion-status",
@@ -1532,7 +1580,7 @@ export async function validateAdvisoryJourneyScreens(
 }
 
 export async function validateCanonicalIdeaJourney(page, preparedJourney) {
-  const expectedIdeaCandidateId = requireHighCashIdeaCandidateId(
+  const expectedIdeaCandidateId = requireLowIncomeIdeaCandidateId(
     preparedJourney.expectedIdeaCandidateId,
   );
   const queueResponsePromise = page.waitForResponse(
@@ -1615,6 +1663,18 @@ export async function validateCanonicalIdeaJourney(page, preparedJourney) {
       "supported_feature_promotion",
     ],
   });
+}
+
+export async function validateCompletedCanonicalIdeaJourney(
+  page,
+  preparedJourney,
+) {
+  if (preparedJourney.mutationsAllowed) {
+    throw new Error(
+      "Completed Idea journey validation refuses a mutation-enabled candidate.",
+    );
+  }
+  await validateAdvisoryJourneyRoute(page, preparedJourney);
 }
 
 export async function validatePortfolioPanels(

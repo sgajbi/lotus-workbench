@@ -113,10 +113,10 @@ LOTUS_ENVIRONMENT=dev
 WORKBENCH_IDEA_AUTH_MODE=development_configured
 WORKBENCH_IDEA_CALLER_SUBJECT=workbench-advisor
 WORKBENCH_IDEA_CALLER_ROLES=advisor
-WORKBENCH_IDEA_CALLER_TENANT_IDS=tenant-private-bank-sg
-WORKBENCH_IDEA_CALLER_BOOK_IDS=book-advisor-001
+WORKBENCH_IDEA_CALLER_TENANT_IDS=tenant-sg
+WORKBENCH_IDEA_CALLER_BOOK_IDS=BOOK_SG_BALANCED_DPM
 WORKBENCH_IDEA_CALLER_PORTFOLIO_IDS=PB_SG_GLOBAL_BAL_001
-WORKBENCH_IDEA_CALLER_CLIENT_IDS=client-001
+WORKBENCH_IDEA_CALLER_CLIENT_IDS=CLIENT_SCOPE_PB_SG_GLOBAL_BAL_001
 ```
 
 The BFF discards browser-supplied Idea authority headers and may use the configured local subject,
@@ -127,13 +127,24 @@ The fixture is rejected when the environment is unset or differs. Non-developmen
 require the verified route path and fail before Gateway when the credential, grant authority,
 capability, or scope cannot be established.
 
-Canonical startup gives each run a fresh, provenance-bound synthetic source observation and Idea
-candidate so a prior browser conversion cannot leave the next run without a reviewable item. A
-retry within that run keeps the same source and persistence identities. Startup then uses Idea's
-public lifecycle API to reach review readiness. Before and after every transition it reads the exact
-candidate with the complete scope above. An already confirmed state within the run is safe to
-replay; an identity mismatch, unexpected state, or missing source proof stops startup. This prepares
-test data only and does not move lifecycle policy into Workbench.
+Canonical startup evaluates the governed portfolio's authoritative Core cash-movement and cashflow
+projection responses, then persists the exact durable low-income candidate named by Idea's receipt.
+Unchanged economic facts can therefore retain the same candidate identity across runs; the receipt
+truthfully distinguishes acceptance, replay, evidence refresh, material versioning, and recurrence.
+Startup uses Idea's public lifecycle API to reach review readiness when required. Before and after
+every transition it reads the exact candidate with the complete scope above. Source-owned
+`reviewed_by_advisor` and `approved` states already exceed that preparation boundary and are not
+rewound or replayed. An identity mismatch, non-participating terminal state, or missing source proof
+stops startup. This prepares test data only and does not move lifecycle policy into Workbench.
+
+An approved candidate is completed work and is therefore absent from the pending advisor-review
+queue. An ordinary canonical restart confirms that completed lifecycle through Gateway and skips a
+second review/conversion mutation. Before a clean client-demo rehearsal of those mutations, acquire
+the canonical runtime reservation and run the
+shipped `scripts/live/Stop-LotusFrontOfficeCanonical.ps1` entry point with `-ProjectsRoot`,
+`-RemoveVolumes`, and `-KeepReservation`; then bring up the same `client-demo` profile under the
+same holder. The reset deletes admitted canonical Docker fixture volumes; never use it as
+accepted-then-replayed durability evidence or as a substitute for source lifecycle truth.
 
 ### Advisor book local authority fixture
 

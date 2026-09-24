@@ -812,13 +812,17 @@ describe("BFF proxy route", () => {
       "idea.review.record",
     );
     expect(upstreamHeaders.get("X-Caller-Tenant-Ids")).toBe(
-      "tenant-private-bank-sg",
+      "tenant-sg",
     );
-    expect(upstreamHeaders.get("X-Caller-Book-Ids")).toBe("book-advisor-001");
+    expect(upstreamHeaders.get("X-Caller-Book-Ids")).toBe(
+      "BOOK_SG_BALANCED_DPM",
+    );
     expect(upstreamHeaders.get("X-Caller-Portfolio-Ids")).toBe(
       "PB_SG_GLOBAL_BAL_001",
     );
-    expect(upstreamHeaders.get("X-Caller-Client-Ids")).toBe("client-001");
+    expect(upstreamHeaders.get("X-Caller-Client-Ids")).toBe(
+      "CLIENT_SCOPE_PB_SG_GLOBAL_BAL_001",
+    );
     expect(upstreamHeaders.get("X-Principal-Status")).toBeNull();
     expect(upstreamHeaders.get("Authorization")).toBeNull();
     expect(upstreamHeaders.get("Cookie")).toBeNull();

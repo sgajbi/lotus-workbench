@@ -95,7 +95,13 @@ function formatCandidateTitle(
   family: string | undefined,
   candidateId: string,
 ): string {
-  const label = family ? formatCode(family) : "Idea Candidate";
+  const familyLabels: Readonly<Record<string, string>> = {
+    high_cash: "Excess Cash",
+    low_income: "Projected Cash Shortfall",
+  };
+  const label = family
+    ? familyLabels[family] ?? formatCode(family)
+    : "Idea Candidate";
   return `${label} - ${candidateId}`;
 }
 

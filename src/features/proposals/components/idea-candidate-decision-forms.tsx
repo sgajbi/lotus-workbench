@@ -29,6 +29,7 @@ type SharedFormProps = {
 
 export function IdeaReviewActionForm({
   businessReasonOptions,
+  conversionApprovalReady,
   intentChanged,
   isPending,
   onActionChange,
@@ -45,6 +46,7 @@ export function IdeaReviewActionForm({
   snoozedUntil,
   suppressionReason,
 }: SharedFormProps & {
+  conversionApprovalReady: boolean;
   intentChanged: boolean;
   onActionChange: (value: AdvisorIdeaReviewAction) => void;
   onReasonChange: (value: AdvisorIdeaReasonCode) => void;
@@ -142,12 +144,22 @@ export function IdeaReviewActionForm({
           and its current source evidence is confirmed.
         </span>
       ) : null}
+      {sourceAuthorityReady &&
+      reviewAction === "approve_for_conversion" &&
+      !conversionApprovalReady ? (
+        <span className={styles.fieldHint} role="status">
+          Approval for conversion requires a coherent authoritative Core source
+          cut. Choose another review action or wait for current source evidence.
+        </span>
+      ) : null}
       <ActionButton
         priority="secondary"
         type="submit"
         disabled={
           isPending ||
           !sourceAuthorityReady ||
+          (reviewAction === "approve_for_conversion" &&
+            !conversionApprovalReady) ||
           Boolean(retryableReview && !intentChanged)
         }
       >

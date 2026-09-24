@@ -30,7 +30,8 @@ const ACTION_AUTHORITY = {
   expectedMaterialVersion: 1,
   expectedEvidenceVersion: 1,
   expectedEvidencePacketId: EVIDENCE_IDENTITY.evidencePacketId,
-  expectedEvidenceContentHash: EVIDENCE_IDENTITY.evidenceContentHash as `sha256:${string}`,
+  expectedEvidenceContentHash:
+    EVIDENCE_IDENTITY.evidenceContentHash as `sha256:${string}`,
   expectedSourceRevisionVectorDigest:
     EVIDENCE_IDENTITY.sourceRevisionVectorDigest as `sha256:${string}`,
   expectedSourceCutPosture: "coherent" as const,
@@ -70,6 +71,8 @@ function renderPanel(
     "review_required",
   ],
   persistedAcceptedReviewAuthority?: typeof PERSISTED_REVIEW_AUTHORITY,
+  presentationAuthority:
+    typeof PRESENTATION_AUTHORITY | null = PRESENTATION_AUTHORITY,
 ) {
   return render(
     <IdeaCandidateActionPanel
@@ -79,7 +82,7 @@ function renderPanel(
       evidenceIdentity={evidenceIdentity ?? undefined}
       persistedAcceptedReviewAuthority={persistedAcceptedReviewAuthority}
       portfolioId="PB_SG_GLOBAL_BAL_001"
-      presentationAuthority={PRESENTATION_AUTHORITY}
+      presentationAuthority={presentationAuthority ?? undefined}
       onRecorded={onRecorded}
     />,
     { wrapper },
@@ -96,22 +99,25 @@ describe("IdeaCandidateActionPanel", () => {
           candidateId,
           evidencePacketId: request.expectedEvidencePacketId,
           evidenceContentHash: request.expectedEvidenceContentHash,
-          sourceRevisionVectorDigest: request.expectedSourceRevisionVectorDigest,
+          sourceRevisionVectorDigest:
+            request.expectedSourceRevisionVectorDigest,
           sourceCutPosture: request.expectedSourceCutPosture,
           candidateMaterialVersion: request.expectedMaterialVersion,
           candidateEvidenceVersion: request.expectedEvidenceVersion,
           reviewChannel: request.reviewChannel,
           presentationReceiptId: request.presentationReceiptId,
           action: request.action,
-          resultingPosture: ({
-            approve_for_conversion: "approved_for_conversion",
-            reject: "rejected",
-            no_action: "no_action",
-            suppress: "suppressed",
-            snooze: "advisor_review_required",
-            escalate_to_pm: "pm_review_required",
-            escalate_to_compliance: "compliance_review_required",
-          } as Record<string, string>)[String(request.action)],
+          resultingPosture: (
+            {
+              approve_for_conversion: "approved_for_conversion",
+              reject: "rejected",
+              no_action: "no_action",
+              suppress: "suppressed",
+              snooze: "advisor_review_required",
+              escalate_to_pm: "pm_review_required",
+              escalate_to_compliance: "compliance_review_required",
+            } as Record<string, string>
+          )[String(request.action)],
           reasonCodes: request.reasonCodes,
           decidedAtUtc: request.decidedAtUtc,
           acceptedAtUtc: "2026-09-24T01:00:01Z",
@@ -132,7 +138,8 @@ describe("IdeaCandidateActionPanel", () => {
           reviewId: request.expectedReviewId,
           evidencePacketId: request.expectedEvidencePacketId,
           evidenceContentHash: request.expectedEvidenceContentHash,
-          sourceRevisionVectorDigest: request.expectedSourceRevisionVectorDigest,
+          sourceRevisionVectorDigest:
+            request.expectedSourceRevisionVectorDigest,
           sourceCutPosture: request.expectedSourceCutPosture,
           candidateMaterialVersion: request.expectedMaterialVersion,
           candidateEvidenceVersion: request.expectedEvidenceVersion,
@@ -246,10 +253,7 @@ describe("IdeaCandidateActionPanel", () => {
       expect(ideaApi.recordAdvisorIdeaReviewAction).toHaveBeenCalledWith(
         expect.objectContaining({
           request: expect.objectContaining({
-            reasonCodes: [
-              "review_approved_for_conversion",
-              "high_cash_ratio",
-            ],
+            reasonCodes: ["review_approved_for_conversion", "high_cash_ratio"],
           }),
         }),
       ),
@@ -299,9 +303,7 @@ describe("IdeaCandidateActionPanel", () => {
 
     expect(conversionBasis).toHaveValue("concentration_attention");
     expect(
-      screen.queryByTestId(
-        "idea-conversion-business-reason-retained-draft",
-      ),
+      screen.queryByTestId("idea-conversion-business-reason-retained-draft"),
     ).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
 
@@ -795,8 +797,12 @@ describe("IdeaCandidateActionPanel", () => {
     expect(
       screen.queryByRole("button", { name: "Retry exact review" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Record review" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Record intent" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Record review" }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
     expect(ideaApi.recordAdvisorIdeaConversionIntent).not.toHaveBeenCalled();
   });
@@ -812,12 +818,30 @@ describe("IdeaCandidateActionPanel", () => {
     expect(screen.getByRole("button", { name: "Record intent" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
     await waitFor(() =>
-      expect(ideaApi.recordAdvisorIdeaConversionIntent).toHaveBeenCalledTimes(1),
+      expect(ideaApi.recordAdvisorIdeaConversionIntent).toHaveBeenCalledTimes(
+        1,
+      ),
     );
     expect(
       ideaApi.recordAdvisorIdeaConversionIntent.mock.calls[0][0].request
         .expectedReviewId,
     ).toBe("review-persisted-001");
+  });
+
+  it("withholds conversion until the refreshed snapshot has a presentation receipt", () => {
+    renderPanel(
+      async () => true,
+      EVIDENCE_IDENTITY,
+      ["high_cash_ratio", "review_required"],
+      PERSISTED_REVIEW_AUTHORITY,
+      null,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Record intent" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
+    expect(ideaApi.recordAdvisorIdeaConversionIntent).not.toHaveBeenCalled();
   });
 
   it("keeps a failed source refresh latched across a later failed feedback request", async () => {
@@ -838,7 +862,9 @@ describe("IdeaCandidateActionPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Record feedback" }));
     await waitFor(() => expect(onRecorded).toHaveBeenCalledTimes(2));
-    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Record intent" }),
+    ).toBeDisabled();
 
     ideaApi.recordAdvisorIdeaFeedback.mockRejectedValueOnce(
       new Error("later feedback request failed"),
@@ -846,8 +872,12 @@ describe("IdeaCandidateActionPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Record feedback" }));
     await screen.findByTestId("idea-action-error");
 
-    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Record review" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Record intent" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Record review" }),
+    ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
     expect(ideaApi.recordAdvisorIdeaConversionIntent).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Record review" }));
@@ -880,10 +910,56 @@ describe("IdeaCandidateActionPanel", () => {
     expect(
       screen.getByRole("button", { name: "Record feedback" }),
     ).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Record intent" }),
+    ).toBeDisabled();
     expect(
       screen.getByText(/Conversion becomes available after an approved review/),
     ).toBeVisible();
+  });
+
+  it("blocks conversion approval for a non-authoritative source cut while preserving other advisor decisions", async () => {
+    const nonAuthoritativeAction = {
+      ...ACTION_AUTHORITY,
+      expectedSourceCutPosture: "unknown" as const,
+    };
+    const nonAuthoritativePresentation = {
+      ...PRESENTATION_AUTHORITY,
+      sourceCutPosture: "unknown" as const,
+    };
+    render(
+      <IdeaCandidateActionPanel
+        actionAuthority={nonAuthoritativeAction}
+        candidateId="idea_high_cash_001"
+        candidateReasonCodes={["high_cash_ratio", "review_required"]}
+        evidenceIdentity={EVIDENCE_IDENTITY}
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        presentationAuthority={nonAuthoritativePresentation}
+        onRecorded={async () => true}
+      />,
+      { wrapper },
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Record review" }),
+    ).toBeDisabled();
+    expect(
+      screen.getByText(/requires a coherent authoritative Core source cut/),
+    ).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText("Review action"), {
+      target: { value: "no_action" },
+    });
+
+    expect(screen.getByRole("button", { name: "Record review" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+    await waitFor(() =>
+      expect(ideaApi.recordAdvisorIdeaReviewAction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          request: expect.objectContaining({ action: "no_action" }),
+        }),
+      ),
+    );
   });
 
   it("keeps review and feedback independent when the optional explanation fails", async () => {
@@ -899,6 +975,8 @@ describe("IdeaCandidateActionPanel", () => {
     expect(
       screen.getByRole("button", { name: "Record feedback" }),
     ).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Record intent" }),
+    ).toBeDisabled();
   });
 });

@@ -2,6 +2,7 @@ import {
   assertPerformanceCalculationSanity,
   assertRiskAttributionReconciliation,
   assertRiskCalculationSanity,
+  summarizePayloadSourceSupportability,
 } from "../../scripts/live/validation/calculation-sanity.mjs";
 
 type TestValidationSummary = {
@@ -25,6 +26,50 @@ function createClassifier(summary: TestValidationSummary) {
 }
 
 describe("live validation calculation sanity helpers", () => {
+  it("keeps transient source-limited performance evidence out of ready validation", () => {
+    const partial = summarizePayloadSourceSupportability({
+      evidence_view: {
+        source_supportability: [
+          {
+            source_service: "lotus-performance",
+            operation: "performance.contribution",
+            state: "supported",
+            freshness_bucket: "current",
+          },
+        ],
+      },
+      contribution: {
+        source_economics_evidence: {
+          source_owner: "lotus-core",
+          status: "SOURCE_LIMITED",
+          source_snapshot_count: 1,
+        },
+      },
+    });
+    const ready = summarizePayloadSourceSupportability({
+      evidence_view: {
+        source_supportability: [
+          {
+            source_service: "lotus-performance",
+            operation: "performance.contribution",
+            state: "supported",
+            freshness_bucket: "current",
+          },
+        ],
+      },
+      contribution: {
+        source_economics_evidence: {
+          source_owner: "lotus-core",
+          status: "SOURCE_BACKED",
+          source_snapshot_count: 1,
+        },
+      },
+    });
+
+    expect(partial.state).toBe("partial");
+    expect(ready.state).toBe("ready");
+  });
+
   it("accepts reconciled performance payloads and records governed panel classifications", () => {
     const summary = createSummary();
 

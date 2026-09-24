@@ -402,6 +402,13 @@ describe("canonical live validation script", () => {
     expect(runbook).toContain("-CleanCoreState");
     expect(runbook).toContain("1000`-portfolio load scenario");
     expect(runbook).toContain(
+      "scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -RemoveVolumes -KeepReservation",
+    );
+    expect(runbook).toContain(
+      "Do not rewind it, expand the queue contract, or use a volume reset",
+    );
+    expect(runbook).toContain("using schema v4");
+    expect(runbook).toContain(
       "Docker is the default for every canonical front-office app",
     );
     expect(runbook).toContain("-LocalApps workbench,gateway,manage");
@@ -571,8 +578,10 @@ describe("canonical live validation script", () => {
     expect(script).toContain(
       "Starting lotus-core with auxiliary demo data pack disabled for canonical PB seed isolation.",
     );
-    expect(script).toContain("param([switch]$IngestOnly)");
+    expect(script).toContain("[switch]$IngestOnly");
+    expect(script).toContain("[switch]$VerifyOnly");
     expect(script).toContain("--ingest-only");
+    expect(script).toContain("--verify-only");
     expect(script).toContain("$global:LASTEXITCODE = 0");
     expect(script).toContain("Command failed with exit code $LASTEXITCODE");
     expect(script).toContain(
@@ -828,38 +837,114 @@ describe("canonical live validation script", () => {
     expect(validationScript).toContain('"--idea-capacity-seed-evidence"');
     expect(validationScript).toContain("idea-candidate-seed-evidence.json");
     expect(validationScript).toContain('"--idea-candidate-id"');
+    expect(validationScript).toContain(
+      "-ExpectedLifecycleStatus $ideaCandidateSeedEvidence.lifecycleStatus",
+    );
     expect(startScript).toContain("function Invoke-CanonicalIdeaSeed");
     expect(startScript).toContain("Get-CanonicalFrontOfficeDatePolicy");
     expect(startScript).toContain('"invoke-idea-candidate-lifecycle-seed.mjs"');
     expect(startScript).toContain("--candidate-id $candidateId");
     expect(startScript).toContain("--observed-at-utc $lifecycleObservedAtUtc");
-    expect(startScript).toContain(
-      '$evaluatedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")',
-    );
+    expect(startScript).toContain("--evaluate-after-source-reads");
+    expect(startScript).not.toContain("--evaluated-at-utc $evaluatedAtUtc");
     const ideaSeedStart = startScript.indexOf(
       "function Invoke-CanonicalIdeaSeed",
+    );
+    const ideaSeedEnd = startScript.indexOf(
+      "function Invoke-CanonicalIdeaCapacitySeed",
+      ideaSeedStart,
+    );
+    const ideaSeedScript = startScript.slice(ideaSeedStart, ideaSeedEnd);
+    expect(ideaSeedScript).toContain(
+      "Invoke-CanonicalReservation -Action preflight-operation",
+    );
+    expect(ideaSeedScript).not.toContain(
+      "Assert-CanonicalComposeAdmission -RepoPath $ideaRepo",
     );
     const ideaReadyBoundary = startScript.indexOf(
       'throw "lotus-idea did not become ready before canonical advisor queue seed."',
       ideaSeedStart,
     );
-    const liveSourceClock = startScript.indexOf(
-      "$sourceObservedAtUtc = (Get-Date).ToUniversalTime()",
+    const generatorInvocation = startScript.indexOf(
+      "--evaluate-after-source-reads",
       ideaSeedStart,
     );
-    expect(liveSourceClock).toBeGreaterThan(ideaReadyBoundary);
-    expect(
-      startScript.indexOf("$evaluatedAtUtc =", liveSourceClock),
-    ).toBeGreaterThan(liveSourceClock);
-    expect(
-      startScript.indexOf("$lifecycleObservedAtUtc =", liveSourceClock),
-    ).toBeGreaterThan(
-      startScript.indexOf("$evaluatedAtUtc =", liveSourceClock),
+    expect(generatorInvocation).toBeGreaterThan(ideaReadyBoundary);
+    const staleEvidenceRemoval = startScript.indexOf(
+      "Remove-Item -LiteralPath $runtimeEvidencePath -Force",
+      ideaSeedStart,
     );
+    expect(staleEvidenceRemoval).toBeGreaterThan(ideaReadyBoundary);
+    expect(staleEvidenceRemoval).toBeLessThan(generatorInvocation);
+    const runtimeEvidenceRead = startScript.indexOf(
+      "$runtimeEvidence = Get-Content",
+      generatorInvocation,
+    );
+    const currentEvidenceGuard = startScript.indexOf(
+      "cashflow evaluation did not publish current-run evidence",
+      generatorInvocation,
+    );
+    expect(currentEvidenceGuard).toBeGreaterThan(generatorInvocation);
+    expect(currentEvidenceGuard).toBeLessThan(runtimeEvidenceRead);
+    const sourceReceiptClock = startScript.indexOf(
+      "$sourceResponseInstants = @(",
+      runtimeEvidenceRead,
+    );
+    expect(sourceReceiptClock).toBeGreaterThan(runtimeEvidenceRead);
+    expect(startScript).toContain(
+      "$runtimeEvidence.execution.cashMovementReceipt.responseGeneratedAtUtc",
+    );
+    expect(startScript).toContain(
+      "$runtimeEvidence.execution.cashflowProjectionReceipt.responseGeneratedAtUtc",
+    );
+    const authoritativeSourceClock = startScript.indexOf(
+      "$sourceObservedAtUtc = $sourceObservedInstant.UtcDateTime",
+      sourceReceiptClock,
+    );
+    expect(authoritativeSourceClock).toBeGreaterThan(sourceReceiptClock);
+    expect(startScript).toContain(
+      "cashflow evaluation predates its authoritative Core source receipts",
+    );
+    const persistedCandidateIdentity = startScript.indexOf(
+      "$runtimeEvidence.execution.persistenceReceipt.candidateId",
+      runtimeEvidenceRead,
+    );
+    const independentReceiptVerification = startScript.indexOf(
+      "verify-idea-runtime-evidence-integrity.mjs",
+      runtimeEvidenceRead,
+    );
+    const lifecycleSeed = startScript.indexOf(
+      "--candidate-id $candidateId",
+      persistedCandidateIdentity,
+    );
+    const reviewQueueRead = startScript.indexOf(
+      "review-queues/advisor?evaluatedAtUtc=$encodedEvaluatedAtUtc",
+      lifecycleSeed,
+    );
+    expect(independentReceiptVerification).toBeGreaterThan(runtimeEvidenceRead);
+    expect(persistedCandidateIdentity).toBeGreaterThan(
+      independentReceiptVerification,
+    );
+    expect(startScript).toContain(
+      "runtime evidence failed independent receipt-integrity verification",
+    );
+    expect(persistedCandidateIdentity).toBeGreaterThan(runtimeEvidenceRead);
+    expect(lifecycleSeed).toBeGreaterThan(persistedCandidateIdentity);
+    expect(reviewQueueRead).toBeGreaterThan(lifecycleSeed);
+    expect(ideaSeedScript).not.toContain("$discoveryQueue");
     expect(
-      startScript.indexOf("$queueEvaluatedAtUtc =", liveSourceClock),
+      startScript.indexOf(
+        "$lifecycleObservedAtUtc =",
+        authoritativeSourceClock,
+      ),
+    ).toBeGreaterThan(authoritativeSourceClock);
+    expect(
+      startScript.indexOf("$queueEvaluatedAtUtc =", authoritativeSourceClock),
     ).toBeGreaterThan(
-      startScript.indexOf("$lifecycleObservedAtUtc =", liveSourceClock),
+      startScript.indexOf(
+        "$lifecycleObservedAtUtc =",
+        authoritativeSourceClock,
+      ),
     );
     expect(startScript).toContain("evaluatedAtUtc = $evaluatedAtUtc");
     expect(startScript).toContain(
@@ -897,59 +982,93 @@ describe("canonical live validation script", () => {
     expect(validationScript).toContain(
       "-EvaluatedAtUtc $ideaCandidateSeedEvidence.queueEvaluatedAtUtc",
     );
-    expect(startScript).toContain("--tenant-id $payload.accessScope.tenantId");
-    expect(startScript).toContain("--book-id $payload.accessScope.bookId");
+    expect(startScript).toContain("--tenant-id $accessScope.tenantId");
+    expect(startScript).toContain("--book-id $accessScope.bookId");
+    expect(startScript).toContain("--portfolio-id $accessScope.portfolioId");
+    expect(startScript).toContain("--client-id $accessScope.clientId");
     expect(startScript).toContain(
-      "--portfolio-id $payload.accessScope.portfolioId",
+      '"X-Caller-Tenant-Ids" = $accessScope.tenantId',
     );
-    expect(startScript).toContain("--client-id $payload.accessScope.clientId");
+    expect(startScript).toContain('"X-Caller-Book-Ids" = $accessScope.bookId');
     expect(startScript).toContain(
-      '"X-Caller-Tenant-Ids" = $payload.accessScope.tenantId',
-    );
-    expect(startScript).toContain(
-      '"X-Caller-Book-Ids" = $payload.accessScope.bookId',
-    );
-    expect(startScript).toContain(
-      '"X-Caller-Portfolio-Ids" = $payload.accessScope.portfolioId',
+      '"X-Caller-Portfolio-Ids" = $accessScope.portfolioId',
     );
     expect(startScript).toContain(
-      '"X-Caller-Client-Ids" = $payload.accessScope.clientId',
+      '"X-Caller-Client-Ids" = $accessScope.clientId',
     );
     expect(startScript).toContain(
       'throw "Canonical Lotus Idea lifecycle preparation failed with exit code $LASTEXITCODE."',
     );
-    expect(startScript).toContain("function Get-CanonicalTextSha256");
     expect(startScript).toContain(
-      '$sourceObservationIdentity = "$ProductId|$PortfolioId|$asOfDate|$ideaCanonicalRunId"',
+      "python scripts/low_income_cashflow_runtime_evidence/generate_runtime_execution.py",
     );
     expect(startScript).toContain(
-      'contentHash = "sha256:$(Get-CanonicalTextSha256 -Value $sourceObservationIdentity)"',
+      '"canonical-low-income:$($PortfolioId):$ideaCanonicalRunId"',
     );
     expect(startScript).toContain(
-      '"Idempotency-Key" = "canonical-idea-high-cash:$($PortfolioId):$ideaCanonicalRunId"',
+      '[string]$runtimeEvidence.sourceAuthority -ne "lotus-core"',
     );
+    expect(startScript).toContain(
+      "[string]$runtimeEvidence.execution.persistenceReceipt.sourceCutPosture",
+    );
+    const coreSeedPhase = startScript.indexOf(
+      "-Name 'core-seed-materialization'",
+    );
+    const ideaSeedPhase = startScript.indexOf(
+      "-Name 'idea-readiness-queue-seed'",
+    );
+    const coreVerificationPhase = startScript.indexOf(
+      "-Name 'core-downstream-verification'",
+    );
+    const gatewayStartup = startScript.indexOf("Invoke-ComposeUp $gatewayRepo");
+    expect(coreSeedPhase).toBeGreaterThan(-1);
+    expect(ideaSeedPhase).toBeGreaterThan(coreSeedPhase);
+    expect(startScript).toContain(
+      "-Name 'core-seed-materialization' -Action { Invoke-CanonicalCoreSeed -IngestOnly }",
+    );
+    expect(coreVerificationPhase).toBeGreaterThan(gatewayStartup);
+    expect(startScript).toContain(
+      "-Name 'core-downstream-verification' -Action { Invoke-CanonicalCoreSeed -VerifyOnly }",
+    );
+    expect(startScript).toContain("function Get-CanonicalIdeaAccessScope");
+    expect(startScript).toContain("portfolio.source_tenant_id");
+    expect(startScript).toContain("dpm_command_center.book_id");
+    expect(startScript).toContain("date_policy.canonical_as_of_date");
+    expect(startScript).not.toContain(
+      "$expectedAsOfDate = [string]$canonicalContract.dpm_command_center.command_center_as_of_date",
+    );
+    expect(browserValidator).toContain(
+      '"Performance summary source readiness"',
+    );
+    expect(
+      browserValidator.indexOf('"Performance summary source readiness"'),
+    ).toBeGreaterThan(
+      browserValidator.indexOf('"Performance details contribution readiness"'),
+    );
+    expect(startScript).not.toContain(
+      "/api/v1/idea-signals/high-cash/evaluate-and-persist",
+    );
+    expect(startScript).not.toContain("function Get-CanonicalTextSha256");
+    expect(startScript).not.toContain('sourceReportedCashWeight = "0.18"');
     expect(ideaEvidenceModule).toContain("function Assert-IdeaQueueSeed");
     expect(ideaEvidenceModule).toContain(
       "function Read-IdeaCandidateSeedEvidence",
     );
     expect(startScript).toContain(
-      'schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v3"',
+      'schemaVersion = "lotus-workbench.idea-candidate-seed-evidence.v4"',
     );
     expect(ideaEvidenceModule).toContain(
-      '$evidence.schemaVersion -ne "lotus-workbench.idea-candidate-seed-evidence.v3"',
+      '$evidence.schemaVersion -ne "lotus-workbench.idea-candidate-seed-evidence.v4"',
     );
+    expect(ideaEvidenceModule).toContain(
+      "candidate seed evidence has no authoritative Core source cut",
+    );
+    expect(startScript).toContain("tenantId = [string]$accessScope.tenantId");
+    expect(startScript).toContain("bookId = [string]$accessScope.bookId");
     expect(startScript).toContain(
-      "tenantId = [string]$payload.accessScope.tenantId",
+      "portfolioId = [string]$accessScope.portfolioId",
     );
-    expect(startScript).toContain(
-      "bookId = [string]$payload.accessScope.bookId",
-    );
-    expect(startScript).toContain(
-      "portfolioId = [string]$payload.accessScope.portfolioId",
-    );
-    expect(startScript).toContain(
-      "clientId = [string]$payload.accessScope.clientId",
-    );
+    expect(startScript).toContain("clientId = [string]$accessScope.clientId");
     expect(ideaEvidenceModule).toContain(
       'foreach ($field in @("tenantId", "bookId", "portfolioId", "clientId"))',
     );
@@ -985,7 +1104,13 @@ describe("canonical live validation script", () => {
     );
     expect(ideaEvidenceModule).toContain("current-run candidate");
     expect(startScript).toContain("idea-candidate-seed-evidence.json");
-    expect(startScript).toContain("$seededQueueItems.Count -ne 1");
+    expect(startScript).toContain(
+      "$preparedQueueItems.Count -notin $expectedQueueMatches",
+    );
+    expect(startScript).toContain(
+      '$preparedLifecycleStatus -notin @("ready_for_review", "reviewed_by_advisor", "approved")',
+    );
+    expect(validationScript).toContain('"--idea-candidate-lifecycle"');
     expect(browserValidator).toContain(
       'checkDns(summary, "archive.dev.lotus")',
     );
@@ -1049,10 +1174,10 @@ describe("canonical live validation script", () => {
     for (const [variable, fallback] of [
       ["WORKBENCH_IDEA_CALLER_SUBJECT", "workbench-advisor"],
       ["WORKBENCH_IDEA_CALLER_ROLES", "advisor"],
-      ["WORKBENCH_IDEA_CALLER_TENANT_IDS", "tenant-private-bank-sg"],
-      ["WORKBENCH_IDEA_CALLER_BOOK_IDS", "book-advisor-001"],
+      ["WORKBENCH_IDEA_CALLER_TENANT_IDS", "tenant-sg"],
+      ["WORKBENCH_IDEA_CALLER_BOOK_IDS", "BOOK_SG_BALANCED_DPM"],
       ["WORKBENCH_IDEA_CALLER_PORTFOLIO_IDS", "PB_SG_GLOBAL_BAL_001"],
-      ["WORKBENCH_IDEA_CALLER_CLIENT_IDS", "client-001"],
+      ["WORKBENCH_IDEA_CALLER_CLIENT_IDS", "CLIENT_SCOPE_PB_SG_GLOBAL_BAL_001"],
     ] as const) {
       expect(compose).toContain(`- ${variable}=\${${variable}:-${fallback}}`);
     }
@@ -1329,6 +1454,14 @@ describe("canonical live validation script", () => {
     expect(script).toContain("/performance/details?");
     expect(script).toContain("Performance details contribution readiness");
     expect(script).toContain("contribution_detail state is");
+    expect(script).not.toContain('sourceSupportability.state === "ready"');
+    expect(script).toContain("PERFORMANCE_CONTRIBUTION_READINESS_ATTEMPTS = 6");
+    expect(script).toContain(
+      "PERFORMANCE_CONTRIBUTION_READINESS_DELAY_MS = 1_000",
+    );
+    expect(script).toContain(
+      "attempts: PERFORMANCE_CONTRIBUTION_READINESS_ATTEMPTS",
+    );
     expect(script).toContain(
       'rows=${Array.isArray(rows) ? rows.length : "non-array"}',
     );
@@ -2201,10 +2334,10 @@ describe("canonical live validation script", () => {
     expect(browserWorkflowModule).toContain(
       "idea-review-queue-through-gateway",
     );
-    expect(browserWorkflowModule).toContain("resolveHighCashIdeaCandidateId");
-    expect(browserWorkflowModule).toContain("requireHighCashIdeaCandidateId");
+    expect(browserWorkflowModule).toContain("resolveLowIncomeIdeaCandidateId");
+    expect(browserWorkflowModule).toContain("requireLowIncomeIdeaCandidateId");
     expect(browserWorkflowModule).toContain(
-      "name: `High Cash - ${expectedIdeaCandidateId}`",
+      "name: `Projected Cash Shortfall - ${expectedIdeaCandidateId}`",
     );
     expect(browserWorkflowModule).not.toContain("idea_high_cash_001");
     expect(browserWorkflowModule).toContain('getByLabel("Idea candidates")');
@@ -2306,8 +2439,31 @@ describe("canonical live validation script", () => {
       'getByText("Source Evidence", { exact: true })',
     );
     expect(browserWorkflowModule).toContain("return statefulIdeaJourney;");
+    expect(browserWorkflowModule).not.toContain(
+      "canonicalCandidateLink.scrollIntoViewIfNeeded()",
+    );
     expect(browserWorkflowModule).toContain(
       "export async function validateCanonicalIdeaJourney",
+    );
+    expect(browserWorkflowModule).toContain(
+      "export async function validateCompletedCanonicalIdeaJourney",
+    );
+    const completedIdeaJourneyStart = browserWorkflowModule.indexOf(
+      "export async function validateCompletedCanonicalIdeaJourney",
+    );
+    const completedIdeaJourneyEnd = browserWorkflowModule.indexOf(
+      "export async function validatePortfolioPanels",
+      completedIdeaJourneyStart,
+    );
+    const completedIdeaJourneySource = browserWorkflowModule.slice(
+      completedIdeaJourneyStart,
+      completedIdeaJourneyEnd,
+    );
+    expect(completedIdeaJourneySource).toContain(
+      "validateAdvisoryJourneyRoute(page, preparedJourney)",
+    );
+    expect(completedIdeaJourneySource).toContain(
+      "preparedJourney.mutationsAllowed",
     );
     const readOnlyJourneyIndex = script.indexOf(
       "const preparedIdeaJourney = await validateAdvisoryJourneyScreens",
@@ -2321,6 +2477,10 @@ describe("canonical live validation script", () => {
     expect(readOnlyJourneyIndex).toBeGreaterThanOrEqual(0);
     expect(finalReadOnlyPanelIndex).toBeGreaterThan(readOnlyJourneyIndex);
     expect(statefulIdeaIndex).toBeGreaterThan(finalReadOnlyPanelIndex);
+    expect(script).toContain(
+      "await validateCompletedCanonicalIdeaJourney(page, preparedIdeaJourney);",
+    );
+    expect(script).toContain("} else {");
     expect(browserWorkflowModule).toContain("Record internal review");
     expect(browserWorkflowModule).toContain('"APPROVED_FOR_INTERNAL_USE",');
     expect(browserWorkflowModule).not.toContain("Approved For Internal Use");

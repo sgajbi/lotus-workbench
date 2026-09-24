@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 
 import { cx } from "../utils/cx";
 
@@ -13,6 +13,7 @@ export default function SectionBlock({
   className,
   headerClassName,
   bodyClassName,
+  bodyRef,
   id,
 }: {
   title?: string;
@@ -22,6 +23,7 @@ export default function SectionBlock({
   className?: string;
   headerClassName?: string;
   bodyClassName?: string;
+  bodyRef?: Ref<HTMLDivElement>;
   id?: string;
 }) {
   const hasHeader = Boolean(title || subtitle || actions);
@@ -36,7 +38,9 @@ export default function SectionBlock({
           className={headerClassName}
         />
       ) : null}
-      <div className={cx("section-block-body", bodyClassName)}>{children}</div>
+      <div ref={bodyRef} className={cx("section-block-body", bodyClassName)}>
+        {children}
+      </div>
     </Panel>
   );
 }
