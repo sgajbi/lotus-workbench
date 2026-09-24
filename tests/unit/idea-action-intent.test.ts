@@ -14,6 +14,26 @@ import {
 } from "../../src/features/proposals/idea-action-intent";
 import { WorkbenchApiError } from "../../src/features/workbench/api-client";
 
+const REVIEW_AUTHORITY = {
+  reviewChannel: "workbench" as const,
+  expectedMaterialVersion: 1,
+  expectedEvidenceVersion: 1,
+  expectedEvidencePacketId: "evidence-001",
+  expectedEvidenceContentHash: `sha256:${"c".repeat(64)}` as const,
+  expectedSourceRevisionVectorDigest: `sha256:${"b".repeat(64)}` as const,
+  expectedSourceCutPosture: "coherent" as const,
+  presentationReceiptId: "receipt-001",
+};
+const CONVERSION_AUTHORITY = {
+  expectedReviewId: "review-001",
+  expectedMaterialVersion: 1,
+  expectedEvidenceVersion: 1,
+  expectedEvidencePacketId: "evidence-001",
+  expectedEvidenceContentHash: `sha256:${"c".repeat(64)}` as const,
+  expectedSourceRevisionVectorDigest: `sha256:${"b".repeat(64)}` as const,
+  expectedSourceCutPosture: "coherent" as const,
+};
+
 describe("Idea action intent", () => {
   it("compares review terms independently of request and decision identity", () => {
     const intent = buildReviewIntent({
@@ -28,6 +48,7 @@ describe("Idea action intent", () => {
         {
           reviewId: "review-001",
           decidedAtUtc: "2026-09-06T01:00:00Z",
+          ...REVIEW_AUTHORITY,
           ...intent,
         },
         intent,
@@ -38,6 +59,7 @@ describe("Idea action intent", () => {
         {
           reviewId: "review-001",
           decidedAtUtc: "2026-09-06T01:00:00Z",
+          ...REVIEW_AUTHORITY,
           ...intent,
           snoozedUntilUtc: "2026-09-09T02:30:00.000Z",
         },
@@ -54,6 +76,7 @@ describe("Idea action intent", () => {
     const request = {
       conversionIntentId: "conversion-001",
       requestedAtUtc: "2026-09-06T01:00:00Z",
+      ...CONVERSION_AUTHORITY,
       ...intent,
     };
 
@@ -81,6 +104,7 @@ describe("Idea action intent", () => {
         action: "reject" as const,
         reasonCodes: ["review_rejected" as const, "high_cash_ratio" as const],
         decidedAtUtc: "2026-09-06T01:00:00Z",
+        ...REVIEW_AUTHORITY,
       },
     };
     const state: RetryableSubmissionState = { review: retained };
@@ -128,6 +152,7 @@ describe("Idea action intent", () => {
       reasonCodes: ["review_suppressed", "high_cash_ratio"],
       suppressionReason: "unsupported_evidence",
       decidedAtUtc: "2026-09-06T01:00:00Z",
+      ...REVIEW_AUTHORITY,
     });
 
     expect(details).toEqual([
@@ -143,6 +168,7 @@ describe("Idea action intent", () => {
       action: "approve_for_conversion",
       reasonCodes: ["review_approved_for_conversion", "high_cash_ratio"],
       decidedAtUtc: "2026-09-06T01:00:00Z",
+      ...REVIEW_AUTHORITY,
     });
 
     expect(details).toContainEqual({

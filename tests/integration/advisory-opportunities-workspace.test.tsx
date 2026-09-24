@@ -4,9 +4,19 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import AdvisoryOpportunitiesWorkspace from "../../src/features/proposals/components/advisory-opportunities-workspace";
+import type { IdeaPresentationReceiptDraft } from "../../src/features/proposals/idea-presentation-receipt";
+import type { AdvisorIdeaReviewActionRequest } from "../../src/features/proposals/types";
 import type { WorkspaceReviewContext } from "../../src/shell/review-context";
 
 type MockGridRow = Record<string, unknown> & { candidateId: string };
+type ReviewActionInput = {
+  candidateId: string;
+  request: AdvisorIdeaReviewActionRequest;
+};
+type PresentationReceiptInput = {
+  candidateId: string;
+  request: IdeaPresentationReceiptDraft;
+};
 
 type MockGridColumn = {
   cellRenderer?: React.ComponentType<{
@@ -83,6 +93,7 @@ const getAdvisorIdeaReviewQueueMock = vi.fn(async (filters?: {
       reasonCodes: ["high_cash_ratio", "review_required"],
       candidate: {
         candidateId: "idea_high_cash_001",
+        evidencePacketId: "evidence_high_cash_001",
         materialVersion: 1,
         evidenceVersion: 1,
         scorePolicyVersion: "idle-liquidity-v1",
@@ -99,14 +110,17 @@ const getAdvisorIdeaReviewQueueMock = vi.fn(async (filters?: {
 const getAdvisorIdeaCandidateDetailMock = vi.fn(async (_filters?: unknown) => ({
   candidate: {
     candidateId: "idea_high_cash_001",
+    materialVersion: 1,
+    evidenceVersion: 1,
     family: "high_cash",
     lifecycleStatus: "generated",
     reviewPosture: "advisor_review_required",
   },
   evidence: {
     evidencePacketId: "evidence_high_cash_001",
-    evidenceContentHash: "sha256:evidence-high-cash-001",
-    sourceRevisionVectorDigest: "sha256:revision-high-cash-001",
+    evidenceContentHash: `sha256:${"c".repeat(64)}`,
+    sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+    sourceCutPosture: "coherent",
     supportability: "ready",
     sourceRefs: [{ productId: "lotus-core:PortfolioStateSnapshot:v1" }],
   },
@@ -114,11 +128,33 @@ const getAdvisorIdeaCandidateDetailMock = vi.fn(async (_filters?: unknown) => ({
   durableStorageBacked: true,
   supportedFeaturePromoted: false,
 }));
-const recordAdvisorIdeaReviewActionMock = vi.fn(async (_input?: unknown) => ({
-  persistence: { decision: "accepted" },
-  durableStorageBacked: true,
-  supportedFeaturePromoted: false,
-}));
+const recordAdvisorIdeaReviewActionMock = vi.fn(
+  async (input?: ReviewActionInput) => ({
+    reviewDecision: {
+      reviewId: input?.request.reviewId,
+      candidateId: input?.candidateId,
+      evidencePacketId: input?.request.expectedEvidencePacketId,
+      evidenceContentHash: input?.request.expectedEvidenceContentHash,
+      sourceRevisionVectorDigest:
+        input?.request.expectedSourceRevisionVectorDigest,
+      sourceCutPosture: input?.request.expectedSourceCutPosture,
+      candidateMaterialVersion: input?.request.expectedMaterialVersion,
+      candidateEvidenceVersion: input?.request.expectedEvidenceVersion,
+      reviewChannel: input?.request.reviewChannel,
+      presentationReceiptId: input?.request.presentationReceiptId,
+      action: input?.request.action,
+      resultingPosture: "approved_for_conversion",
+      reasonCodes: input?.request.reasonCodes,
+      decidedAtUtc: input?.request.decidedAtUtc,
+      acceptedAtUtc: "2026-09-24T01:00:01Z",
+      acceptanceTimeSource: "server_accepted",
+      grantsDownstreamAuthority: false,
+    },
+    persistence: { decision: "accepted" },
+    durableStorageBacked: true,
+    supportedFeaturePromoted: false,
+  }),
+);
 const recordAdvisorIdeaFeedbackMock = vi.fn(async (_input?: unknown) => ({
   persistence: { decision: "accepted" },
   durableStorageBacked: true,
@@ -131,10 +167,23 @@ const recordAdvisorIdeaConversionIntentMock = vi.fn(
     supportedFeaturePromoted: false,
   }),
 );
-const recordAdvisorIdeaPresentationReceiptMock = vi.fn(async (_input?: unknown) => ({
-  persistenceDecision: "accepted",
-  durableStorageBacked: true,
-}));
+const recordAdvisorIdeaPresentationReceiptMock = vi.fn(
+  async (input?: PresentationReceiptInput) => ({
+    receipt: {
+      ...input?.request,
+      tenantId: "tenant_demo_sg",
+      receiptId: "presentation-receipt-001",
+      candidateId: input?.candidateId,
+      acceptedAtUtc: "2026-09-24T01:00:01Z",
+      acceptanceTimeSource: "server_accepted",
+      schemaVersion: "lotus-idea.candidate-presentation-receipt.v2",
+      surface: "advisor_review_queue",
+      producer: "lotus-workbench",
+    },
+    persistenceDecision: "accepted",
+    durableStorageBacked: true,
+  }),
+);
 
 vi.mock("../../src/features/proposals/api", () => ({
   getAdvisorIdeaCandidateDetail: (filters: unknown) =>
@@ -143,13 +192,35 @@ vi.mock("../../src/features/proposals/api", () => ({
     evaluatedAtUtc?: string;
   } | undefined) => getAdvisorIdeaReviewQueueMock(filters),
   recordAdvisorIdeaReviewAction: (input: unknown) =>
-    recordAdvisorIdeaReviewActionMock(input),
+    recordAdvisorIdeaReviewActionMock(input as ReviewActionInput),
   recordAdvisorIdeaFeedback: (input: unknown) =>
     recordAdvisorIdeaFeedbackMock(input),
   recordAdvisorIdeaConversionIntent: (input: unknown) =>
     recordAdvisorIdeaConversionIntentMock(input),
   recordAdvisorIdeaPresentationReceipt: (input: unknown) =>
-    recordAdvisorIdeaPresentationReceiptMock(input),
+    recordAdvisorIdeaPresentationReceiptMock(input as PresentationReceiptInput),
+}));
+
+vi.mock("../../src/features/proposals/use-idea-presentation-receipts", () => ({
+  useIdeaPresentationReceipts: () => ({
+    status: "ready",
+    failedCount: 0,
+    retryFailed: vi.fn(),
+    authorityByCandidateId: new Map([
+      [
+        "idea_high_cash_001",
+        {
+          candidateId: "idea_high_cash_001",
+          receiptId: "presentation-receipt-001",
+          evidencePacketId: "evidence_high_cash_001",
+          candidateMaterialVersion: 1,
+          candidateEvidenceVersion: 1,
+          sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+          sourceCutPosture: "coherent",
+        },
+      ],
+    ]),
+  }),
 }));
 
 function renderWithQueryClient(ui: React.ReactElement) {
@@ -292,13 +363,50 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        "Evidence hash: sha256:evidence-high-cash-001",
+        `Evidence hash: sha256:${"c".repeat(64)}`,
       ),
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Close detail" })).toHaveAttribute(
       "href",
       "/recommendations?mode=opportunities&portfolioId=PB_SG_GLOBAL_BAL_001",
     );
+  });
+
+  it("withholds review authority when Gateway returns detail for another candidate", async () => {
+    getAdvisorIdeaCandidateDetailMock.mockResolvedValueOnce({
+      candidate: {
+        candidateId: "idea_high_cash_other",
+        materialVersion: 1,
+        evidenceVersion: 1,
+        family: "high_cash",
+        lifecycleStatus: "generated",
+        reviewPosture: "advisor_review_required",
+      },
+      evidence: {
+        evidencePacketId: "evidence_high_cash_001",
+        evidenceContentHash: `sha256:${"c".repeat(64)}`,
+        sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+        sourceCutPosture: "coherent",
+        supportability: "ready",
+        sourceRefs: [{ productId: "lotus-core:PortfolioStateSnapshot:v1" }],
+      },
+      auditSummary: { eventCount: 1 },
+      durableStorageBacked: true,
+      supportedFeaturePromoted: false,
+    });
+
+    renderWithQueryClient(
+      <AdvisoryOpportunitiesWorkspace
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        reviewContext={reviewContext("PB_SG_GLOBAL_BAL_001")}
+        selectedCandidateId="idea_high_cash_001"
+      />,
+    );
+
+    await screen.findByLabelText("Idea candidate advisor actions");
+    expect(screen.getByRole("button", { name: "Record review" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+    expect(recordAdvisorIdeaReviewActionMock).not.toHaveBeenCalled();
   });
 
   it("shows no fallback ideas when the Idea queue fails", async () => {

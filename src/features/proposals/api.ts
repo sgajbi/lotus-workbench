@@ -71,6 +71,10 @@ import {
 } from "./types";
 import { matchesAdvisorIdeaFeedbackEvidence } from "./idea-feedback";
 import {
+  matchesIdeaConversionResponse,
+  matchesIdeaReviewResponse,
+} from "./idea-action-authority";
+import {
   matchesIdeaPresentationReceiptEvidence,
   type IdeaPresentationReceiptDraft,
   type IdeaPresentationReceiptResponse,
@@ -424,13 +428,26 @@ export async function recordAdvisorIdeaReviewAction(
 ): Promise<AdvisorIdeaCandidateActionData> {
   return await observeWorkbenchMutation(
     "idea.candidate.review-action",
-    async () =>
-      await postAdvisorIdeaCandidateAction({
+    async () => {
+      const data = await postAdvisorIdeaCandidateAction({
         ...input,
         pathSuffix: "review-actions",
         capability: "idea.review.record",
         errorLabel: "Advisor idea review action",
-      }),
+      });
+      if (
+        !matchesIdeaReviewResponse({
+          candidateId: input.candidateId,
+          request: input.request,
+          response: data,
+        })
+      ) {
+        throw new WorkbenchResponseEvidenceError(
+          "Advisor idea review did not return matching source-owned authority evidence. No success was recorded in Workbench.",
+        );
+      }
+      return data;
+    },
   );
 }
 
@@ -503,13 +520,26 @@ export async function recordAdvisorIdeaConversionIntent(
 ): Promise<AdvisorIdeaCandidateActionData> {
   return await observeWorkbenchMutation(
     "idea.candidate.conversion-intent",
-    async () =>
-      await postAdvisorIdeaCandidateAction({
+    async () => {
+      const data = await postAdvisorIdeaCandidateAction({
         ...input,
         pathSuffix: "conversion-intents",
         capability: "idea.conversion.intent.record",
         errorLabel: "Advisor idea conversion intent",
-      }),
+      });
+      if (
+        !matchesIdeaConversionResponse({
+          candidateId: input.candidateId,
+          request: input.request,
+          response: data,
+        })
+      ) {
+        throw new WorkbenchResponseEvidenceError(
+          "Advisor idea conversion intent did not return matching source-owned authority evidence. No success was recorded in Workbench.",
+        );
+      }
+      return data;
+    },
   );
 }
 

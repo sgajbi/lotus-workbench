@@ -37,14 +37,28 @@ function getServerIntersectionObserverSupport() {
 
 type ReceiptTransaction = {
   candidateId: string;
+  evidencePacketId: string;
   idempotencyKey: string;
   request: IdeaPresentationReceiptDraft;
+  receiptId?: string;
+  snapshotKey: string;
   status: "pending" | "recorded" | "failed";
+};
+
+export type IdeaPresentationAuthority = {
+  candidateId: string;
+  evidencePacketId: string;
+  receiptId: string;
+  candidateMaterialVersion: number;
+  candidateEvidenceVersion: number;
+  sourceRevisionVectorDigest: `sha256:${string}`;
+  sourceCutPosture: IdeaPresentationReceiptDraft["sourceCutPosture"];
 };
 
 export type IdeaPresentationReceiptState = {
   status: "ready" | "recording" | "attention" | "unavailable";
   failedCount: number;
+  authorityByCandidateId: ReadonlyMap<string, IdeaPresentationAuthority>;
   retryFailed: () => Promise<void>;
 };
 
@@ -89,6 +103,7 @@ export function useIdeaPresentationReceipts({
           item.candidate?.candidateId,
           item.candidate?.materialVersion,
           item.candidate?.evidenceVersion,
+          item.candidate?.evidencePacketId,
           item.candidate?.scorePolicyVersion,
           item.candidate?.sourceRevisionVectorDigest,
           item.candidate?.sourceCutPosture,
@@ -100,8 +115,14 @@ export function useIdeaPresentationReceipts({
   const [summary, setSummary] = useState<
     Pick<IdeaPresentationReceiptState, "status" | "failedCount"> & {
       snapshotKey: string;
+      authorityByCandidateId: ReadonlyMap<string, IdeaPresentationAuthority>;
     }
-  >({ snapshotKey, status: "ready", failedCount: 0 });
+  >({
+    snapshotKey,
+    status: "ready",
+    failedCount: 0,
+    authorityByCandidateId: new Map(),
+  });
   const intersectionObserverSupported = useSyncExternalStore(
     subscribeToStaticBrowserCapability,
     getIntersectionObserverSupport,
@@ -118,6 +139,7 @@ export function useIdeaPresentationReceipts({
         snapshotKey,
         status: "unavailable",
         failedCount: sourceFailure.failedCount,
+        authorityByCandidateId: new Map(),
       });
       return;
     }
@@ -134,18 +156,23 @@ export function useIdeaPresentationReceipts({
             ? "recording"
             : "ready",
       failedCount,
+      authorityByCandidateId: buildAuthorityMap(entries),
     });
   }, [snapshotKey]);
 
   const submit = useCallback(
     async (transaction: ReceiptTransaction) => {
       try {
-        await recordAdvisorIdeaPresentationReceipt({
+        const response = await recordAdvisorIdeaPresentationReceipt({
           candidateId: transaction.candidateId,
           portfolioId,
           idempotencyKey: transaction.idempotencyKey,
           request: transaction.request,
         });
+        if (activeSnapshotKey.current !== transaction.snapshotKey) {
+          return;
+        }
+        transaction.receiptId = response.receipt?.receiptId?.trim();
         transaction.status = "recorded";
       } catch {
         transaction.status = "failed";
@@ -193,6 +220,7 @@ export function useIdeaPresentationReceipts({
           snapshotKey,
           status: "unavailable",
           failedCount: pendingCandidateIds.length,
+          authorityByCandidateId: new Map(),
         });
         return;
       }
@@ -203,8 +231,10 @@ export function useIdeaPresentationReceipts({
         .filter(({ candidateId }) => pendingCandidateIds.includes(candidateId))
         .map(({ candidateId, request }) => ({
           candidateId,
+          evidencePacketId: sources.get(candidateId)!.evidencePacketId,
           idempotencyKey: createIdeaPresentationIdempotencyKey(),
           request,
+          snapshotKey,
           status: "pending" as const,
         }));
       for (const transaction of newTransactions) {
@@ -246,7 +276,8 @@ export function useIdeaPresentationReceipts({
       }
       const markers = [...observed]
         .filter(
-          (marker) => marker.isConnected && intersecting.get(marker) === true,
+          (marker) =>
+            marker.isConnected && intersecting.get(marker) === true,
         )
         .sort(compareVisualOrder);
       const visibleCandidateIds = [
@@ -299,6 +330,7 @@ export function useIdeaPresentationReceipts({
           }
         }
       }
+      scheduleFlush();
     };
     const handleDocumentVisibilityChange = () => {
       generation = ++observationGeneration.current;
@@ -357,15 +389,42 @@ export function useIdeaPresentationReceipts({
 
   const currentSummary =
     summary.snapshotKey === snapshotKey
-      ? { status: summary.status, failedCount: summary.failedCount }
-      : { status: "ready" as const, failedCount: 0 };
+      ? summary
+      : {
+          snapshotKey,
+          status: "ready" as const,
+          failedCount: 0,
+          authorityByCandidateId: new Map<string, IdeaPresentationAuthority>(),
+        };
   return {
-    ...currentSummary,
+    failedCount: currentSummary.failedCount,
+    authorityByCandidateId: currentSummary.authorityByCandidateId,
     status: intersectionObserverSupported
       ? currentSummary.status
       : "unavailable",
     retryFailed,
   };
+}
+
+function buildAuthorityMap(
+  transactions: ReceiptTransaction[],
+): ReadonlyMap<string, IdeaPresentationAuthority> {
+  const authorities = new Map<string, IdeaPresentationAuthority>();
+  for (const transaction of transactions) {
+    if (transaction.status !== "recorded" || !transaction.receiptId) {
+      continue;
+    }
+    authorities.set(transaction.candidateId, {
+      candidateId: transaction.candidateId,
+      evidencePacketId: transaction.evidencePacketId,
+      receiptId: transaction.receiptId,
+      candidateMaterialVersion: transaction.request.candidateMaterialVersion,
+      candidateEvidenceVersion: transaction.request.candidateEvidenceVersion,
+      sourceRevisionVectorDigest: transaction.request.sourceRevisionVectorDigest,
+      sourceCutPosture: transaction.request.sourceCutPosture,
+    });
+  }
+  return authorities;
 }
 
 function compareVisualOrder(left: Element, right: Element): number {

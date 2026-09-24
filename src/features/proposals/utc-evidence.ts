@@ -14,6 +14,31 @@ export function utcTimestampsIdentifySameInstant(
   return normalizedLeft !== null && normalizedLeft === normalizedRight;
 }
 
+export function compareUtcEvidenceTimestamps(
+  left: unknown,
+  right: unknown,
+): number | null {
+  const normalizedLeft = normalizeUtcEvidenceTimestamp(left);
+  const normalizedRight = normalizeUtcEvidenceTimestamp(right);
+  if (normalizedLeft === null || normalizedRight === null) {
+    return null;
+  }
+  const wholeSecondComparison = normalizedLeft
+    .slice(0, 19)
+    .localeCompare(normalizedRight.slice(0, 19));
+  if (wholeSecondComparison !== 0) {
+    return Math.sign(wholeSecondComparison);
+  }
+  const leftFraction = normalizedLeft.slice(20, -1);
+  const rightFraction = normalizedRight.slice(20, -1);
+  const fractionWidth = Math.max(leftFraction.length, rightFraction.length);
+  return Math.sign(
+    leftFraction
+      .padEnd(fractionWidth, "0")
+      .localeCompare(rightFraction.padEnd(fractionWidth, "0")),
+  );
+}
+
 function normalizeUtcEvidenceTimestamp(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;

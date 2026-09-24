@@ -423,7 +423,11 @@ promote dormant labels into product ownership just because historical route file
   source-safe detail. The detail panel records typed review actions, feedback, and bounded conversion
   intents through `POST /api/v1/ideas/candidates/{candidate_id}/review-actions`, `/feedback`, and
   `/conversion-intents`, respectively, with server-derived Workbench BFF authority and idempotency.
-  A transient failure can retry only with the exact original action payload and idempotency key.
+  Review carries the source-confirmed visible-presentation receipt and exact current candidate
+  evidence tuple. Conversion carries the accepted approved review ID and that same evidence tuple;
+  neither route invents a missing version, digest, posture, receipt, or review identity. A transient
+  failure can retry only with the exact original action payload and idempotency key, and Workbench
+  refuses that retry after the candidate evidence changes.
   These are
   source-owned audit records: they do not create a proposal, grant downstream authority, or promote
   Lotus Idea as a supported feature before canonical browser proof, data-product certification, and

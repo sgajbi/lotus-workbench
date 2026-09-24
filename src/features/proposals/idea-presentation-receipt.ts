@@ -29,6 +29,7 @@ export type IdeaPresentationReceiptDraft = {
 
 export type IdeaPresentationSource = {
   candidateId: string;
+  evidencePacketId: string;
   rank: number;
   queuePolicyVersion: string;
   rankingPolicyVersion: string;
@@ -64,6 +65,7 @@ export function readIdeaPresentationSource(
   const candidate = item.candidate;
   if (
     !candidate?.candidateId?.trim() ||
+    !candidate.evidencePacketId?.trim() ||
     !isPositiveInteger(item.rank) ||
     !queue.policyVersion?.trim() ||
     !candidate.scorePolicyVersion?.trim() ||
@@ -76,6 +78,7 @@ export function readIdeaPresentationSource(
   }
   return {
     candidateId: candidate.candidateId,
+    evidencePacketId: candidate.evidencePacketId,
     rank: item.rank,
     queuePolicyVersion: queue.policyVersion,
     rankingPolicyVersion: candidate.scorePolicyVersion,

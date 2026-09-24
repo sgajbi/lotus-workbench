@@ -22,8 +22,33 @@ const ideaApi = vi.hoisted(() => ({
 
 const EVIDENCE_IDENTITY = {
   evidencePacketId: "evidence_high_cash_001",
-  evidenceContentHash: "sha256:evidence-high-cash-001",
-  sourceRevisionVectorDigest: "sha256:revision-high-cash-001",
+  evidenceContentHash: `sha256:${"c".repeat(64)}`,
+  sourceRevisionVectorDigest: `sha256:${"b".repeat(64)}`,
+};
+const ACTION_AUTHORITY = {
+  candidateId: "idea_high_cash_001",
+  expectedMaterialVersion: 1,
+  expectedEvidenceVersion: 1,
+  expectedEvidencePacketId: EVIDENCE_IDENTITY.evidencePacketId,
+  expectedEvidenceContentHash: EVIDENCE_IDENTITY.evidenceContentHash as `sha256:${string}`,
+  expectedSourceRevisionVectorDigest:
+    EVIDENCE_IDENTITY.sourceRevisionVectorDigest as `sha256:${string}`,
+  expectedSourceCutPosture: "coherent" as const,
+};
+const PRESENTATION_AUTHORITY = {
+  candidateId: "idea_high_cash_001",
+  evidencePacketId: "evidence_high_cash_001",
+  receiptId: "presentation-receipt-001",
+  candidateMaterialVersion: 1,
+  candidateEvidenceVersion: 1,
+  sourceRevisionVectorDigest:
+    EVIDENCE_IDENTITY.sourceRevisionVectorDigest as `sha256:${string}`,
+  sourceCutPosture: "coherent" as const,
+};
+const PERSISTED_REVIEW_AUTHORITY = {
+  ...ACTION_AUTHORITY,
+  reviewId: "review-persisted-001",
+  presentationReceiptId: "presentation-receipt-persisted-001",
 };
 
 vi.mock("../../src/features/proposals/api", () => ideaApi);
@@ -44,13 +69,17 @@ function renderPanel(
     "high_cash_ratio",
     "review_required",
   ],
+  persistedAcceptedReviewAuthority?: typeof PERSISTED_REVIEW_AUTHORITY,
 ) {
   return render(
     <IdeaCandidateActionPanel
+      actionAuthority={ACTION_AUTHORITY}
       candidateId="idea_high_cash_001"
       candidateReasonCodes={candidateReasonCodes}
       evidenceIdentity={evidenceIdentity ?? undefined}
+      persistedAcceptedReviewAuthority={persistedAcceptedReviewAuthority}
       portfolioId="PB_SG_GLOBAL_BAL_001"
+      presentationAuthority={PRESENTATION_AUTHORITY}
       onRecorded={onRecorded}
     />,
     { wrapper },
@@ -60,16 +89,65 @@ function renderPanel(
 describe("IdeaCandidateActionPanel", () => {
   beforeEach(() => {
     vi.resetAllMocks();
-    ideaApi.recordAdvisorIdeaReviewAction.mockResolvedValue({
-      persistence: { decision: "accepted" },
-      durableStorageBacked: true,
-      supportedFeaturePromoted: false,
-    });
-    ideaApi.recordAdvisorIdeaConversionIntent.mockResolvedValue({
-      persistence: { decision: "accepted" },
-      durableStorageBacked: true,
-      supportedFeaturePromoted: false,
-    });
+    ideaApi.recordAdvisorIdeaReviewAction.mockImplementation(
+      async ({ candidateId, request }) => ({
+        reviewDecision: {
+          reviewId: request.reviewId,
+          candidateId,
+          evidencePacketId: request.expectedEvidencePacketId,
+          evidenceContentHash: request.expectedEvidenceContentHash,
+          sourceRevisionVectorDigest: request.expectedSourceRevisionVectorDigest,
+          sourceCutPosture: request.expectedSourceCutPosture,
+          candidateMaterialVersion: request.expectedMaterialVersion,
+          candidateEvidenceVersion: request.expectedEvidenceVersion,
+          reviewChannel: request.reviewChannel,
+          presentationReceiptId: request.presentationReceiptId,
+          action: request.action,
+          resultingPosture: ({
+            approve_for_conversion: "approved_for_conversion",
+            reject: "rejected",
+            no_action: "no_action",
+            suppress: "suppressed",
+            snooze: "advisor_review_required",
+            escalate_to_pm: "pm_review_required",
+            escalate_to_compliance: "compliance_review_required",
+          } as Record<string, string>)[String(request.action)],
+          reasonCodes: request.reasonCodes,
+          decidedAtUtc: request.decidedAtUtc,
+          acceptedAtUtc: "2026-09-24T01:00:01Z",
+          acceptanceTimeSource: "server_accepted",
+          grantsDownstreamAuthority: false,
+        },
+        persistence: { decision: "accepted" },
+        durableStorageBacked: true,
+        supportedFeaturePromoted: false,
+      }),
+    );
+    ideaApi.recordAdvisorIdeaConversionIntent.mockImplementation(
+      async ({ candidateId, request }) => ({
+        conversionIntent: {
+          conversionIntentId: request.conversionIntentId,
+          candidateId,
+          target: request.target,
+          reviewId: request.expectedReviewId,
+          evidencePacketId: request.expectedEvidencePacketId,
+          evidenceContentHash: request.expectedEvidenceContentHash,
+          sourceRevisionVectorDigest: request.expectedSourceRevisionVectorDigest,
+          sourceCutPosture: request.expectedSourceCutPosture,
+          candidateMaterialVersion: request.expectedMaterialVersion,
+          candidateEvidenceVersion: request.expectedEvidenceVersion,
+          reasonCodes: request.reasonCodes,
+          requestedAtUtc: request.requestedAtUtc,
+          acceptedAtUtc: "2026-09-24T01:00:01Z",
+          acceptanceTimeSource: "server_accepted",
+          boundary: "intent_only",
+          grantsDownstreamAuthority: false,
+        },
+        persistence: { decision: "accepted" },
+        durableStorageBacked: true,
+        supportedFeaturePromoted: false,
+      }),
+    );
     ideaApi.recordAdvisorIdeaFeedback.mockImplementation(
       async ({ candidateId, request }) => ({
         feedbackEvent: {
@@ -139,10 +217,12 @@ describe("IdeaCandidateActionPanel", () => {
 
     rendered.rerender(
       <IdeaCandidateActionPanel
+        actionAuthority={ACTION_AUTHORITY}
         candidateId="idea_high_cash_001"
         candidateReasonCodes={[]}
         evidenceIdentity={EVIDENCE_IDENTITY}
         portfolioId="PB_SG_GLOBAL_BAL_001"
+        presentationAuthority={PRESENTATION_AUTHORITY}
         onRecorded={onRecorded}
       />,
     );
@@ -182,10 +262,12 @@ describe("IdeaCandidateActionPanel", () => {
 
     rendered.rerender(
       <IdeaCandidateActionPanel
+        actionAuthority={ACTION_AUTHORITY}
         candidateId="idea_high_cash_001"
         candidateReasonCodes={["concentration_attention"]}
         evidenceIdentity={EVIDENCE_IDENTITY}
         portfolioId="PB_SG_GLOBAL_BAL_001"
+        presentationAuthority={PRESENTATION_AUTHORITY}
         onRecorded={onRecorded}
       />,
     );
@@ -195,6 +277,21 @@ describe("IdeaCandidateActionPanel", () => {
     expect(
       screen.getByTestId("idea-conversion-business-reason-retained-draft"),
     ).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+    await screen.findByTestId("idea-action-review-status");
+    rendered.rerender(
+      <IdeaCandidateActionPanel
+        actionAuthority={ACTION_AUTHORITY}
+        candidateId="idea_high_cash_001"
+        candidateReasonCodes={["concentration_attention"]}
+        evidenceIdentity={EVIDENCE_IDENTITY}
+        persistedAcceptedReviewAuthority={PERSISTED_REVIEW_AUTHORITY}
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        presentationAuthority={PRESENTATION_AUTHORITY}
+        onRecorded={onRecorded}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Record intent" })).toBeEnabled();
 
     fireEvent.change(conversionBasis, {
       target: { value: "concentration_attention" },
@@ -231,10 +328,12 @@ describe("IdeaCandidateActionPanel", () => {
 
     rendered.rerender(
       <IdeaCandidateActionPanel
+        actionAuthority={ACTION_AUTHORITY}
         candidateId="idea_high_cash_001"
         candidateReasonCodes={["high_cash_ratio", "review_required"]}
         evidenceIdentity={EVIDENCE_IDENTITY}
         portfolioId="PB_SG_GLOBAL_BAL_001"
+        presentationAuthority={PRESENTATION_AUTHORITY}
         onRecorded={onRecorded}
       />,
     );
@@ -419,10 +518,12 @@ describe("IdeaCandidateActionPanel", () => {
 
     rendered.rerender(
       <IdeaCandidateActionPanel
+        actionAuthority={ACTION_AUTHORITY}
         candidateId="idea_high_cash_001"
         candidateReasonCodes={["concentration_attention"]}
         evidenceIdentity={EVIDENCE_IDENTITY}
         portfolioId="PB_SG_GLOBAL_BAL_001"
+        presentationAuthority={PRESENTATION_AUTHORITY}
         onRecorded={onRecorded}
       />,
     );
@@ -462,6 +563,40 @@ describe("IdeaCandidateActionPanel", () => {
     expect(retry.request).toEqual(first.request);
   });
 
+  it("fences an exact retry after the candidate evidence restates", async () => {
+    ideaApi.recordAdvisorIdeaReviewAction.mockRejectedValueOnce(
+      new Error("response lost"),
+    );
+    const rendered = renderPanel(async () => true);
+
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+    await screen.findByTestId("idea-review-retry");
+
+    rendered.rerender(
+      <IdeaCandidateActionPanel
+        actionAuthority={{
+          ...ACTION_AUTHORITY,
+          expectedEvidenceVersion: 2,
+        }}
+        candidateId="idea_high_cash_001"
+        candidateReasonCodes={["high_cash_ratio"]}
+        evidenceIdentity={EVIDENCE_IDENTITY}
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        presentationAuthority={{
+          ...PRESENTATION_AUTHORITY,
+          candidateEvidenceVersion: 2,
+        }}
+        onRecorded={async () => true}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Retry exact review" }));
+
+    expect(ideaApi.recordAdvisorIdeaReviewAction).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "opportunity evidence changed",
+    );
+  });
+
   it("binds exact retry success to saved terms when the form has an unsaved edit", async () => {
     ideaApi.recordAdvisorIdeaReviewAction
       .mockRejectedValueOnce(new Error("response lost"))
@@ -476,10 +611,12 @@ describe("IdeaCandidateActionPanel", () => {
     await screen.findByTestId("idea-review-retry");
     rendered.rerender(
       <IdeaCandidateActionPanel
+        actionAuthority={ACTION_AUTHORITY}
         candidateId="idea_high_cash_001"
         candidateReasonCodes={["review_required"]}
         evidenceIdentity={EVIDENCE_IDENTITY}
         portfolioId="PB_SG_GLOBAL_BAL_001"
+        presentationAuthority={PRESENTATION_AUTHORITY}
         onRecorded={async () => true}
       />,
     );
@@ -567,7 +704,15 @@ describe("IdeaCandidateActionPanel", () => {
     ideaApi.recordAdvisorIdeaConversionIntent.mockRejectedValueOnce(
       new Error("response lost"),
     );
-    renderPanel(async () => true);
+    renderPanel(
+      async () => true,
+      EVIDENCE_IDENTITY,
+      ["high_cash_ratio", "review_required"],
+      PERSISTED_REVIEW_AUTHORITY,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+    await screen.findByTestId("idea-action-review-status");
 
     fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
     const recovery = await screen.findByTestId("idea-conversion-retry");
@@ -650,6 +795,63 @@ describe("IdeaCandidateActionPanel", () => {
     expect(
       screen.queryByRole("button", { name: "Retry exact review" }),
     ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Record review" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
+    expect(ideaApi.recordAdvisorIdeaConversionIntent).not.toHaveBeenCalled();
+  });
+
+  it("restores conversion authority from a persisted exact approved review", async () => {
+    renderPanel(
+      async () => true,
+      EVIDENCE_IDENTITY,
+      ["high_cash_ratio", "review_required"],
+      PERSISTED_REVIEW_AUTHORITY,
+    );
+
+    expect(screen.getByRole("button", { name: "Record intent" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
+    await waitFor(() =>
+      expect(ideaApi.recordAdvisorIdeaConversionIntent).toHaveBeenCalledTimes(1),
+    );
+    expect(
+      ideaApi.recordAdvisorIdeaConversionIntent.mock.calls[0][0].request
+        .expectedReviewId,
+    ).toBe("review-persisted-001");
+  });
+
+  it("keeps a failed source refresh latched across a later failed feedback request", async () => {
+    const onRecorded = vi
+      .fn<() => Promise<boolean>>()
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(false);
+    renderPanel(
+      onRecorded,
+      EVIDENCE_IDENTITY,
+      ["high_cash_ratio", "review_required"],
+      PERSISTED_REVIEW_AUTHORITY,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+    await screen.findByTestId("idea-action-review-status");
+    expect(screen.getByRole("button", { name: "Record intent" })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Record feedback" }));
+    await waitFor(() => expect(onRecorded).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
+
+    ideaApi.recordAdvisorIdeaFeedback.mockRejectedValueOnce(
+      new Error("later feedback request failed"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Record feedback" }));
+    await screen.findByTestId("idea-action-error");
+
+    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Record review" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
+    expect(ideaApi.recordAdvisorIdeaConversionIntent).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+    expect(ideaApi.recordAdvisorIdeaReviewAction).toHaveBeenCalledTimes(1);
   });
 
   it("stops retrying when Idea returns a deterministic owner conflict", async () => {
@@ -668,7 +870,7 @@ describe("IdeaCandidateActionPanel", () => {
     expect(screen.queryByTestId("idea-review-retry")).not.toBeInTheDocument();
   });
 
-  it("keeps advisor actions available when explanation evidence is unavailable", () => {
+  it("keeps review and feedback independent when explanation evidence is unavailable", () => {
     renderPanel(async () => true, null);
 
     expect(
@@ -678,10 +880,13 @@ describe("IdeaCandidateActionPanel", () => {
     expect(
       screen.getByRole("button", { name: "Record feedback" }),
     ).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Record intent" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
+    expect(
+      screen.getByText(/Conversion becomes available after an approved review/),
+    ).toBeVisible();
   });
 
-  it("keeps all advisor actions available when the optional explanation fails", async () => {
+  it("keeps review and feedback independent when the optional explanation fails", async () => {
     ideaApi.requestAdvisorIdeaAIExplanation.mockRejectedValueOnce(
       new WorkbenchApiError("explanation", 502),
     );
@@ -694,6 +899,6 @@ describe("IdeaCandidateActionPanel", () => {
     expect(
       screen.getByRole("button", { name: "Record feedback" }),
     ).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Record intent" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Record intent" })).toBeDisabled();
   });
 });

@@ -675,7 +675,7 @@ export type AdvisorIdeaCandidateDetailData = {
     [key: string]: unknown;
   };
   lifecycleHistory?: Array<Record<string, unknown>>;
-  reviewDecisions?: Array<Record<string, unknown>>;
+  reviewDecisions?: AdvisorIdeaReviewDecision[];
   feedbackEvents?: Array<Record<string, unknown>>;
   conversionIntents?: Array<Record<string, unknown>>;
   conversionOutcomes?: Array<Record<string, unknown>>;
@@ -697,6 +697,19 @@ export type AdvisorIdeaReviewActionRequest = {
   action: AdvisorIdeaReviewAction;
   reasonCodes: AdvisorIdeaReasonCode[];
   decidedAtUtc: string;
+  reviewChannel: "workbench";
+  expectedMaterialVersion: number;
+  expectedEvidenceVersion: number;
+  expectedEvidencePacketId: string;
+  expectedEvidenceContentHash: `sha256:${string}`;
+  expectedSourceRevisionVectorDigest: `sha256:${string}`;
+  expectedSourceCutPosture:
+    | "coherent"
+    | "coherent_with_declared_tolerance"
+    | "mixed"
+    | "partial"
+    | "unknown";
+  presentationReceiptId: string;
   suppressionReason?:
     | "duplicate"
     | "recently_rejected"
@@ -711,10 +724,60 @@ export type AdvisorIdeaConversionIntentRequest = {
   target: "advise_proposal" | "manage_review" | "report_evidence";
   reasonCodes: AdvisorIdeaReasonCode[];
   requestedAtUtc: string;
+  expectedReviewId: string;
+  expectedMaterialVersion: number;
+  expectedEvidenceVersion: number;
+  expectedEvidencePacketId: string;
+  expectedEvidenceContentHash: `sha256:${string}`;
+  expectedSourceRevisionVectorDigest: `sha256:${string}`;
+  expectedSourceCutPosture: AdvisorIdeaReviewActionRequest["expectedSourceCutPosture"];
+};
+
+export type AdvisorIdeaReviewDecision = {
+  reviewId?: string;
+  candidateId?: string;
+  evidencePacketId?: string;
+  evidenceContentHash?: string;
+  sourceRevisionVectorDigest?: string;
+  sourceCutPosture?: string;
+  candidateMaterialVersion?: number;
+  candidateEvidenceVersion?: number;
+  reviewChannel?: string;
+  presentationReceiptId?: string | null;
+  action?: string;
+  resultingPosture?: string;
+  reasonCodes?: string[];
+  decidedAtUtc?: string;
+  acceptedAtUtc?: string;
+  acceptanceTimeSource?: string;
+  grantsDownstreamAuthority?: boolean;
+  [key: string]: unknown;
+};
+
+export type AdvisorIdeaConversionIntent = {
+  conversionIntentId?: string;
+  candidateId?: string;
+  target?: string;
+  evidencePacketId?: string;
+  evidenceContentHash?: string;
+  sourceRevisionVectorDigest?: string;
+  sourceCutPosture?: string;
+  reviewId?: string;
+  candidateMaterialVersion?: number;
+  candidateEvidenceVersion?: number;
+  reasonCodes?: string[];
+  requestedAtUtc?: string;
+  acceptedAtUtc?: string;
+  acceptanceTimeSource?: string;
+  boundary?: string;
+  grantsDownstreamAuthority?: boolean;
+  [key: string]: unknown;
 };
 
 export type AdvisorIdeaCandidateActionData = {
   feedbackEvent?: AdvisorIdeaFeedbackEvent;
+  reviewDecision?: AdvisorIdeaReviewDecision;
+  conversionIntent?: AdvisorIdeaConversionIntent;
   persistence?: {
     decision?: string;
     lifecycleStatus?: string;

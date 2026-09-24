@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, CircularProgress, Stack } from "@mui/material";
 
@@ -17,11 +17,19 @@ import {
   getAdvisorIdeaReviewQueue,
 } from "../api";
 import { buildAdvisoryOpportunitiesModel } from "../advisory-opportunities-view-model";
+import {
+  buildIdeaCandidateActionAuthority,
+  readPersistedAcceptedIdeaReviewAuthority,
+} from "../idea-action-authority";
 import { readAdvisorIdeaEvidenceIdentity } from "../idea-ai-explanation-contract";
 import type {
   AdvisorIdeaCandidateDetailData,
   AdvisorIdeaQueueItem,
 } from "../types";
+import {
+  useIdeaPresentationReceipts,
+  type IdeaPresentationAuthority,
+} from "../use-idea-presentation-receipts";
 import AdvisoryOpportunityGrid from "./advisory-opportunity-grid";
 import IdeaCandidateActionPanel from "./idea-candidate-action-panel";
 import styles from "./advisory-opportunities-workspace.module.css";
@@ -56,6 +64,7 @@ export default function AdvisoryOpportunitiesWorkspace({
   selectedCandidateId?: string;
 }) {
   const queryClient = useQueryClient();
+  const queueContainerRef = useRef<HTMLDivElement>(null);
   const isCanonicalIdeaPortfolio = portfolioId === CANONICAL_IDEA_PORTFOLIO_ID;
   const [queueEvaluatedAtUtc, setQueueEvaluatedAtUtc] = useState(() =>
     new Date().toISOString(),
@@ -93,6 +102,12 @@ export default function AdvisoryOpportunitiesWorkspace({
     () => findQueueItemByCandidateId(data?.items, selectedCandidate),
     [data?.items, selectedCandidate],
   );
+  const receiptState = useIdeaPresentationReceipts({
+    containerRef: queueContainerRef,
+    enabled: model.rows.length > 0,
+    portfolioId,
+    queue: data,
+  });
   const proposalBuilderHref = buildReviewContextHref(
     "/proposals/simulate",
     { ...reviewContext, portfolioId },
@@ -174,7 +189,11 @@ export default function AdvisoryOpportunitiesWorkspace({
           error={candidateDetailError}
           isLoading={isCandidateDetailLoading}
           portfolioId={portfolioId}
+          presentationAuthority={receiptState.authorityByCandidateId.get(
+            selectedCandidate,
+          )}
           candidateReasonCodes={selectedQueueItem?.reasonCodes ?? []}
+          queueItem={selectedQueueItem}
           queueEvaluatedAtUtc={data?.evaluatedAtUtc}
           queuePolicyVersion={data?.policyVersion}
           selectedCandidateId={selectedCandidate}
@@ -239,8 +258,8 @@ export default function AdvisoryOpportunitiesWorkspace({
         />
       ) : data ? (
         <AdvisoryOpportunityGrid
-          portfolioId={portfolioId}
-          queue={data}
+          containerRef={queueContainerRef}
+          receiptState={receiptState}
           rows={model.rows}
         />
       ) : null}
@@ -254,7 +273,9 @@ function IdeaCandidateDetailPanel({
   error,
   isLoading,
   portfolioId,
+  presentationAuthority,
   queueEvaluatedAtUtc,
+  queueItem,
   queuePolicyVersion,
   selectedCandidateId,
   sourceSignalIds,
@@ -265,7 +286,9 @@ function IdeaCandidateDetailPanel({
   error: Error | null;
   isLoading: boolean;
   portfolioId: string;
+  presentationAuthority?: IdeaPresentationAuthority;
   queueEvaluatedAtUtc?: string;
+  queueItem?: AdvisorIdeaQueueItem;
   queuePolicyVersion?: string;
   selectedCandidateId: string;
   sourceSignalIds: string[];
@@ -276,6 +299,26 @@ function IdeaCandidateDetailPanel({
   const audit = detail?.auditSummary;
   const sourceRefs = evidence?.sourceRefs ?? [];
   const evidenceIdentity = readAdvisorIdeaEvidenceIdentity(evidence);
+  const actionAuthority = buildIdeaCandidateActionAuthority({
+    candidateId: selectedCandidateId,
+    detailCandidateId: candidate?.candidateId,
+    candidateMaterialVersion: queueItem?.candidate?.materialVersion,
+    candidateEvidenceVersion: queueItem?.candidate?.evidenceVersion,
+    detailCandidateMaterialVersion: candidate?.materialVersion,
+    detailCandidateEvidenceVersion: candidate?.evidenceVersion,
+    evidenceIdentity,
+    detailSourceCutPosture: evidence?.sourceCutPosture,
+    queueEvidencePacketId: queueItem?.candidate?.evidencePacketId,
+    queueSourceCutPosture: queueItem?.candidate?.sourceCutPosture,
+    queueSourceRevisionVectorDigest:
+      queueItem?.candidate?.sourceRevisionVectorDigest,
+  });
+  const persistedAcceptedReviewAuthority =
+    readPersistedAcceptedIdeaReviewAuthority({
+      authority: actionAuthority,
+      decisions: detail?.reviewDecisions,
+      durableStorageBacked: detail?.durableStorageBacked === true,
+    });
   return (
     <div
       className={styles.detailPanel}
@@ -357,8 +400,11 @@ function IdeaCandidateDetailPanel({
               key={candidate.candidateId}
               candidateId={candidate.candidateId}
               candidateReasonCodes={candidateReasonCodes}
+              actionAuthority={actionAuthority}
               evidenceIdentity={evidenceIdentity}
+              persistedAcceptedReviewAuthority={persistedAcceptedReviewAuthority}
               portfolioId={portfolioId}
+              presentationAuthority={presentationAuthority}
               onRecorded={onActionRecorded}
             />
           ) : null}
