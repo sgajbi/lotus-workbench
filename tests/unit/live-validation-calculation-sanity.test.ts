@@ -25,6 +25,75 @@ function createClassifier(summary: TestValidationSummary) {
   };
 }
 
+function createPartialPerformanceAttribution(rows: Array<Record<string, unknown>>) {
+  return {
+    status: "partial",
+    reason_codes: ["material_residual"],
+    reasons: [
+      {
+        code: "material_residual",
+        severity: "warning",
+        message: "Attribution residual exceeded the governed materiality threshold.",
+        affected_group_count: 0,
+      },
+    ],
+    supportability_evidence: {
+      portfolio_only_group_count: 0,
+      benchmark_only_group_count: 0,
+      unclassified_group_count: 0,
+      missing_benchmark_return_count: 0,
+      negative_weight_count: 0,
+      zero_portfolio_exposure_count: 0,
+      currency_attribution_status: "not_requested",
+      linking_status: "linked",
+    },
+    levels: [{ rows }],
+  };
+}
+
+function createSupportedPerformancePayloads(
+  attribution = createPartialPerformanceAttribution([{}, {}])
+) {
+  return {
+    performanceSummary: {
+      net_performance: {
+        portfolio_return_pct: 9.33,
+        benchmark_return_pct: 6.52,
+        active_return_pct: 2.81,
+      },
+      overview: {
+        market_value_base: 1_500_000,
+        cash_weight_pct: 12.4,
+        position_count: 18,
+      },
+      capabilities: {
+        evidence: {
+          state: "supported",
+          reason: "lineage evidence is complete",
+        },
+      },
+    },
+    performanceDetails: {
+      net_chart: [{}, {}, {}, {}],
+      contribution: {
+        levels: [
+          {
+            rows: [{}, {}, {}, {}],
+            total_contribution_pct: 9.33,
+          },
+        ],
+      },
+      capabilities: {
+        attribution_detail: {
+          state: "supported",
+          fallback_available: false,
+        },
+      },
+      attribution,
+    },
+  };
+}
+
 describe("live validation calculation sanity helpers", () => {
   it("keeps transient source-limited performance evidence out of ready validation", () => {
     const partial = summarizePayloadSourceSupportability({
@@ -125,13 +194,7 @@ describe("live validation calculation sanity helpers", () => {
             fallback_available: true,
           },
         },
-        attribution: {
-          levels: [
-            {
-              rows: [],
-            },
-          ],
-        },
+        attribution: createPartialPerformanceAttribution([]),
         evidence_view: {
           source_supportability: [
             {
@@ -156,6 +219,9 @@ describe("live validation calculation sanity helpers", () => {
         expect.objectContaining({
           panel: "performance.analysis.attribution",
           state: "partial",
+          attributionStatus: "partial",
+          reasonCodes: ["material_residual"],
+          supportabilityEvidence: expect.objectContaining({ linking_status: "linked" }),
         }),
         expect.objectContaining({ panel: "performance.evidence", state: "partial" }),
       ])
@@ -180,48 +246,7 @@ describe("live validation calculation sanity helpers", () => {
     assertPerformanceCalculationSanity({
       summary,
       recordPanelClassification: createClassifier(summary),
-      performanceSummary: {
-        net_performance: {
-          portfolio_return_pct: 9.33,
-          benchmark_return_pct: 6.52,
-          active_return_pct: 2.81,
-        },
-        overview: {
-          market_value_base: 1_500_000,
-          cash_weight_pct: 12.4,
-          position_count: 18,
-        },
-        capabilities: {
-          evidence: {
-            state: "supported",
-            reason: "lineage evidence is complete",
-          },
-        },
-      },
-      performanceDetails: {
-        net_chart: [{}, {}, {}, {}],
-        contribution: {
-          levels: [
-            {
-              rows: [{}, {}, {}, {}],
-              total_contribution_pct: 9.33,
-            },
-          ],
-        },
-        capabilities: {
-          attribution_detail: {
-            state: "supported",
-            fallback_available: false,
-          },
-        },
-        attribution: {
-          levels: [
-            {
-              rows: [{}, {}],
-            },
-          ],
-        },
-      },
+      ...createSupportedPerformancePayloads(),
     });
 
     expect(summary.panelClassifications).toEqual(
@@ -238,6 +263,79 @@ describe("live validation calculation sanity helpers", () => {
         }),
       ])
     );
+  });
+
+  it.each([
+    ["source status", "status", "Canonical attribution supportability must remain partial"],
+    ["reason codes", "reason_codes", "Partial attribution omitted source-owned reason codes"],
+    [
+      "supportability evidence",
+      "supportability_evidence",
+      "Partial attribution omitted source-owned supportability evidence",
+    ],
+  ])("rejects partial attribution without %s", (_label, missingField, expectedError) => {
+    const summary = createSummary();
+    const payloads = createSupportedPerformancePayloads(
+      createPartialPerformanceAttribution([{}])
+    );
+    const attribution = payloads.performanceDetails.attribution;
+    delete attribution[missingField as keyof typeof attribution];
+
+    expect(() =>
+      assertPerformanceCalculationSanity({
+        summary,
+        recordPanelClassification: createClassifier(summary),
+        ...payloads,
+      }),
+    ).toThrow(expectedError);
+  });
+
+  it("rejects a non-empty but malformed attribution supportability object", () => {
+    const summary = createSummary();
+    const payloads = createSupportedPerformancePayloads(
+      createPartialPerformanceAttribution([{}])
+    );
+    const malformedAttribution = {
+      ...payloads.performanceDetails.attribution,
+      supportability_evidence: { unexpected: true },
+    };
+
+    expect(() =>
+      assertPerformanceCalculationSanity({
+        summary,
+        recordPanelClassification: createClassifier(summary),
+        ...payloads,
+        performanceDetails: {
+          ...payloads.performanceDetails,
+          attribution: malformedAttribution,
+        },
+      }),
+    ).toThrow(
+      "Partial attribution supportability evidence has invalid portfolio_only_group_count",
+    );
+  });
+
+  it("rejects mixed valid and malformed attribution reason codes", () => {
+    const summary = createSummary();
+    const payloads = createSupportedPerformancePayloads(
+      createPartialPerformanceAttribution([{}])
+    );
+    const malformedAttribution = {
+      ...payloads.performanceDetails.attribution,
+      reason_codes: [42, "material_residual"],
+    };
+
+    expect(() =>
+      assertPerformanceCalculationSanity({
+        summary,
+        recordPanelClassification: createClassifier(summary),
+        ...payloads,
+        performanceDetails: {
+          ...payloads.performanceDetails,
+          attribution: malformedAttribution,
+        },
+      }),
+    ).toThrow("Partial attribution omitted source-owned reason codes.");
   });
 
   it("fails performance attribution when governed fallback is missing", () => {
@@ -275,9 +373,7 @@ describe("live validation calculation sanity helpers", () => {
               fallback_available: false,
             },
           },
-          attribution: {
-            levels: [{ rows: [] }],
-          },
+          attribution: createPartialPerformanceAttribution([]),
         },
       })
     ).toThrow("Attribution detail is partial without a governed fallback.");
@@ -485,9 +581,7 @@ describe("live validation calculation sanity helpers", () => {
             fallback_available: false,
           },
         },
-        attribution: {
-          levels: [{ rows: [{}] }],
-        },
+        attribution: createPartialPerformanceAttribution([{}]),
       },
     });
 
@@ -553,9 +647,7 @@ describe("live validation calculation sanity helpers", () => {
               fallback_available: false,
             },
           },
-          attribution: {
-            levels: [{ rows: [{}] }],
-          },
+          attribution: createPartialPerformanceAttribution([{}]),
         },
       })
     ).toThrow("Performance source supportability requires action and cannot be certified as ready.");

@@ -254,6 +254,7 @@ export function assertPerformanceCalculationSanity({
   const overview = performanceSummary?.overview ?? {};
   const contributionLevel = performanceDetails?.contribution?.levels?.[0];
   const attributionCapability = performanceDetails?.capabilities?.attribution_detail ?? {};
+  const attribution = performanceDetails?.attribution ?? {};
   const attributionLevel = performanceDetails?.attribution?.levels?.[0];
 
   const portfolioReturn = assertNumberInRange(
@@ -311,6 +312,52 @@ export function assertPerformanceCalculationSanity({
       `Attribution detail is ${String(attributionCapability.state)} without a governed fallback.`
     );
   }
+  const attributionReasonCodes = attribution.reason_codes;
+  const attributionSupportabilityEvidence = attribution.supportability_evidence;
+  if (attribution.status !== "partial") {
+    throw new Error(
+      `Canonical attribution supportability must remain partial until the governed panel is deliberately promoted; got ${String(attribution.status)}.`,
+    );
+  }
+  if (
+    !Array.isArray(attributionReasonCodes) ||
+    attributionReasonCodes.length < 1 ||
+    !attributionReasonCodes.every(
+      (reasonCode) => typeof reasonCode === "string" && reasonCode.trim().length > 0,
+    )
+  ) {
+    throw new Error("Partial attribution omitted source-owned reason codes.");
+  }
+  if (
+    !attributionSupportabilityEvidence ||
+    typeof attributionSupportabilityEvidence !== "object" ||
+    Array.isArray(attributionSupportabilityEvidence)
+  ) {
+    throw new Error("Partial attribution omitted source-owned supportability evidence.");
+  }
+  const requiredCountFields = [
+    "portfolio_only_group_count",
+    "benchmark_only_group_count",
+    "unclassified_group_count",
+    "missing_benchmark_return_count",
+    "negative_weight_count",
+    "zero_portfolio_exposure_count",
+  ];
+  const invalidCountField = requiredCountFields.find((field) => {
+    const value = attributionSupportabilityEvidence[field];
+    return !Number.isInteger(value) || value < 0;
+  });
+  if (invalidCountField) {
+    throw new Error(
+      `Partial attribution supportability evidence has invalid ${invalidCountField}.`,
+    );
+  }
+  for (const field of ["currency_attribution_status", "linking_status"]) {
+    const value = attributionSupportabilityEvidence[field];
+    if (typeof value !== "string" || value.trim().length < 1) {
+      throw new Error(`Partial attribution supportability evidence has invalid ${field}.`);
+    }
+  }
 
   recordCalculationCheck(summary, "Performance calculation sanity", {
     portfolioReturnPct: portfolioReturn,
@@ -359,7 +406,10 @@ export function assertPerformanceCalculationSanity({
     "lotus-performance",
     {
       attributionState: attributionCapability.state,
+      attributionStatus: attribution.status,
       attributionRows,
+      reasonCodes: attributionReasonCodes,
+      supportabilityEvidence: attributionSupportabilityEvidence,
       fallbackAvailable: attributionCapability.fallback_available === true,
     }
   );
