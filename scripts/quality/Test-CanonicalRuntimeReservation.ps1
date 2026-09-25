@@ -298,9 +298,10 @@ try {
   $prebuiltRepositories=@{}
   $runtimePhases=[System.Collections.ArrayList]::new()
   $platformRepo=Join-Path $fixtureRoot 'lotus-platform'; $PortfolioId='business-identifier-not-authority'
+  $canonicalEvidenceRoot=Join-Path $fixtureRoot 'caller-selected-canonical-evidence'
   $fixtureSeed=Join-Path $platformRepo 'automation/Invoke-DpmCommandCenterSeed.ps1'
   @'
-param($PortfolioId,$ProjectsRoot,$WorkbenchRepoPath,$RuntimeHolder,$RuntimeOperationToken,[IO.FileStream]$RuntimeOperationFence,$RuntimeMode)
+param($PortfolioId,$ProjectsRoot,$WorkbenchRepoPath,$OutputDirectory,$RuntimeHolder,$RuntimeOperationToken,[IO.FileStream]$RuntimeOperationFence,$RuntimeMode)
 $global:proofDpmArguments=$PSBoundParameters
 exit $global:proofDpmStatus
 '@ | Set-Content -LiteralPath $fixtureSeed
@@ -311,7 +312,7 @@ exit $global:proofDpmStatus
       $global:proofDpmStatus=$status; $refused=$false
       try { Invoke-DpmCommandCenterSeed }
       catch { if ($_.Exception.Message -notmatch 'nested DPM seed failed with exit code 23') { throw }; $refused=$true }
-      foreach ($pair in @(@('ProjectsRoot',$fixtureRoot),@('WorkbenchRepoPath',$repoRoot),@('RuntimeHolder','fixture-owner'),@('RuntimeOperationToken','controlled-admission'),@('RuntimeMode','full'),@('PortfolioId',$PortfolioId))) {
+      foreach ($pair in @(@('ProjectsRoot',$fixtureRoot),@('WorkbenchRepoPath',$repoRoot),@('OutputDirectory',$canonicalEvidenceRoot),@('RuntimeHolder','fixture-owner'),@('RuntimeOperationToken','controlled-admission'),@('RuntimeMode','full'),@('PortfolioId',$PortfolioId))) {
         if ($global:proofDpmArguments[$pair[0]] -ne $pair[1]) { throw "Nested DPM changed admitted argument $($pair[0])" }
       }
       if (-not [object]::ReferenceEquals($global:proofDpmArguments.RuntimeOperationFence,$parentFence) -or -not $parentFence.CanRead) { throw 'Nested DPM lost/disposed the actual parent fence' }
