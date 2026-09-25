@@ -731,6 +731,7 @@ function Invoke-DpmCommandCenterSeed {
   Write-Host "Seeding governed DPM command-center and action-register evidence for $PortfolioId ..."
   & (Join-Path $platformRepo 'automation/Invoke-DpmCommandCenterSeed.ps1') `
     -PortfolioId $PortfolioId -ProjectsRoot $ProjectsRoot -WorkbenchRepoPath $workbenchRepo `
+    -OutputDirectory $canonicalEvidenceRoot `
     -RuntimeHolder $RuntimeHolder -RuntimeOperationToken $runtimeOperation.Token -RuntimeOperationFence $runtimeOperation.Lock -RuntimeMode $runtimeMode
   if ($LASTEXITCODE -ne 0) { throw "Canonical nested DPM seed failed with exit code $LASTEXITCODE." }
 }
