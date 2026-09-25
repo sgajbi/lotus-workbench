@@ -1304,6 +1304,12 @@ describe("canonical live validation script", () => {
     );
     expect(script).not.toContain('"--accepted-not-before-utc"');
     expect(script).toContain('"--downstream-capacity-resource"');
+    expect(script).toContain('"--caller-tenant-id", [string]$scope.tenantId');
+    expect(script).toContain('"--caller-book-id", [string]$scope.bookId');
+    expect(script).toContain(
+      '"--caller-portfolio-id", [string]$scope.portfolioId',
+    );
+    expect(script).toContain('"--caller-client-id", [string]$scope.clientId');
     expect(script).toContain('"--scenario", "downstream_submission"');
     expect(script).toContain('"--request-count", "1"');
     expect(script).toContain('"--allow-mutating-workflows"');

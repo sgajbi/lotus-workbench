@@ -367,8 +367,10 @@ dispatch can add an explicit accepted-at lower bound when fresh-intent evidence 
 startup creates one per-run local trusted-caller marker, passes it to the Idea runtime as
 `LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN`, and scopes the post-browser selector with the same marker
 as `LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT`. The selector forwards the exact tenant, book,
-portfolio, and client scope recorded by candidate preparation. This is local/dev proof wiring only;
-it is not a production identity provider, session/token-claims authority, or endpoint-policy bypass.
+portfolio, and client scope recorded by candidate preparation. The workload receives those same
+four admitted identifiers explicitly and fails before transport if any is absent; it never invents
+a default tenant or entitlement. This is local/dev proof wiring only; it is not a production identity
+provider, session/token-claims authority, or endpoint-policy bypass.
 
 For active RFC or UI development, pass `-LocalApps` with a comma-separated app list. Local apps use
 the same canonical hostnames and public ports as Docker-backed apps, so live evidence remains

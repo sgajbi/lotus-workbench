@@ -97,6 +97,10 @@ try {
     "--branch", $branch,
     "--run-id", $RunId,
     "--downstream-capacity-resource", $resourcePath,
+    "--caller-tenant-id", [string]$scope.tenantId,
+    "--caller-book-id", [string]$scope.bookId,
+    "--caller-portfolio-id", [string]$scope.portfolioId,
+    "--caller-client-id", [string]$scope.clientId,
     "--output", $workloadPath
   )
   & $python @workloadArguments
