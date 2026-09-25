@@ -24,7 +24,7 @@ exist. [Workbench #436](https://github.com/sgajbi/lotus-workbench/issues/436) an
 | Capability truth | Disabled, unsupported, partial, and unavailable states remain explicit | `quality:screen-docs`, product-copy gate, browser scenarios | Implemented route does not imply production promotion |
 | Dependency and image risk | Direct dependency admission, `npm audit`, pinned production image, vulnerability and SBOM gates | Feature, PR, and main releasability lanes | Not a production penetration test or deployment certification |
 | Release governance | Signed commits, protected CI, exact-head review authority, exact-main validation | GitHub PR checks and Main Releasability | Green CI cannot override a blocking review finding |
-| Integrated product proof | Governed runtime and `PB_SG_GLOBAL_BAL_001` canonical validation | `npm run live:validate` evidence | Does not prove production capacity, DR, or bank acceptance |
+| Integrated product proof | Governed runtime and `PB_SG_GLOBAL_BAL_001` canonical validation | `npm run live:stack:up:validate` evidence | Does not prove production capacity, DR, or bank acceptance |
 
 Use [API Surface](API-Surface) for request contracts, [Validation and CI](Validation-and-CI) for
 evidence classes, [Technology Risk and Runtime Support](Technology-Risk-and-Runtime-Support) for the

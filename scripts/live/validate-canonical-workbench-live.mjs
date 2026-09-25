@@ -1,6 +1,9 @@
 import process from "node:process";
 import { chromium } from "@playwright/test";
-import { resolveValidationConfig } from "./validation/args.mjs";
+import {
+  assertFullValidationOutputBoundary,
+  resolveValidationConfig,
+} from "./validation/args.mjs";
 import {
   DEFAULT_CANONICAL_CONTRACT,
   loadCanonicalContractMetadata,
@@ -71,7 +74,6 @@ import {
   extractGatewayEnvelopeData,
   readString,
 } from "./validation/payload-utils.mjs";
-import { loadIdeaCapacitySeedEvidence } from "./validation/idea-capacity-seed-evidence.mjs";
 import {
   bindMainlineSourceManifestToRuntime,
   loadValidatedMainlineSourceManifest,
@@ -89,10 +91,19 @@ const {
   canonicalAsOfDate,
   ideaCandidateId,
   ideaCandidateLifecycle,
-  ideaCapacitySeedEvidencePath,
   validationProfile,
   mainlineSourceProvenancePath,
 } = resolveValidationConfig(process.argv.slice(2));
+assertFullValidationOutputBoundary({ validationProfile, outputDir });
+if (
+  validationProfile === "full" &&
+  !process.env.LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT?.trim()
+) {
+  throw new Error(
+    "Full browser validation requires the governed stack:up:validate orchestration; " +
+      "direct live:validate:ui supports only diagnostic client-demo validation.",
+  );
+}
 const PERFORMANCE_CONTRIBUTION_READINESS_ATTEMPTS = 6;
 const PERFORMANCE_CONTRIBUTION_READINESS_DELAY_MS = 1_000;
 const { summaryPath, shotIndexPath } = buildSummaryPaths(outputDir);
@@ -167,18 +178,6 @@ if (mainlineSourceProvenance) {
     runtimeBindings: [ideaRuntimeBinding],
   };
 }
-summary.ideaCapacitySeed =
-  validationProfile === "full"
-    ? await loadIdeaCapacitySeedEvidence(ideaCapacitySeedEvidencePath, {
-        commitSha: ideaVersion?.build?.gitCommitSha,
-        branch: ideaVersion?.build?.gitBranch,
-        runId: ideaVersion?.build?.ciRunId,
-      })
-    : {
-        status: "excluded",
-        ...summary.excludedProofs[0],
-        productionCapacityCertified: false,
-      };
 const panelGovernance = createPanelGovernance(summary, panelRegistry);
 
 const advisorBookAsOfDate =

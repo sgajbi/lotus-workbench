@@ -447,6 +447,35 @@ export function canonicalIdeaOpportunitiesRoute({
   });
 }
 
+export function resolveCanonicalIdeaRestartPlan(lifecycleStatus) {
+  if (lifecycleStatus === "ready_for_review") {
+    return {
+      mutationsAllowed: true,
+      reviewRequired: true,
+      actions: ["feedback", "review_action", "conversion_intent"],
+    };
+  }
+  if (lifecycleStatus === "reviewed_by_advisor") {
+    return {
+      mutationsAllowed: true,
+      reviewRequired: false,
+      actions: ["resume_conversion_intent"],
+    };
+  }
+  if (lifecycleStatus === "approved") {
+    return {
+      mutationsAllowed: false,
+      reviewRequired: false,
+      actions: [],
+    };
+  }
+  throw new Error(
+    "Unsupported canonical Idea restart lifecycle '" +
+      String(lifecycleStatus) +
+      "'.",
+  );
+}
+
 export function assertCanonicalIdeaPresentationReceiptEvidence({
   expectedCandidateId,
   expectedSourceLineage,
@@ -990,7 +1019,11 @@ export async function validateAdvisoryJourneyScreens(
   const expectedIdeaCandidateId = requireLowIncomeIdeaCandidateId(
     canonicalIdeaCandidateId,
   );
-  const ideaMutationsAllowed = canonicalIdeaCandidateLifecycle === "ready_for_review";
+  const restartPlan = resolveCanonicalIdeaRestartPlan(
+    canonicalIdeaCandidateLifecycle,
+  );
+  const ideaMutationsAllowed = restartPlan.mutationsAllowed;
+  const ideaReviewRequired = restartPlan.reviewRequired;
   const recommendationsRoute = advisoryJourneyRoute({
     workbenchBaseUrl,
     portfolioId,
@@ -1184,30 +1217,33 @@ export async function validateAdvisoryJourneyScreens(
           evidencePosture: "completed-candidate-detail-through-gateway",
         };
       }
-      const candidateGrid = page.getByRole("grid", {
-        name: "Idea candidate review queue",
-        exact: true,
-      });
-      await assertGridHasRows(
-        candidateGrid,
-        1,
-        "Idea candidate review queue",
-      );
-      const canonicalCandidateLink = candidateGrid.getByRole("link", {
-        name: `Projected Cash Shortfall - ${expectedIdeaCandidateId}`,
-        exact: true,
-      });
-      await expect(canonicalCandidateLink).toBeVisible({ timeout: timeoutMs });
-      const canonicalCandidateId = resolveLowIncomeIdeaCandidateId(
-        await canonicalCandidateLink.getAttribute("href"),
-        workbenchBaseUrl,
-      );
-      if (canonicalCandidateId !== expectedIdeaCandidateId) {
-        throw new Error(
-          `Idea queue selected '${canonicalCandidateId}' instead of current-run candidate '${expectedIdeaCandidateId}'.`,
+      let canonicalCandidateId = expectedIdeaCandidateId;
+      if (ideaReviewRequired) {
+        const candidateGrid = page.getByRole("grid", {
+          name: "Idea candidate review queue",
+          exact: true,
+        });
+        await assertGridHasRows(
+          candidateGrid,
+          1,
+          "Idea candidate review queue",
         );
+        const canonicalCandidateLink = candidateGrid.getByRole("link", {
+          name: `Projected Cash Shortfall - ${expectedIdeaCandidateId}`,
+          exact: true,
+        });
+        await expect(canonicalCandidateLink).toBeVisible({ timeout: timeoutMs });
+        canonicalCandidateId = resolveLowIncomeIdeaCandidateId(
+          await canonicalCandidateLink.getAttribute("href"),
+          workbenchBaseUrl,
+        );
+        if (canonicalCandidateId !== expectedIdeaCandidateId) {
+          throw new Error(
+            `Idea queue selected '${canonicalCandidateId}' instead of current-run candidate '${expectedIdeaCandidateId}'.`,
+          );
+        }
+        await canonicalCandidateLink.click();
       }
-      await canonicalCandidateLink.click();
       await expect(page).toHaveURL(
         new RegExp(
           `candidateId=${encodeURIComponent(canonicalCandidateId)}`,
@@ -1258,30 +1294,32 @@ export async function validateAdvisoryJourneyScreens(
       const actionPanel = page.getByLabel("Idea candidate advisor actions");
       await expect(actionPanel).toBeVisible({ timeout: timeoutMs });
 
-      await actionPanel.getByRole("button", { name: "Record feedback" }).click();
-      const feedbackStatus = page.getByTestId("idea-action-feedback-status");
-      await expect(feedbackStatus).toBeVisible({ timeout: timeoutMs });
-      await expect(feedbackStatus).toHaveAttribute(
-        "data-action-state",
-        "recorded-and-refreshed",
-      );
-      await expect(feedbackStatus).toContainText(
-        "Feedback saved. Opportunity detail and worklist are current.",
-      );
+      if (ideaReviewRequired) {
+        await actionPanel.getByRole("button", { name: "Record feedback" }).click();
+        const feedbackStatus = page.getByTestId("idea-action-feedback-status");
+        await expect(feedbackStatus).toBeVisible({ timeout: timeoutMs });
+        await expect(feedbackStatus).toHaveAttribute(
+          "data-action-state",
+          "recorded-and-refreshed",
+        );
+        await expect(feedbackStatus).toContainText(
+          "Feedback saved. Opportunity detail and worklist are current.",
+        );
 
-      await expect(
-        actionPanel.getByRole("button", { name: "Record review" }),
-      ).toBeEnabled({ timeout: timeoutMs });
-      await actionPanel.getByRole("button", { name: "Record review" }).click();
-      const reviewStatus = page.getByTestId("idea-action-review-status");
-      await expect(reviewStatus).toBeVisible({ timeout: timeoutMs });
-      await expect(reviewStatus).toHaveAttribute(
-        "data-action-state",
-        "recorded-and-refreshed",
-      );
-      await expect(reviewStatus).toContainText(
-        "Review saved. Opportunity detail and worklist are current.",
-      );
+        await expect(
+          actionPanel.getByRole("button", { name: "Record review" }),
+        ).toBeEnabled({ timeout: timeoutMs });
+        await actionPanel.getByRole("button", { name: "Record review" }).click();
+        const reviewStatus = page.getByTestId("idea-action-review-status");
+        await expect(reviewStatus).toBeVisible({ timeout: timeoutMs });
+        await expect(reviewStatus).toHaveAttribute(
+          "data-action-state",
+          "recorded-and-refreshed",
+        );
+        await expect(reviewStatus).toContainText(
+          "Review saved. Opportunity detail and worklist are current.",
+        );
+      }
 
       await expect(
         actionPanel.getByRole("button", { name: "Record intent" }),
@@ -1314,7 +1352,7 @@ export async function validateAdvisoryJourneyScreens(
           ? "Idea detail exposed source hash and browser proof observed it."
           : "Idea detail contract did not expose a source hash; no hash-backed deterministic seed claim is made.",
         sourceRefresh: "verified_after_each_mutation",
-        actions: ["feedback", "review_action", "conversion_intent"],
+        actions: restartPlan.actions,
         nonClaims: [
           "production_identity",
           "supported_feature_promotion",
@@ -1583,12 +1621,14 @@ export async function validateCanonicalIdeaJourney(page, preparedJourney) {
   const expectedIdeaCandidateId = requireLowIncomeIdeaCandidateId(
     preparedJourney.expectedIdeaCandidateId,
   );
-  const queueResponsePromise = page.waitForResponse(
+  const candidateDetailResponsePromise = page.waitForResponse(
     (response) => {
       const url = new URL(response.url());
       return (
         response.request().method() === "GET" &&
-        url.pathname.endsWith("/api/bff/api/v1/ideas/review-queues/advisor")
+        url.pathname.endsWith(
+          `/api/bff/api/v1/ideas/candidates/${encodeURIComponent(expectedIdeaCandidateId)}`,
+        )
       );
     },
     { timeout: preparedJourney.timeoutMs },
@@ -1606,30 +1646,30 @@ export async function validateCanonicalIdeaJourney(page, preparedJourney) {
     { timeout: preparedJourney.timeoutMs },
   );
   await validateAdvisoryJourneyRoute(page, preparedJourney);
-  const queueResponse = await queueResponsePromise;
-  if (!queueResponse.ok()) {
+  const candidateDetailResponse = await candidateDetailResponsePromise;
+  if (!candidateDetailResponse.ok()) {
     throw new Error(
-      `Workbench Idea queue request failed with HTTP ${queueResponse.status()}.`,
+      `Workbench Idea candidate detail request failed with HTTP ${candidateDetailResponse.status()}.`,
     );
   }
-  const queueEnvelope = requireCanonicalRecord(
-    await queueResponse.json(),
-    "Idea queue response",
+  const detailEnvelope = requireCanonicalRecord(
+    await candidateDetailResponse.json(),
+    "Idea candidate detail response",
   );
-  const queue = requireCanonicalRecord(
-    queueEnvelope.data ?? queueEnvelope,
-    "Idea queue response data",
+  const detail = requireCanonicalRecord(
+    detailEnvelope.data ?? detailEnvelope,
+    "Idea candidate detail response data",
   );
-  if (!Array.isArray(queue.items)) {
-    throw new Error("Canonical Idea queue response omitted its ranked items.");
+  const detailCandidate = requireCanonicalRecord(
+    detail.candidate,
+    "Idea candidate detail identity",
+  );
+  if (detailCandidate.candidateId !== expectedIdeaCandidateId) {
+    throw new Error("Canonical Idea candidate detail changed candidate identity.");
   }
-  const renderedQueueItem = queue.items.find((item) => {
-    const candidate = item?.candidate;
-    return candidate?.candidateId === expectedIdeaCandidateId;
-  });
-  const renderedQueueCandidate = requireCanonicalRecord(
-    renderedQueueItem?.candidate,
-    "rendered Idea queue candidate",
+  const detailEvidence = requireCanonicalRecord(
+    detail.evidence,
+    "Idea candidate detail evidence",
   );
   const presentationReceiptResponse = await presentationReceiptResponsePromise;
   if (!presentationReceiptResponse.ok()) {
@@ -1640,9 +1680,8 @@ export async function validateCanonicalIdeaJourney(page, preparedJourney) {
   const presentationEvidence = assertCanonicalIdeaPresentationReceiptEvidence({
     expectedCandidateId: expectedIdeaCandidateId,
     expectedSourceLineage: {
-      sourceRevisionVectorDigest:
-        renderedQueueCandidate.sourceRevisionVectorDigest,
-      sourceCutPosture: renderedQueueCandidate.sourceCutPosture,
+      sourceRevisionVectorDigest: detailEvidence.sourceRevisionVectorDigest,
+      sourceCutPosture: detailEvidence.sourceCutPosture,
     },
     idempotencyKey: await presentationReceiptResponse
       .request()

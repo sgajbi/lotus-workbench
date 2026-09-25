@@ -51,8 +51,7 @@ and its ports, leaving skipped listeners untouched. Partial startup does not inv
 Full and partial source authority cannot substitute; neither partial proof nor CI certifies Level B.
 
 ```powershell
-npm run live:stack:up
-npm run live:validate
+npm run live:stack:up:validate
 npm run live:evidence
 npm run live:stack:down
 ```
@@ -200,7 +199,7 @@ sequenceDiagram
 
 ## Observability evidence capture
 
-After `npm run live:validate` passes, capture an operations-oriented evidence pack:
+After `npm run live:stack:up:validate` passes, capture an operations-oriented evidence pack:
 
 ```powershell
 npm run live:evidence

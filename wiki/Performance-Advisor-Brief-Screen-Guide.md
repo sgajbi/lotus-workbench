@@ -218,7 +218,7 @@ capability.
   the general browser timeout expires.
 - Gateway #547 adds the source-audit mapping and focused success/malformed-evidence tests required
   for Workbench to distinguish recorded human review from a terminal state string.
-- Canonical `npm run live:validate` remains the release evidence for the governed front-office
+- Canonical `npm run live:stack:up:validate` remains the release evidence for the governed front-office
   stack; a screenshot or fixture alone is not readiness, identity, entitlement, or client-use proof.
 - Protected PR checks, exact-main releasability, wiki publication, and strict parity remain release
   controls.

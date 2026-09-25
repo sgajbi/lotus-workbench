@@ -11,6 +11,12 @@ export function createValidationSummary({
   gatewayBaseUrl,
   validationProfile = "full",
 }) {
+  const capacityExclusion = {
+    proofScope: "idea.presentation_backed_downstream_capacity_probe",
+    reasonCode: "NON_CERTIFYING_CAPACITY_PROBE_EXCLUDED",
+    owningIssue: "sgajbi/lotus-idea#1345",
+    claimBoundary: "No Idea downstream-capacity acceptance or full-profile certification",
+  };
   return {
     generatedAt,
     portfolioId,
@@ -26,12 +32,7 @@ export function createValidationSummary({
     workbenchBaseUrl,
     gatewayBaseUrl,
     validationProfile,
-    excludedProofs: validationProfile === "client-demo" ? [{
-      proofScope: "idea.synthetic_downstream_capacity_workload",
-      reasonCode: "NON_CERTIFYING_CAPACITY_PROBE_EXCLUDED",
-      owningIssue: "sgajbi/lotus-idea#1345",
-      claimBoundary: "No Idea downstream-capacity acceptance or full-profile certification",
-    }] : [],
+    excludedProofs: validationProfile === "client-demo" ? [capacityExclusion] : [],
     dns: [],
     apiChecks: [],
     advisorBookChecks: [],
@@ -43,7 +44,17 @@ export function createValidationSummary({
     supportabilityMatrix: null,
     supportabilityChecks: [],
     screenshots: [],
-    ideaCapacitySeed: null,
+    ideaCapacityProbe:
+      validationProfile === "client-demo"
+        ? {
+            status: "excluded",
+            ...capacityExclusion,
+            productionCapacityCertified: false,
+          }
+        : {
+            status: "pending_post_browser_probe",
+            productionCapacityCertified: false,
+          },
     mainlineSourceProvenance: null,
   };
 }
@@ -60,7 +71,14 @@ export function buildSummaryPaths(outputDir) {
 }
 
 export async function writeValidationSummary(summaryPath, summary) {
-  await fs.writeFile(summaryPath, `${JSON.stringify(summary, null, 2)}\n`, "utf8");
+  const portableSummary = {
+    ...summary,
+    screenshots: summary.screenshots.map((screenshot) => ({
+      ...screenshot,
+      path: path.basename(screenshot.path),
+    })),
+  };
+  await fs.writeFile(summaryPath, `${JSON.stringify(portableSummary, null, 2)}\n`, "utf8");
 }
 
 export async function writeShotIndex(shotIndexPath, summary, validationSummaryPath) {
@@ -77,7 +95,7 @@ export async function writeShotIndex(shotIndexPath, summary, validationSummaryPa
       (proof) => `- Excluded proof: ${proof.proofScope} (${proof.reasonCode}; ${proof.claimBoundary})`,
     ),
     `- As of: ${summary.screenshots[0]?.asOfDate ?? summary.canonicalContract.canonicalAsOfDate ?? "unknown"}`,
-    `- Validation summary: ${validationSummaryPath}`,
+    `- Validation summary: ${path.basename(validationSummaryPath)}`,
     "",
     "## Captures",
     "",

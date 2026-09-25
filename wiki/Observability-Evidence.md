@@ -22,7 +22,7 @@ runtime validation fails.
 Run validation first:
 
 ```powershell
-npm run live:validate
+npm run live:stack:up:validate
 ```
 
 Only use screenshots as demo-ready evidence after the governed validation passes for
@@ -50,7 +50,8 @@ The output directory is intentionally local evidence and should not be committed
 - `observability-evidence-manifest.json`: machine-readable index of everything captured
 - `README.md`: human-readable artifact index
 - `validation`: manifest section linking the pack to the latest
-  `output/playwright/live-canonical/live-validation-summary.json`
+  `output/playwright/live-canonical/live-validation-summary.json`, its SHA-256, and accepted
+  full-profile Idea capacity posture; diagnostic or pending summaries are refused
 - `dns.json`: canonical hostname resolution evidence
 - `docker-ps.txt` and `docker-ps.json`: live container inventory and health status
 - `api/`: readiness, capability, and representative Gateway API outputs
@@ -144,8 +145,9 @@ Before using a pack in client or operator material, review it for obvious degrad
 - `metrics/prometheus-targets.json` has active scrape targets without `lastError`
 - `logs/*.log` are raw container logs and do not contain PowerShell wrapper markers such as
   `NativeCommandError`, `CategoryInfo`, or `FullyQualifiedErrorId`
-- screenshots are paired with `npm run live:validate` evidence from the same live stack window
-- `observability-evidence-manifest.json` has `validation.summaryExists=true` and separates
+- screenshots are paired with `npm run live:stack:up:validate` evidence from the same live stack window
+- `observability-evidence-manifest.json` has `validation.summaryAccepted=true`, records the summary
+  SHA-256 and accepted capacity status, and separates
   application `apiChecks` from dashboard and metrics `metricChecks`
 - canonical screenshots are captured after transient hover overlays are dismissed, so demo packs
   should not contain accidental tooltips or pointer-triggered state

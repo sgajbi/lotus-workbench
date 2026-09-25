@@ -104,8 +104,15 @@ try {
   foreach ($scriptName in @('Start-LotusFrontOfficeCanonical.ps1','Stop-LotusFrontOfficeCanonical.ps1','Validate-LotusFrontOfficeCanonical.ps1')) {
     foreach ($holder in @('', 'foreign')) {
       $global:proofMutations = @(); $global:proofOutcomes = @(); $refused = $false
+      $scriptArguments = @{
+        ProjectsRoot = $fixtureRoot
+        RuntimeHolder = $holder
+      }
+      if ($scriptName -eq 'Validate-LotusFrontOfficeCanonical.ps1') {
+        $scriptArguments.ValidationProfile = 'client-demo'
+      }
       try {
-        & (Join-Path $repoRoot "scripts/live/$scriptName") -ProjectsRoot $fixtureRoot -RuntimeHolder $holder
+        & (Join-Path $repoRoot "scripts/live/$scriptName") @scriptArguments
       } catch {
         if ($_.Exception.Message -notmatch 'RESERVATION_REFUSED') { throw }
         $refused = $true
@@ -114,9 +121,16 @@ try {
       $cases += "$scriptName / missing-or-foreign-holder refuses before I/O"
     }
     $global:proofMutations = @(); $refused = $false
+    $scriptArguments = @{
+      ProjectsRoot = $fixtureRoot
+      RuntimeHolder = 'fixture-owner'
+      WorkbenchRepoPath = (Join-Path $fixtureRoot 'lotus-workbench')
+    }
+    if ($scriptName -eq 'Validate-LotusFrontOfficeCanonical.ps1') {
+      $scriptArguments.ValidationProfile = 'client-demo'
+    }
     try {
-      & (Join-Path $repoRoot "scripts/live/$scriptName") -ProjectsRoot $fixtureRoot `
-        -RuntimeHolder 'fixture-owner' -WorkbenchRepoPath (Join-Path $fixtureRoot 'lotus-workbench')
+      & (Join-Path $repoRoot "scripts/live/$scriptName") @scriptArguments
     } catch {
       if ($_.Exception.Message -notmatch 'Selected Workbench checkout does not match') { throw }
       $refused = $true
@@ -130,7 +144,7 @@ try {
     $global:proofMutations = @(); $global:proofOutcomes = @(); $refused = $false
     try {
       & (Join-Path $repoRoot 'scripts/live/Validate-LotusFrontOfficeCanonical.ps1') `
-        -RuntimeHolder 'foreign'
+        -RuntimeHolder 'foreign' -ValidationProfile 'client-demo'
     } catch {
       if ($_.Exception.Message -notmatch 'RESERVATION_REFUSED') { throw }
       $refused = $true
@@ -440,7 +454,6 @@ exit $global:proofDpmStatus
     sourceObservedAtUtc='2026-09-15T00:00:00.000Z'; evaluatedAtUtc='2026-09-15T00:00:00.000Z';
     lifecycleObservedAtUtc='2026-09-15T00:00:00.000Z'; queueEvaluatedAtUtc='2026-09-15T00:00:00.000Z'
   } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $evidence 'idea-candidate-seed-evidence.json')
-  '{}' | Set-Content -LiteralPath (Join-Path $evidence 'idea-capacity-seed-evidence.json')
   function global:Assert-ProofValidationFence {
     if ($global:proofOperationDepth -ne 1) { throw 'VALIDATION_IO_OUTSIDE_OPERATION' }
     $global:proofObservations++
@@ -465,11 +478,7 @@ exit $global:proofDpmStatus
     $global:proofOperationDepth = if ($mode -eq 'nested') { 1 } else { 0 }
     $global:proofBegins = 0; $global:proofOutcomes = @(); $global:proofObservations = 0
     $global:proofBrowserStatus = if ($mode -eq 'browser-failure') { 23 } else { 0 }
-    $validationArgs = @{ProjectsRoot=$fixtureRoot; RuntimeHolder='fixture-owner'; CanonicalEvidenceDirectory=$evidence}
-    if ($mode -eq 'client-demo') {
-      $validationArgs.ValidationProfile='client-demo'
-      $validationArgs.IdeaCapacitySeedEvidencePath=Join-Path $evidence 'absent-capacity.json'
-    }
+    $validationArgs = @{ProjectsRoot=$fixtureRoot; RuntimeHolder='fixture-owner'; CanonicalEvidenceDirectory=$evidence; ValidationProfile='client-demo'}
     $global:proofNestedParentFence=$null
     if ($mode -eq 'nested') {
       $global:proofNestedParentFence=[IO.File]::Open((Join-Path $fixtureRoot 'nested-validation.lock'),'OpenOrCreate','ReadWrite','None')
@@ -497,16 +506,12 @@ exit $global:proofDpmStatus
       $global:proofNestedParentFence.Dispose()
     }
   }
-  foreach ($refusalCase in @('full-missing-capacity','client-missing-candidate')) {
+  foreach ($refusalCase in @('client-missing-candidate')) {
     $global:proofOperationDepth=0; $global:proofBegins=0; $global:proofOutcomes=@(); $global:proofObservations=0
     $validationArgs=@{ProjectsRoot=$fixtureRoot; RuntimeHolder='fixture-owner'; CanonicalEvidenceDirectory=$evidence}
-    $expected=if ($refusalCase -eq 'full-missing-capacity') { 'capacity seed evidence is missing' } else { 'candidate seed evidence' }
-    if ($refusalCase -eq 'full-missing-capacity') {
-      $validationArgs.IdeaCapacitySeedEvidencePath=Join-Path $evidence 'absent-capacity.json'
-    } else {
-      $validationArgs.ValidationProfile='client-demo'
-      $validationArgs.IdeaCandidateSeedEvidencePath=Join-Path $evidence 'absent-candidate.json'
-    }
+    $expected='candidate seed evidence'
+    $validationArgs.ValidationProfile='client-demo'
+    $validationArgs.IdeaCandidateSeedEvidencePath=Join-Path $evidence 'absent-candidate.json'
     $refused=$false
     try { & (Join-Path $repoRoot 'scripts/live/Validate-LotusFrontOfficeCanonical.ps1') @validationArgs }
     catch { if ($_.Exception.Message -notmatch $expected) { throw }; $refused=$true }
@@ -517,7 +522,7 @@ exit $global:proofDpmStatus
     $global:proofOperationDepth=1; $global:proofObservations=0; $global:proofBegins=0; $global:proofOutcomes=@()
     $global:proofNestedParentFence=[IO.File]::Open((Join-Path $fixtureRoot 'nested-validation.lock'),'OpenOrCreate','ReadWrite','None')
     $otherFence=$null
-    $validationArgs=@{ProjectsRoot=$fixtureRoot; RuntimeHolder='fixture-owner'; RuntimeOperationToken='controlled-admission'}
+    $validationArgs=@{ProjectsRoot=$fixtureRoot; RuntimeHolder='fixture-owner'; RuntimeOperationToken='controlled-admission'; ValidationProfile='client-demo'}
     if ($mode -eq 'disposed') { $global:proofNestedParentFence.Dispose(); $validationArgs.RuntimeOperationFence=$global:proofNestedParentFence }
     if ($mode -eq 'foreign') { $otherFence=[IO.File]::Open((Join-Path $fixtureRoot 'foreign-validation.lock'),'OpenOrCreate','ReadWrite','None'); $validationArgs.RuntimeOperationFence=$otherFence }
     $refused=$false

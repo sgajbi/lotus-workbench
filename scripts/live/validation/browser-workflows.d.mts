@@ -20,6 +20,14 @@ export function assertClientContextMandateProof(proof: {
   renderedValue: string;
 }): { sourceMandate: string; renderedMandate: string };
 
+export function resolveCanonicalIdeaRestartPlan(
+  lifecycleStatus: "ready_for_review" | "reviewed_by_advisor" | "approved",
+): {
+  mutationsAllowed: boolean;
+  reviewRequired: boolean;
+  actions: string[];
+};
+
 export type AdvisorBriefReviewEvidence = {
   rowCount: number;
   reviewState: string | null;

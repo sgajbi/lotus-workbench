@@ -119,8 +119,7 @@ npm run test:e2e:reports:states
 For integrated proof, use the canonical front-office sequence:
 
 ```powershell
-npm run live:stack:up
-npm run live:validate
+npm run live:stack:up:validate
 npm run live:stack:down
 ```
 

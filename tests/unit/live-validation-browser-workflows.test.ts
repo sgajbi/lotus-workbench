@@ -26,6 +26,7 @@ const {
   hasAcceptedAdvisorBriefReviewPosture,
   hasRecordedAdvisorBriefAcceptProof,
   readAdvisorBriefReviewEvidence,
+  resolveCanonicalIdeaRestartPlan,
   waitForAdvisorBriefReviewConfirmation,
   navigateForBusinessProof,
   resolveLowIncomeIdeaCandidateId,
@@ -110,6 +111,13 @@ const {
     portfolioId: string;
     candidateId: string;
   }) => string;
+  resolveCanonicalIdeaRestartPlan: (
+    lifecycleStatus: "ready_for_review" | "reviewed_by_advisor" | "approved",
+  ) => {
+    mutationsAllowed: boolean;
+    reviewRequired: boolean;
+    actions: string[];
+  };
   createBrowserValidationHelpers: typeof import("../../scripts/live/validation/browser-workflows.mjs").createBrowserValidationHelpers;
   classifyAdvisorBriefAcceptProofPosture: (
     evidence: AdvisorBriefReviewEvidence,
@@ -1029,6 +1037,27 @@ describe("live validation browser workflow helpers", () => {
         "http://workbench.dev.lotus",
       ),
     ).toBe("idea_low_income_ef02ad8793485081");
+  });
+
+  it("resumes only the missing Idea lifecycle mutations", () => {
+    expect(resolveCanonicalIdeaRestartPlan("ready_for_review")).toEqual({
+      mutationsAllowed: true,
+      reviewRequired: true,
+      actions: ["feedback", "review_action", "conversion_intent"],
+    });
+    expect(resolveCanonicalIdeaRestartPlan("reviewed_by_advisor")).toEqual({
+      mutationsAllowed: true,
+      reviewRequired: false,
+      actions: ["resume_conversion_intent"],
+    });
+    expect(resolveCanonicalIdeaRestartPlan("approved")).toEqual({
+      mutationsAllowed: false,
+      reviewRequired: false,
+      actions: [],
+    });
+    expect(() =>
+      resolveCanonicalIdeaRestartPlan("generated" as "approved"),
+    ).toThrow(/Unsupported canonical Idea restart lifecycle/);
   });
 
   it("requires the candidate identity bound to the current canonical run", () => {

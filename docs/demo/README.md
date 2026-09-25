@@ -10,9 +10,8 @@ canonical dataset.
 Do not begin a review-ready demonstration from manually assembled services or stale screenshots.
 Bring up and validate the governed stack first:
 
-```bash
-npm run live:stack:up
-npm run live:validate
+```powershell
+npm run live:stack:up:validate
 ```
 
 Only after API, calculation, contract, and panel validation succeeds should review-ready evidence

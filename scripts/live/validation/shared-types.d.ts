@@ -19,7 +19,6 @@ export interface ValidationConfig {
   canonicalAsOfDate: string;
   ideaCandidateId: string | null;
   ideaCandidateLifecycle: "ready_for_review" | "reviewed_by_advisor" | "approved";
-  ideaCapacitySeedEvidencePath: string;
   validationProfile: "full" | "client-demo";
   mainlineSourceProvenancePath: string | null;
 }
@@ -87,7 +86,7 @@ export interface ValidationSummary {
   supportabilityMatrix?: Record<string, unknown> | null;
   supportabilityChecks?: Array<Record<string, unknown>>;
   screenshots?: Array<Record<string, unknown>>;
-  ideaCapacitySeed?: Record<string, unknown> | null;
+  ideaCapacityProbe?: Record<string, unknown> | null;
 }
 
 export interface BrowserValidationPage {
