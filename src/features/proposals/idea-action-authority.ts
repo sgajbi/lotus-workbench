@@ -257,7 +257,13 @@ export function matchesIdeaReviewResponse({
 export function buildIdeaConversionRequestAuthority(
   current: IdeaCandidateActionAuthority | undefined,
   review: AcceptedIdeaReviewAuthority | undefined,
-  presentation: IdeaPresentationAuthority | undefined,
+  {
+    presentation,
+    completedReviewHandoff,
+  }: {
+    presentation?: IdeaPresentationAuthority;
+    completedReviewHandoff?: AcceptedIdeaReviewAuthority;
+  } = {},
 ):
   | Pick<
       AdvisorIdeaConversionIntentRequest,
@@ -270,12 +276,21 @@ export function buildIdeaConversionRequestAuthority(
       | "expectedSourceCutPosture"
     >
   | undefined {
+  // The current queue presentation remains mandatory except for the exact
+  // successful review handoff that removed the approved candidate from Idea's
+  // review queue. The durable review and current/detail tuple matches below keep
+  // that narrow handoff fenced against a different review or source restatement.
   if (
     !current ||
     !review ||
     !ideaSourceCutAuthorizesConversion(current) ||
     !sameEvidenceAuthority(current, review) ||
-    !matchesPresentationAuthority(current, presentation)
+    (!matchesPresentationAuthority(current, presentation) &&
+      (!completedReviewHandoff ||
+        completedReviewHandoff.reviewId !== review.reviewId ||
+        completedReviewHandoff.presentationReceiptId !==
+          review.presentationReceiptId ||
+        !sameEvidenceAuthority(current, completedReviewHandoff)))
   ) {
     return undefined;
   }

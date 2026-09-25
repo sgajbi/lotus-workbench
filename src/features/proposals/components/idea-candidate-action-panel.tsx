@@ -16,6 +16,7 @@ import {
   buildIdeaConversionRequestAuthority,
   buildIdeaReviewRequestAuthority,
   ideaSourceCutAuthorizesConversion,
+  readAcceptedIdeaReviewAuthority,
   type AcceptedIdeaReviewAuthority,
   type IdeaCandidateActionAuthority,
 } from "../idea-action-authority";
@@ -65,10 +66,16 @@ const FEEDBACK_OUTCOME_OPTIONS = [
   { key: "not_useful", label: "Not useful" },
 ] satisfies Array<{ key: AdvisorIdeaFeedbackOutcome; label: string }>;
 
+export type IdeaActionRefreshResult = {
+  sourceRefreshSucceeded: boolean;
+  currentQueueCandidatePresent: boolean;
+};
+
 export default function IdeaCandidateActionPanel({
   actionAuthority,
   candidateId,
   candidateReasonCodes,
+  currentQueueCandidatePresent = true,
   evidenceIdentity,
   persistedAcceptedReviewAuthority,
   portfolioId,
@@ -78,11 +85,12 @@ export default function IdeaCandidateActionPanel({
   actionAuthority?: IdeaCandidateActionAuthority;
   candidateId: string;
   candidateReasonCodes: readonly string[];
+  currentQueueCandidatePresent?: boolean;
   evidenceIdentity?: AdvisorIdeaEvidenceIdentity;
   persistedAcceptedReviewAuthority?: AcceptedIdeaReviewAuthority;
   portfolioId: string;
   presentationAuthority?: IdeaPresentationAuthority;
-  onRecorded: () => Promise<boolean>;
+  onRecorded: () => Promise<boolean | IdeaActionRefreshResult>;
 }) {
   const feedbackRetryableSubmission = useRef<
     Extract<IdeaActionSubmission, { kind: "feedback" }> | undefined
@@ -119,6 +127,8 @@ export default function IdeaCandidateActionPanel({
     useState<string>();
   const [latestRecordedSubmission, setLatestRecordedSubmission] =
     useState<IdeaActionSubmission>();
+  const [completedReviewHandoff, setCompletedReviewHandoff] =
+    useState<AcceptedIdeaReviewAuthority>();
   const [sourceRefreshFailed, setSourceRefreshFailed] = useState(false);
 
   const currentReviewIntent = buildReviewIntent({
@@ -143,7 +153,14 @@ export default function IdeaCandidateActionPanel({
     : buildIdeaConversionRequestAuthority(
         actionAuthority,
         persistedAcceptedReviewAuthority,
-        presentationAuthority,
+        {
+          presentation: currentQueueCandidatePresent
+            ? presentationAuthority
+            : undefined,
+          completedReviewHandoff: !currentQueueCandidatePresent
+            ? completedReviewHandoff
+            : undefined,
+        },
       );
   const retryableReview =
     retryableSubmissions.review?.kind === "review"
@@ -217,13 +234,32 @@ export default function IdeaCandidateActionPanel({
         [submission.kind]: submission,
       }));
     },
-    onSuccess: async (_result, submission) => {
+    onSuccess: async (result, submission) => {
       if (submission.kind === "feedback") {
         feedbackRetryableSubmission.current = undefined;
       } else {
         setRetryableSubmissions((current) => withoutRetry(current, submission));
       }
-      const sourceRefreshSucceeded = await onRecorded();
+      const refreshResult = await onRecorded();
+      const sourceRefreshSucceeded =
+        typeof refreshResult === "boolean"
+          ? refreshResult
+          : refreshResult.sourceRefreshSucceeded;
+      if (submission.kind === "review") {
+        setCompletedReviewHandoff(
+          typeof refreshResult !== "boolean" &&
+            refreshResult.sourceRefreshSucceeded &&
+            !refreshResult.currentQueueCandidatePresent
+            ? readAcceptedIdeaReviewAuthority({
+                candidateId,
+                request: submission.request,
+                response: result,
+              })
+            : undefined,
+        );
+      } else if (submission.kind === "conversion") {
+        setCompletedReviewHandoff(undefined);
+      }
       setLatestRecordedSubmission(submission);
       setSourceRefreshFailed(!sourceRefreshSucceeded);
     },

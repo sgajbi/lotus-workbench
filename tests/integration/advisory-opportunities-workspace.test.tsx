@@ -686,7 +686,14 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     );
   });
 
-  it("does not reuse prior snapshot authority when an action removes the queue row", async () => {
+  it("uses the exact durable approved review when the action removes the queue row", async () => {
+    recordAdvisorIdeaConversionIntentMock
+      .mockRejectedValueOnce(new Error("response lost"))
+      .mockResolvedValueOnce({
+        persistence: { decision: "replayed" },
+        durableStorageBacked: true,
+        supportedFeaturePromoted: false,
+      });
     renderWithQueryClient(
       <AdvisoryOpportunitiesWorkspace
         portfolioId="PB_SG_GLOBAL_BAL_001"
@@ -752,9 +759,41 @@ describe("AdvisoryOpportunitiesWorkspace", () => {
     const conversionButton = screen.getByRole("button", {
       name: "Record intent",
     });
-    expect(conversionButton).toBeDisabled();
+    expect(conversionButton).toBeEnabled();
     fireEvent.click(conversionButton);
-    expect(recordAdvisorIdeaConversionIntentMock).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(recordAdvisorIdeaConversionIntentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          candidateId: "idea_high_cash_001",
+          portfolioId: "PB_SG_GLOBAL_BAL_001",
+          request: expect.objectContaining({
+            expectedReviewId: acceptedReviewRequest?.reviewId,
+            expectedEvidencePacketId:
+              acceptedReviewRequest?.expectedEvidencePacketId,
+            expectedEvidenceContentHash:
+              acceptedReviewRequest?.expectedEvidenceContentHash,
+            expectedSourceRevisionVectorDigest:
+              acceptedReviewRequest?.expectedSourceRevisionVectorDigest,
+            expectedSourceCutPosture:
+              acceptedReviewRequest?.expectedSourceCutPosture,
+          }),
+        }),
+      ),
+    );
+    const firstConversion =
+      recordAdvisorIdeaConversionIntentMock.mock.calls[0]?.[0];
+    const retry = await screen.findByTestId("idea-conversion-retry");
+    fireEvent.click(
+      within(retry).getByRole("button", {
+        name: "Retry exact conversion intent",
+      }),
+    );
+    await waitFor(() =>
+      expect(recordAdvisorIdeaConversionIntentMock).toHaveBeenCalledTimes(2),
+    );
+    expect(recordAdvisorIdeaConversionIntentMock.mock.calls[1]?.[0]).toEqual(
+      firstConversion,
+    );
   });
 
   it("shows an explicit failure state when Gateway cannot record an action", async () => {
