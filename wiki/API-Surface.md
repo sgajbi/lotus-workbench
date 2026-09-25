@@ -155,7 +155,7 @@ promote dormant labels into product ownership just because historical route file
   are currently disabled even though direct proposal routes now exist for bounded advisory
   workflow entry
 - canonical evidence should be taken from `output/playwright/live-canonical/` after
-  `npm run live:validate`
+  `npm run live:stack:up:validate`
 - RFC-0108 observability coverage is implemented for supported Portfolio, Intake, Performance, Risk,
   Reporting, Data Products, and legacy advisor Workbench gateway-backed reads/mutations. The
   coverage registry is code-backed and tested so active product surfaces cannot silently drift

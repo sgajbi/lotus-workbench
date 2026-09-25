@@ -54,10 +54,14 @@ From the `lotus-workbench` checkout on Windows, first acquire the
 and set its holder. Windows PowerShell is included with Windows; run:
 
 ```powershell
-npm run live:stack:up
-npm run live:validate
+npm run live:stack:up:validate
 npm run live:stack:down
 ```
+
+Use the one-command validation entry point for the default `full` profile. It creates a per-run
+trusted caller marker in memory and keeps that marker scoped to startup, the browser journey, and
+the final presentation-backed Idea probe. Do not persist or manually reconstruct it for a later
+standalone validation.
 
 When Workbench UI changes need hot reload while the rest of the canonical app set remains
 Docker-backed, use `npm run live:stack:up:workbench-local`.
@@ -133,17 +137,22 @@ Unchanged economic facts can therefore retain the same candidate identity across
 truthfully distinguishes acceptance, replay, evidence refresh, material versioning, and recurrence.
 Startup uses Idea's public lifecycle API to reach review readiness when required. Before and after
 every transition it reads the exact candidate with the complete scope above. Source-owned
-`reviewed_by_advisor` and `approved` states already exceed that preparation boundary and are not
-rewound or replayed. An identity mismatch, non-participating terminal state, or missing source proof
-stops startup. This prepares test data only and does not move lifecycle policy into Workbench.
+`reviewed_by_advisor` and an exact current `approved` state already exceed that preparation
+boundary and are not rewound or replayed. Idea reopens only a pre-conversion approval whose
+recorded review authority was superseded by refreshed material evidence. An identity mismatch,
+converted or terminal state, or missing source proof stops startup. This prepares test data only
+and does not move lifecycle policy into Workbench.
 
-An approved candidate is completed work and is therefore absent from the pending advisor-review
-queue. An ordinary canonical restart confirms that completed lifecycle through Gateway and skips a
-second review/conversion mutation. Before a clean client-demo rehearsal of those mutations, acquire
+An ordinary restart of a `reviewed_by_advisor` candidate resumes only the missing conversion
+intent through the advisor UI. An exactly approved candidate is completed work and is therefore
+absent from the pending advisor-review queue; restart confirms that lifecycle through Gateway and
+skips a second review/conversion mutation. If refreshed source evidence superseded the approval,
+Idea deliberately returns the pre-conversion candidate to review readiness. Before a clean
+full rehearsal of those mutations, acquire
 the canonical runtime reservation and run the
 shipped `scripts/live/Stop-LotusFrontOfficeCanonical.ps1` entry point with `-ProjectsRoot`,
-`-RemoveVolumes`, and `-KeepReservation`; then bring up the same `client-demo` profile under the
-same holder. The reset deletes admitted canonical Docker fixture volumes; never use it as
+`-RemoveVolumes`, and `-KeepReservation`; then run `npm run live:stack:up:validate` under the same
+holder. The reset deletes admitted canonical Docker fixture volumes; never use it as
 accepted-then-replayed durability evidence or as a substitute for source lifecycle truth.
 
 ### Advisor book local authority fixture

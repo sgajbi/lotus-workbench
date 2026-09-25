@@ -19,10 +19,81 @@ $canonicalCallerContextHeaders = @{
   "X-Region" = "APAC"
 }
 
+function Assert-CanonicalDemoReadyValidationSummary {
+  param(
+    [Parameter(Mandatory)][string]$SummaryPath,
+    [Parameter(Mandatory)][string]$ExpectedPortfolioId,
+    [Parameter(Mandatory)][string]$ExpectedBenchmarkCode,
+    [Parameter(Mandatory)][string]$ExpectedAsOfDate,
+    [Parameter(Mandatory)][object]$CurrentIdeaVersion
+  )
+
+  if (-not (Test-Path -LiteralPath $SummaryPath -PathType Leaf)) {
+    throw "Canonical full validation summary is missing: $SummaryPath"
+  }
+  $summaryBytes = [System.IO.File]::ReadAllBytes($SummaryPath)
+  $summary = [System.Text.Encoding]::UTF8.GetString($summaryBytes) | ConvertFrom-Json
+  if ($summary.validationProfile -cne 'full') {
+    throw 'Observability evidence requires a full-profile canonical validation summary.'
+  }
+  if (@($summary.excludedProofs).Count -ne 0) {
+    throw 'Observability evidence refuses a validation summary with excluded proofs.'
+  }
+  if ($summary.portfolioId -cne $ExpectedPortfolioId -or $summary.benchmarkCode -cne $ExpectedBenchmarkCode) {
+    throw 'Canonical validation summary does not match the requested portfolio and benchmark.'
+  }
+  if ([string]$summary.canonicalContract.canonicalAsOfDate -cne $ExpectedAsOfDate) {
+    throw 'Canonical validation summary does not match the requested as-of date.'
+  }
+  $probe = $summary.ideaCapacityProbe
+  if (
+    $null -eq $probe -or
+    $probe.posture -cne 'accepted_non_certifying' -or
+    $probe.presentationBackedResource -ne $true -or
+    $probe.capacityWorkloadAccepted -ne $true -or
+    $probe.productionCapacityCertified -ne $false -or
+    $probe.supportedFeaturePromoted -ne $false -or
+    [string]$probe.resourceSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+    [string]$probe.workloadSha256 -cnotmatch '^[a-f0-9]{64}$'
+  ) {
+    throw 'Canonical validation summary does not contain accepted presentation-backed Idea capacity evidence.'
+  }
+  $runtimeProvenance = @{
+    commitSha = [string]$CurrentIdeaVersion.build.gitCommitSha
+    branch = [string]$CurrentIdeaVersion.build.gitBranch
+    runId = [string]$CurrentIdeaVersion.build.ciRunId
+  }
+  foreach ($field in @('commitSha', 'branch', 'runId')) {
+    if (
+      [string]::IsNullOrWhiteSpace($runtimeProvenance[$field]) -or
+      [string]$probe.$field -cne $runtimeProvenance[$field]
+    ) {
+      throw "Canonical validation summary does not match current Idea runtime $field."
+    }
+  }
+  $sha256 = [System.Security.Cryptography.SHA256]::Create()
+  try {
+    $digest = -join ($sha256.ComputeHash($summaryBytes) | ForEach-Object { $_.ToString('x2') })
+  } finally {
+    $sha256.Dispose()
+  }
+  return [pscustomobject]@{ Summary = $summary; Sha256 = $digest }
+}
+
 if ([string]::IsNullOrWhiteSpace($OutputDirectory)) {
   $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
   $OutputDirectory = Join-Path $repoRoot "output\observability-live\$timestamp"
 }
+
+$currentIdeaVersion = Invoke-RestMethod -Uri "http://127.0.0.1:8330/version" -TimeoutSec 30
+$validatedSummaryEvidence = Assert-CanonicalDemoReadyValidationSummary `
+  -SummaryPath $validationSummaryPath `
+  -ExpectedPortfolioId $PortfolioId `
+  -ExpectedBenchmarkCode $BenchmarkCode `
+  -ExpectedAsOfDate $AsOfDate `
+  -CurrentIdeaVersion $currentIdeaVersion
+$validatedSummary = $validatedSummaryEvidence.Summary
+$validationSummarySha256 = $validatedSummaryEvidence.Sha256
 
 $apiDirectory = Join-Path $OutputDirectory "api"
 $logDirectory = Join-Path $OutputDirectory "logs"
@@ -257,7 +328,11 @@ $manifest = [ordered]@{
   validation = [ordered]@{
     requiredBeforeDemo = $true
     summaryPath = $validationSummaryPath
-    summaryExists = Test-Path -LiteralPath $validationSummaryPath
+    summaryExists = $true
+    summaryAccepted = $true
+    summarySha256 = $validationSummarySha256
+    profile = $validatedSummary.validationProfile
+    capacityEvidenceStatus = $validatedSummary.ideaCapacityProbe.posture
   }
   apiChecks = $apiChecks
   metricChecks = $metricChecks
@@ -265,7 +340,7 @@ $manifest = [ordered]@{
   screenshots = $screenshotManifest
   notes = @(
     "Artifacts under output/ are local evidence and should not be committed by default.",
-    "Run npm run live:validate before treating screenshots as demo-ready; this manifest records whether the latest validation summary was present at capture time.",
+    "Run npm run live:stack:up:validate before treating screenshots as demo-ready; this manifest records whether the latest full validation summary was present at capture time.",
     "Use this pack to demonstrate readiness, API behavior, metrics, logs, and dashboard investigation posture."
   )
 }
@@ -295,7 +370,7 @@ $readme = @'
 
 ## Operator Notes
 
-Run npm run live:validate before using screenshots as demo-ready evidence. This evidence pack is
+Run npm run live:stack:up:validate before using screenshots as demo-ready evidence. This evidence pack is
 for operational investigation and non-functional capability demonstration; it complements the
 canonical live validation summary rather than replacing it. Metric and dashboard HTTP samples are
 stored under metrics/ and indexed separately from application API checks in the manifest.

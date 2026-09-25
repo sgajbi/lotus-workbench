@@ -90,16 +90,16 @@ first. The Windows-only `npm` launcher uses built-in Windows PowerShell and infe
 from this checkout or `LOTUS_WORKSPACE_ROOT`:
 
 ```powershell
-npm run live:stack:up
-npm run live:validate
+npm run live:stack:up:validate
 npm run live:stack:down
 ```
 
-The default `full` profile requires Idea's separate synthetic downstream-capacity probe, currently
-blocked by [Idea #1345](https://github.com/sgajbi/lotus-idea/issues/1345). For a
-bounded client walkthrough, pass `-- -ValidationProfile client-demo` to both `live:stack:up` and
-`live:validate`; this records that the non-certifying capacity probe was excluded while retaining
-Idea readiness, candidate, API and Workbench UI proof. It is not full-profile or capacity evidence.
+The default `full` profile completes the real browser presentation, review, and conversion journey
+before Idea selects that current resource for one report-only downstream-capacity probe. Use the
+one-command entry point so its per-run trusted caller marker stays in memory and is never persisted.
+For a bounded diagnostic recheck of an already-running stack, use
+`npm run live:validate -- -ValidationProfile client-demo`. It records the excluded capacity probe
+and is not demo, full-profile, or release evidence; rerun the combined full command before claims.
 
 The runner refuses a missing or mismatched workspace before Docker mutation. PowerShell 7 can
 also invoke the `.ps1` scripts directly with `-ProjectsRoot`.
@@ -133,9 +133,9 @@ and replica-replacement controls; it is not production capacity or resilience ce
 
 `make check` covers dependency/security policy, lint and architecture controls, React correctness,
 screen-documentation governance, type safety, coverage-backed tests, and a production build. The
-fixture gate proves deterministic Workbench behavior; `npm run live:validate` is required for an
-integrated source-backed product claim. Neither a local screenshot nor fixture proof alone certifies
-production readiness.
+fixture gate proves deterministic Workbench behavior; `npm run live:stack:up:validate` is required
+for an integrated source-backed product claim. Neither a local screenshot nor fixture proof alone
+certifies production readiness.
 
 Use [Validation and CI](wiki/Validation-and-CI.md) for the exact lane/evidence map and
 [Development Workflow](wiki/Development-Workflow.md) for branch, documentation, and review rules.

@@ -242,10 +242,11 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 - The governed local path is the Workbench canonical front-office runtime, not the Platform
   infrastructure-only stack. Use portfolio `PB_SG_GLOBAL_BAL_001` for canonical populated proof.
 - Canonical Idea orchestration keeps the platform business as-of date separate from live source,
-  evaluation, lifecycle, queue, and isolated capacity-seed clocks. Capture live clocks only after
+  evaluation, lifecycle, queue, review, and conversion instants. Capture live clocks only after
   the relevant service readiness, pass the queue boundary explicitly, and retain ordered UTC
-  identities in candidate-seed evidence. The capacity seed passes one fresh UTC observation after
-  Idea and Advise readiness while retaining the governed business as-of date.
+  identities in candidate evidence. The full profile runs its single downstream probe only after
+  the browser has created a current presentation-backed conversion intent; it never seeds synthetic
+  review authority.
   Never widen Idea's temporal controls or rely on its example-time default to make a queue pass.
 - `/api/health/live` and `/api/health/ready` support orchestration and diagnosis.
 - Correlation id, request id, HTTP status, and support reference are distinct. Expose a support
@@ -282,7 +283,7 @@ the documented sibling-checkout layout without relying on the scripts' personal 
 | Container parity teardown                 | `docker compose -f docker-compose.ci-local.yml down -v --remove-orphans`                                                                         |
 | Scale regression                          | `npm run scale:proof` then `npm run scale:proof:down`                                                                                            |
 | Canonical stack (Windows PowerShell)      | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot`              |
-| Canonical validation (Windows PowerShell) | `npm run live:validate`                                                                                                                          |
+| Canonical full validation (Windows PowerShell) | `npm run live:stack:up:validate`                                                                                                                 |
 | Canonical teardown (Windows PowerShell)   | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot`               |
 
 Use the narrowest focused test during development, then run repository-native gates proportionate
@@ -399,9 +400,10 @@ Startup imports port ownership before Compose admission; the latter must not for
 shared PowerShell module and erase the caller's exported predicate. Exercise that exact import
 sequence in Windows PowerShell 5 and PowerShell 7 with both owned and foreign project/path cases;
 a first start with empty ports does not exercise the existing-container preflight.
-The canonical runtime defaults to the `full` validation profile. Its explicit `client-demo`
-profile excludes only the non-certifying Idea synthetic downstream-capacity workload and records
-that exclusion; it never relaxes Idea readiness, current-run candidate/queue, API, browser, panel
+The canonical runtime defaults to the `full` validation profile. It runs Idea's non-certifying
+downstream-capacity probe only after the real browser journey has created a current
+presentation-backed conversion intent. Its explicit `client-demo` profile records exclusion of
+only that probe; it never relaxes Idea readiness, current-run candidate/queue, API, browser, panel,
 or teardown proof. Platform's QA wrapper owns forwarding of the selected profile.
 
 Canonical image scheduling defaults to serial. Full Docker-backed builds may explicitly select

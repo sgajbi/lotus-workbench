@@ -1131,7 +1131,7 @@ Scope:
 
 Acceptance:
 
-1. `npm run live:stack:up` and `npm run live:validate` prove the surface.
+1. `npm run live:stack:up:validate` proves the surface in one governed operation.
 2. Screenshots are captured only after API and panel validation pass.
 3. Evidence includes ready and degraded/blocked examples where possible.
 4. No UI supported-feature claim is made from backend-only proof.

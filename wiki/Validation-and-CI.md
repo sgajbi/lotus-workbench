@@ -20,15 +20,12 @@ while integrated product support requires canonical runtime evidence and green r
 | Demo evidence | Passing canonical validation plus same-run evidence pack | Diagnostic captures stay separate |
 
 The single [canonical runner](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md)
-defaults to `full`: Idea's synthetic downstream-capacity probe and its evidence are required. The
-explicit `client-demo` profile excludes only that non-certifying workload; the run records the
-exclusion and still requires Idea readiness, a current-run candidate/queue, real API/calculation
-and browser-panel proof, and governed teardown. Select it with
-`npm run live:stack:up -- -ValidationProfile client-demo` and
-`npm run live:validate -- -ValidationProfile client-demo`. A client-demo pass is not full-profile
-or downstream-capacity acceptance; [Idea #1345](https://github.com/sgajbi/lotus-idea/issues/1345)
-tracks the blocked producer probe. The Platform QA wrapper needs its coordinated profile-forwarding
-update before source-pinned wrapper evidence can use this selection.
+defaults to `full`: Idea's presentation-backed downstream-capacity probe and its evidence are
+required. The
+explicit `client-demo` profile is a bounded standalone diagnostic recheck. It records the excluded
+probe and still requires Idea readiness, a current-run candidate/queue, real API/calculation and
+browser-panel proof. Select it with `npm run live:validate -- -ValidationProfile client-demo`;
+reacquire and rerun `npm run live:stack:up:validate` before demo or release claims.
 
 ## Lane model
 
@@ -235,8 +232,8 @@ CODEOWNERS when a second accepted reviewer exists.
   multi-region, identity, or bank-capacity certification.
   Successful replica distribution uses the terminal address from each balancer attempt chain; a
   failed first attempt retried through the same healthy replica cannot satisfy the two-replica gate.
-- `npm run live:validate`
-  canonical integrated product validation
+- `npm run live:validate -- -ValidationProfile client-demo`
+  bounded diagnostic recheck of an already-running stack; not demo or release evidence
 - `npm run live:stack:up:validate`
   one-command canonical stack bring-up and validation; this rebuilds Docker-backed service images
   so Gateway, Advise, Manage, and Workbench proof reflects the current checked-out sources
@@ -378,28 +375,26 @@ CODEOWNERS when a second accepted reviewer exists.
   before Docker, seeding, or screenshots when any canonical participant is dirty or not exactly at
   `origin/main`. Certification startup forces image builds and container recreation, compares
   preflight and post-start source manifests, and binds Lotus Idea runtime `/version` provenance
-  before recording the mainline-source posture. Its manifests and Idea capacity-seed evidence are written to a per-run Local AppData
-  directory outside checked source worktrees, so generated evidence cannot make the source preflight
-  appear dirty. Standard and `-LocalApps` runtime runs remain branch-local development evidence.
+  before recording the mainline-source posture. Its manifests are written to a per-run Local
+  AppData directory outside checked source worktrees, so generated evidence cannot make the source
+  preflight appear dirty. Standard and `-LocalApps` runtime runs remain branch-local development evidence.
   When the shared Workbench checkout is owned by another agent, platform automation may pass an
   isolated Workbench mainline checkout to the same preflight. The override must still identify a
   `lotus-workbench` Git origin, be clean, and point exactly at `origin/main`; a clean checkout of
   another Lotus repository is rejected instead of being labeled as Workbench proof.
-- Lotus Idea capacity integration proof must use Idea-owned seed and workload automation after Idea
-  and Advise readiness. The validator matches Idea `/version` to the checked-out commit, branch,
-  and fresh canonical run identity. Canonical startup therefore rebuilds only the Idea Compose
-  project before this proof; a prior reusable Idea image is never relabelled or accepted as the
-  current run, and unrelated services are not rebuilt solely for Idea provenance. The proof
-  keeps the contract's business as-of date distinct from a fresh UTC capacity-lifecycle observation
-  captured after both services are ready; a fixed demo timestamp is not trusted control time. It
-  requires the isolated `CAPACITY_SYNTHETIC_PORTFOLIO_001` namespace and accepts exactly one
-  report-only downstream-submission probe. Workbench evidence retains artifact paths, SHA-256
-  digests, and provenance but excludes conversion-intent identifiers, downstream paths, and
-  credentials. Canonical startup binds one per-run local trusted-caller marker to the Idea runtime
-  and capacity seed process, while Idea must still send complete synthetic entitlement scope through
-  its public API policy for every governed mutation. This is local/dev proof wiring only; it is not
-  a production identity provider, session/token-claims authority, endpoint-policy bypass, load,
-  soak, production capacity, or feature-support certification.
+- Lotus Idea capacity integration proof runs only after the real Workbench browser journey has
+  persisted a presentation receipt, exact review, and Advise conversion intent for the canonical
+  candidate. The Idea-owned selector rejects stale evidence, older intents, scope drift, missing
+  receipt authority, or a mismatched source cut; it never fabricates a candidate, approval, or
+  conversion intent. The workload accepts exactly one report-only downstream-submission probe.
+  Published Workbench evidence retains source digests and provenance but excludes candidate and
+  intent identifiers, downstream paths, and credentials. Canonical startup binds one per-run local
+  trusted-caller marker to the Idea runtime and post-browser selector while preserving exact tenant,
+  book, portfolio, and client scope. This is local/dev proof wiring only; it is not a production
+  identity provider, endpoint-policy bypass, load, soak, production capacity, or feature-support
+  certification.
+  Full-profile browser output remains diagnostic and unpublished until this probe succeeds; a
+  failed probe cannot leave a canonical summary, screenshot index, or demo-ready directory.
 - RFC-0028 bank-demo proof validation must read the Gateway-backed scenario contract and
   supported-claim register, verify the governed scenario id, proof marker, and claim postures, and
   render `/recommendations?mode=proof` as `advisory.bank_demo_proof`. The screenshot is accepted

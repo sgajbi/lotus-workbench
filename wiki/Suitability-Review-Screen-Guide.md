@@ -196,7 +196,7 @@ browser logic into source authority. This research is not a claim of competitor 
   proves 1440px desktop, 1024px tablet, and 390px mobile composition, keyboard selection,
   source-count consistency, context-preserving drill-in, persisted action feedback, and no page
   overflow.
-- Canonical populated validation remains governed separately through `npm run live:validate` and
+- Canonical populated validation remains governed separately through `npm run live:stack:up:validate` and
   `PB_SG_GLOBAL_BAL_001`; an optimized-browser screenshot is not production, identity,
   entitlement, bank-readiness, or client-use proof.
 

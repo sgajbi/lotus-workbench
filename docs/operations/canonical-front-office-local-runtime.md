@@ -211,10 +211,10 @@ against the built image's OCI labels before any seed. Missing or mismatched imag
 the run rather than treating a clean source checkout as proof of the image. Startup then regenerates
 source provenance after startup and fails if it changed.
 The live validator also binds Lotus Idea's `/version` commit and branch to that manifest before it
-records mainline-source certification posture. It writes source-safe preflight and runtime
-provenance and, in the default `full` profile, Idea capacity-seed artifacts to a per-run Local AppData directory outside every
-checked source worktree, so the second preflight cannot reject its own generated files. Normal and `-LocalApps` runs remain
-development evidence and must never be presented as mainline certification.
+records mainline-source certification posture. Source manifests are written to a per-run Local
+AppData directory outside every checked source worktree, so the second preflight cannot reject its
+own generated files. Normal and `-LocalApps` runs remain development evidence and must never be
+presented as mainline certification.
 
 When another agent owns the shared `lotus-workbench` checkout, platform automation may call the
 same preflight with `--workbench-repo-path` pointing at a clean isolated Workbench mainline worktree.
@@ -235,8 +235,10 @@ That script performs:
 9. canonical `lotus-gateway` exposure on port `8100`
 10. verify the materialized Core portfolio through the live Gateway and downstream performance products without re-ingesting it
 11. governed DPM command-center seed through `lotus-platform`
-12. in the default `full` profile, create an isolated Lotus Idea downstream-capacity resource and run one report-only downstream-submission probe
-13. `docker compose up -d` for `lotus-workbench` on port `3000`
+12. `docker compose up -d` for `lotus-workbench` on port `3000`
+13. validate APIs, calculations, panels, and the real advisor browser journey; in the default
+    `full` profile, select the resulting presentation-backed Idea conversion intent and run one
+    report-only downstream-submission probe
 
 Docker is the default for every canonical front-office app. The startup flow replaces stale local
 listeners on canonical app ports before Docker startup, while leaving Docker-owned listeners in
@@ -302,8 +304,9 @@ a missing, malformed, incomplete-scope, scope-mismatched, non-UTC, out-of-order,
 artifact; forwards the recorded scope unchanged when it asks Gateway for the queue at the recorded
 queue-evaluation boundary; requires the review-ready candidate exactly once; allows a source-confirmed
 reviewed or approved candidate to be absent from the pending queue; and rejects evidence whose run
-identity differs from the active Idea `/version` build identity. A completed-candidate restart is
-validated read-only through Gateway and does not manufacture another review or conversion mutation.
+identity differs from the active Idea `/version` build identity. A reviewed-candidate restart
+resumes only the missing conversion intent through the advisor UI; an approved-candidate restart is
+validated read-only through Gateway. Neither path manufactures another review.
 Earlier unconverted candidates, stale artifacts, and fixed example-time defaults therefore cannot
 stand in for current-run browser evidence.
 
@@ -330,40 +333,42 @@ before asserting live proposal acceptance.
 
 ### Lotus Idea capacity evidence
 
-The default `full` profile requires this evidence. The explicit `client-demo` profile excludes
-only this non-certifying synthetic workload, records the exclusion in runtime timing, validation
-summary and screenshot index, and leaves Idea readiness, current-run candidate/queue, API,
-calculation, browser, panel and teardown checks in force. An excluded proof is not a pass:
-`client-demo` cannot certify Idea downstream capacity or the complete `full` profile. See
-[Idea #1345](https://github.com/sgajbi/lotus-idea/issues/1345) for the blocked source-owned probe.
+The default `full` profile requires this evidence. The explicit `client-demo` profile is a bounded
+diagnostic recheck of an already-running stack: it records the excluded post-browser probe and
+cannot certify a demo, downstream capacity, or the complete `full` profile.
 
-In `full`, canonical startup delegates capacity-resource construction and workload execution to
-`lotus-idea`. Workbench only coordinates readiness and verifies the returned evidence. The flow:
+In `full`, Workbench first completes the governed browser presentation, review, and conversion
+journey. It then delegates resource selection and workload execution to `lotus-idea`. Workbench
+only coordinates the order and verifies source-owned evidence. The flow:
 
 1. rebuilds only the Idea Compose project with the checked-out commit, branch, and fresh canonical
    run identity; unrelated services continue to use the normal reusable-image posture,
-2. waits for the exact Idea source revision and the Advise realization dependency,
+2. prepares the authoritative Core-backed candidate and validates the real Workbench browser flow,
+   including its durable presentation receipt, exact review, and Advise conversion intent,
 3. verifies Idea `/version` commit, branch, and run metadata against the requested identity,
-4. invokes the Idea-owned synthetic seed and service-capacity workload runners,
+4. invokes the Idea-owned selector, which requires one current authoritative conversion intent
+   bound to the current evidence version, Workbench receipt, exact review policy, tenant scope, and
+   source cut,
 5. accepts exactly one successful `downstream_submission` probe in the `test` profile, and
 6. records source artifact paths, SHA-256 digests, and provenance in
-   `output/canonical-front-office/idea-capacity-seed-evidence.json`.
+   `output/canonical-front-office/idea-capacity-probe-evidence.json`.
 
-Capacity evidence uses the isolated `CAPACITY_SYNTHETIC_PORTFOLIO_001` namespace. It must not reuse
-`PB_SG_GLOBAL_BAL_001`, expose the generated conversion-intent identifier or downstream path, or
-persist credentials in evidence. This is deterministic seed and integration-readiness proof only;
-it is not load or soak evidence, capacity certification, or supported-feature promotion.
+The probe deliberately uses the governed `PB_SG_GLOBAL_BAL_001` advisor journey; it must not
+fabricate a second candidate, Core cut, presentation receipt, approval, or conversion intent. The
+published evidence does not expose candidate or conversion-intent identifiers, downstream paths,
+or credentials. This is deterministic integration-readiness proof only; it is not load or soak
+evidence, production capacity certification, or supported-feature promotion.
 
-The capacity seed is still exercised through Lotus Idea's public API policy. Canonical startup
-keeps the governed business as-of date separate from the lifecycle control clock: after Idea and
-Advise readiness, it captures one fresh UTC observation time for the capacity seed. A fixed
-demo-data generation timestamp is not valid evidence of a current lifecycle action.
-It creates one per-run local trusted-caller marker, passes it to the Idea runtime as
-`LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN`, and forwards the same marker to the seed process as
-`LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT`. The Idea seed process must also send complete
-synthetic tenant, book, portfolio, client, role, and capability scope headers for each governed
-mutation. This is local/dev proof wiring only; it is not a production identity provider,
-session/token-claims authority, or endpoint-policy bypass.
+Resource selection is exercised through Lotus Idea's public candidate-detail policy after browser
+acceptance. Exact current material/evidence versions, presentation receipt, review policy, and
+source-cut authority distinguish an admissible intent from superseded history. This also makes an
+unchanged approved journey replayable without inventing a later review. Controlled load/soak
+dispatch can add an explicit accepted-at lower bound when fresh-intent evidence is required. Canonical
+startup creates one per-run local trusted-caller marker, passes it to the Idea runtime as
+`LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN`, and scopes the post-browser selector with the same marker
+as `LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT`. The selector forwards the exact tenant, book,
+portfolio, and client scope recorded by candidate preparation. This is local/dev proof wiring only;
+it is not a production identity provider, session/token-claims authority, or endpoint-policy bypass.
 
 For active RFC or UI development, pass `-LocalApps` with a comma-separated app list. Local apps use
 the same canonical hostnames and public ports as Docker-backed apps, so live evidence remains
@@ -473,14 +478,15 @@ state behind, use `-CleanCoreState` on the startup script to run `docker compose
 because routine front-office bring-up only seeds the governed `PB_SG_GLOBAL_BAL_001` portfolio and
 does not include the separate `1000`-portfolio load scenario.
 
-An ordinary restart after an earlier run approved the canonical Idea candidate preserves the durable
-candidate, accepts its intentional absence from the pending review queue, and validates the completed
-detail read-only. To rehearse the mutating advisor flow again from review readiness, keep the active
+An ordinary restart after an earlier run reviewed the canonical Idea candidate resumes only its
+missing conversion intent. After approval, it preserves the durable candidate, accepts its intentional
+absence from the pending review queue, and validates the completed detail read-only. To rehearse the
+full mutating advisor flow again from review readiness, keep the active
 reservation and deliberately reset the canonical fixture volumes before startup:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -RemoveVolumes -KeepReservation
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -RunValidation -BuildImages -ValidationProfile client-demo
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot -RunValidation -BuildImages
 ```
 
 Run both commands from `lotus-workbench` with the same admitted
@@ -504,19 +510,16 @@ checked-out Docker-backed service sources rather than a previously built Gateway
 or Workbench image.
 
 One runner has two explicit proof profiles. `full` is the default and fails if its Idea capacity
-artifact is absent. For a bounded client walkthrough, select `client-demo` on both startup and
-standalone validation; it excludes only the non-certifying synthetic capacity probe and still
-validates Idea's actual candidate and visible Workbench journey:
+artifact is absent. Run `full` through the one-command startup-and-validation entry point so its
+per-run trusted caller marker remains scoped in memory across browser validation and the final
+probe. For a bounded diagnostic recheck, use standalone `client-demo`; it still validates Idea's
+actual candidate and visible Workbench journey, but it is not demo-ready evidence:
 
 ```powershell
-npm run live:stack:up -- -ValidationProfile client-demo
 npm run live:validate -- -ValidationProfile client-demo
-npm run live:stack:down
 ```
 
-The Platform QA wrapper must forward this profile in its own coordinated update before its
-source-pinned `-RequireMainlineSources` route can certify this client-demo selection. Do not call
-a `client-demo` receipt complete full-profile or capacity proof.
+Reacquire and run `npm run live:stack:up:validate` before demo or release claims.
 
 ## One-command teardown
 
@@ -534,22 +537,23 @@ That script:
 
 ## Canonical validation
 
-To validate an already-running canonical stack:
+To validate an already-running canonical stack in the `client-demo` profile:
 
 ```powershell
-npm run live:validate
+npm run live:validate -- -ValidationProfile client-demo
 ```
 
-This is the preferred operator path after the canonical bring-up command because it keeps service startup
-separate from readiness, browser, and screenshot evidence gathering.
+The standalone command is suitable for `client-demo`, which does not invoke the downstream probe.
+For the default `full` profile, use `npm run live:stack:up:validate`; its trusted caller marker is
+intentionally ephemeral and is not written to disk for a later command.
 
 To write demo screenshots to a temporary directory outside the repository from Windows
 PowerShell:
 
 ```powershell
 $screenshotDirectory = Join-Path ([IO.Path]::GetTempPath()) "lotus-risk-module-shots"
-powershell -ExecutionPolicy Bypass -File scripts/live/Validate-LotusFrontOfficeCanonical.ps1 `
-  -ScreenshotDirectory $screenshotDirectory
+powershell -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 `
+  -RunValidation -ScreenshotDirectory $screenshotDirectory
 ```
 
 Canonical orchestration is currently supported only on Windows, with Windows PowerShell 5 or
@@ -626,6 +630,11 @@ that directory instead. The summary records structured screenshot evidence for e
 stable file name, absolute path, route, panel identifier, portfolio ID, benchmark ID, as-of date,
 and demo readiness state. The validator also writes `SHOT-INDEX.md` in the screenshot directory so
 demo reviewers can quickly identify the captured product surfaces.
+
+For `full`, browser artifacts remain under a `diagnostic-*-pending-*` directory until the Idea
+capacity probe succeeds. Any earlier published directory is preserved with a
+`diagnostic-*-superseded-*` name. Only the completed same-run pack is moved to the requested
+canonical directory, so a failed probe cannot leave demo-ready filenames behind.
 
 The machine-readable summary also records `workflowPackChecks` for the advisor-brief live path and
 RFC-0023 proposal narrative proof. Advisor-brief checks prove initial workflow-pack run visibility
@@ -771,9 +780,9 @@ outputs, Workbench Prometheus metrics, Prometheus/Grafana API samples, bounded c
 and screenshots for Workbench evidence views plus Prometheus/Grafana entrypoints. Use this for
 offline demo preparation and operational investigation documentation. It complements
 `live-validation-summary.json`; it does not replace the governed validation pass. The manifest
-records the validation summary path and whether it existed at capture time, and it separates
-application API checks from metrics and dashboard HTTP samples so reviewers can audit the evidence
-without guessing the directory layout.
+records the accepted full-profile summary path and SHA-256. Capture refuses diagnostic, excluded,
+pending-probe, or mismatched portfolio/benchmark summaries. The manifest separates application API
+checks from metrics and dashboard samples so reviewers can audit the pack without guessing its layout.
 Core position materialization and portfolio aggregation share `portfolio_derived_state_service`.
 Evidence capture discovers its live container from the Core Compose service and verifies checkout
 ownership. It revalidates the immutable container ID immediately before reading logs; replacement,

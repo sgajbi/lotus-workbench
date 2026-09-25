@@ -76,9 +76,8 @@ source-authority, and guide inventory.
 The governed integrated portfolio is `PB_SG_GLOBAL_BAL_001`. Canonical proof follows the
 [front-office runtime guide](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md):
 
-```bash
-npm run live:stack:up
-npm run live:validate
+```powershell
+npm run live:stack:up:validate
 npm run live:stack:down
 ```
 

@@ -5,6 +5,8 @@ param(
   [string]$WorkbenchRepoPath,
   [string]$PortfolioId = "PB_SG_GLOBAL_BAL_001",
   [string]$BenchmarkCode = "BMK_PB_GLOBAL_BALANCED_60_40",
+  [string]$StartDate = "2025-03-31",
+  [string]$AsOfDate = "2026-04-10",
   [string]$ScreenshotDirectory = "",
   [string]$CanonicalEvidenceDirectory = "",
   [string]$LotusAiEnvFile = ".env.example",
@@ -62,7 +64,6 @@ $canonicalEvidenceRoot = if ([string]::IsNullOrWhiteSpace($CanonicalEvidenceDire
 }
 $mainlineSourcePreflightPath = $null
 $mainlineSourceRuntimePath = $null
-$ideaCapacityEvidenceRoot = $canonicalEvidenceRoot
 if ($RequireMainlineSources) {
   $composeUpCommand = "docker compose up -d --build --force-recreate"
 } elseif ($BuildImages) {
@@ -428,13 +429,34 @@ function Get-CanonicalFrontOfficeDatePolicy {
   }
 
   $contract = Get-Content -Raw $canonicalContractPath | ConvertFrom-Json
+  $seedStartDate = [string]$contract.date_policy.seed_start_date
   $asOfDate = [string]$contract.date_policy.canonical_as_of_date
-  if ([string]::IsNullOrWhiteSpace($asOfDate)) {
-    throw "Canonical front-office demo data contract is missing date_policy.canonical_as_of_date."
+  if ([string]::IsNullOrWhiteSpace($seedStartDate) -or [string]::IsNullOrWhiteSpace($asOfDate)) {
+    throw "Canonical front-office demo data contract is missing its governed date window."
   }
 
   return [ordered]@{
+    SeedStartDate = $seedStartDate
     AsOfDate = $asOfDate
+  }
+}
+
+function Assert-CanonicalValidationDateWindow {
+  $datePolicy = Get-CanonicalFrontOfficeDatePolicy
+  if ($AsOfDate -cne $datePolicy.AsOfDate) {
+    throw "Validation as-of date must equal governed canonical date $($datePolicy.AsOfDate)."
+  }
+  $culture = [System.Globalization.CultureInfo]::InvariantCulture
+  $style = [System.Globalization.DateTimeStyles]::None
+  try {
+    $start = [datetime]::ParseExact($StartDate, 'yyyy-MM-dd', $culture, $style)
+    $seedStart = [datetime]::ParseExact($datePolicy.SeedStartDate, 'yyyy-MM-dd', $culture, $style)
+    $asOf = [datetime]::ParseExact($datePolicy.AsOfDate, 'yyyy-MM-dd', $culture, $style)
+  } catch {
+    throw "Validation dates and governed date policy must use valid YYYY-MM-DD calendar dates."
+  }
+  if ($start -lt $seedStart -or $start -gt $asOf) {
+    throw "Validation start date must be within governed seeded window $($datePolicy.SeedStartDate) through $($datePolicy.AsOfDate)."
   }
 }
 
@@ -948,33 +970,11 @@ function Invoke-CanonicalIdeaSeed {
   Write-Host "Recorded current-run Lotus Idea candidate evidence: $candidateEvidencePath"
 }
 
-function Invoke-CanonicalIdeaCapacitySeed {
-  $datePolicy = Get-CanonicalFrontOfficeDatePolicy
-  Wait-HttpReady -Url "http://127.0.0.1:8330/health/ready" -Description "lotus-idea"
-  Wait-HttpReady -Url "http://127.0.0.1:8000/health/ready" -Description "lotus-advise"
-  $capacityObservedAtUtc = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-
-  Write-Host "Seeding isolated Lotus Idea downstream-capacity evidence ..."
-  Invoke-WithProcessEnvironment `
-    -Environment @{ LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT = $ideaCapacityTrustedCallerContext } `
-    -ScriptBlock {
-      & (Join-Path $workbenchRepo "scripts\\live\\Invoke-IdeaCapacitySeed.ps1") `
-        -ProjectsRoot $ProjectsRoot `
-        -IdeaBaseUrl "http://127.0.0.1:8330" `
-        -AsOfDate $datePolicy.AsOfDate `
-        -SeededAtUtc $capacityObservedAtUtc `
-        -RunId $ideaCanonicalRunId `
-        -ExpectedCommitSha $ideaSourceIdentity.CommitSha `
-        -ExpectedBranch $ideaSourceIdentity.Branch `
-        -EvidenceDirectory $ideaCapacityEvidenceRoot
-    }
-  if ($LASTEXITCODE -ne 0) {
-    throw "Canonical Lotus Idea capacity seed failed with exit code $LASTEXITCODE."
-  }
-}
-
 Import-Module (Join-Path $platformRepo 'automation/CanonicalRuntimeReservation.psm1') -Force
 $runtimeMode = if ($CoreManageOnly) { 'core-manage' } else { 'full' }
+if ($RunValidation) {
+  Assert-CanonicalValidationDateWindow
+}
 if ($PortOwnershipPreflightOnly) {
   Invoke-CanonicalReservation -Action preflight -ProjectsRoot $ProjectsRoot -Holder $RuntimeHolder -WorkbenchRepoPath $workbenchRepo -RuntimeMode $runtimeMode | Out-Host
   Test-CanonicalPortOwnership -CoreManageOnlyMode:$CoreManageOnly
@@ -997,7 +997,6 @@ foreach ($repo in $admissionRepositories) {
 }
 if ($RequireMainlineSources) {
   $mainlineProvenance = Invoke-MainlineSourceProvenancePreflight
-  $ideaCapacityEvidenceRoot = $mainlineProvenance.EvidenceRoot
   $provenanceScript = $mainlineProvenance.ScriptPath
   $mainlineSourcePreflightPath = $mainlineProvenance.PreflightPath
   $mainlineSourceRuntimePath = $mainlineProvenance.RuntimePath
@@ -1069,7 +1068,7 @@ Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'core-seed-materializ
 $ideaSourceIdentity = Get-GitRepositoryIdentity -RepoPath $ideaRepo
 $ideaDatePolicy = Get-CanonicalFrontOfficeDatePolicy
 $ideaCanonicalRunId = "canonical-front-office-$($ideaDatePolicy.AsOfDate)-$([guid]::NewGuid().ToString('N'))"
-$ideaCapacityTrustedCallerContext = "canonical-local-idea-capacity-seed-$([guid]::NewGuid().ToString('N'))"
+$ideaTrustedCallerContext = "canonical-local-idea-runtime-$([guid]::NewGuid().ToString('N'))"
 $ideaBuildTimestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 $ideaBuildEnvironment = @{
   LOTUS_IDEA_BUILD_GIT_COMMIT_SHA = $ideaSourceIdentity.CommitSha
@@ -1079,7 +1078,7 @@ $ideaBuildEnvironment = @{
   LOTUS_IDEA_BUILD_RUN_ID = $ideaCanonicalRunId
   LOTUS_IDEA_BUILD_IMAGE_ID = "$($ideaSourceIdentity.CommitSha).$ideaCanonicalRunId"
   LOTUS_IDEA_BUILD_SERVICE_VERSION = "0.1.0"
-  LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN = $ideaCapacityTrustedCallerContext
+  LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN = $ideaTrustedCallerContext
 }
 $resolvedLotusAiEnvFile = Resolve-LotusAiEnvFile -EnvFile $LotusAiEnvFile
 Write-Host "Using lotus-ai env file for canonical proof: $resolvedLotusAiEnvFile"
@@ -1132,10 +1131,8 @@ if (Test-LocalApp "gateway") {
 
 Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'core-downstream-verification' -Action { Invoke-CanonicalCoreSeed -VerifyOnly }
 Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'dpm-seed' -Action { Invoke-DpmCommandCenterSeed }
-if ($ValidationProfile -eq 'full') {
-  Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'idea-capacity-seed' -Action { Invoke-CanonicalIdeaCapacitySeed }
-} else {
-  Write-Host 'Client-demo profile: excluding only the non-certifying Idea downstream-capacity workload (lotus-idea#1345).'
+if ($ValidationProfile -eq 'client-demo') {
+  Write-Host 'Client-demo profile: excluding only the post-browser, non-certifying Idea downstream-capacity probe (lotus-idea#1345).'
 }
 
 if (Test-LocalApp "workbench") {
@@ -1164,7 +1161,7 @@ if (-not $RunValidation) {
   $followUpValidationCommand = if ($ValidationProfile -eq 'client-demo') {
     'npm run live:validate -- -ValidationProfile client-demo'
   } else {
-    'npm run live:validate'
+    'npm run live:stack:up:validate'
   }
   Write-Host "Run '$followUpValidationCommand' from lotus-workbench when you want end-to-end validation."
   $runtimeOutcome = 'success'
@@ -1192,28 +1189,34 @@ $validationArguments = @{
   RuntimeOperationFence = $runtimeOperation.Lock
   PortfolioId = $PortfolioId
   BenchmarkCode = $BenchmarkCode
+  StartDate = $StartDate
+  AsOfDate = $AsOfDate
   CanonicalEvidenceDirectory = $canonicalEvidenceRoot
   ValidationProfile = $ValidationProfile
+  ExpectedIdeaCommitSha = $ideaSourceIdentity.CommitSha
+  ExpectedIdeaBranch = $ideaSourceIdentity.Branch
+  ExpectedIdeaRunId = $ideaCanonicalRunId
 }
 if (-not [string]::IsNullOrWhiteSpace($ScreenshotDirectory)) {
   $validationArguments.ScreenshotDirectory = $ScreenshotDirectory
 }
 if ($RequireMainlineSources) {
   $validationArguments.MainlineSourceProvenancePath = $mainlineSourceRuntimePath
-  if ($ValidationProfile -eq 'full') {
-    $validationArguments.IdeaCapacitySeedEvidencePath = Join-Path $ideaCapacityEvidenceRoot "idea-capacity-seed-evidence.json"
-  }
 }
 Invoke-CanonicalRuntimePhase -Records $runtimePhases -Name 'api-calculation-browser-validation' -Action {
-  & (Join-Path $workbenchRepo "scripts\\live\\Validate-LotusFrontOfficeCanonical.ps1") @validationArguments
-  if ($LASTEXITCODE -ne 0) { throw "Canonical validation failed with exit code $LASTEXITCODE." }
+  Invoke-WithProcessEnvironment `
+    -Environment @{ LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT = $ideaTrustedCallerContext } `
+    -ScriptBlock {
+      & (Join-Path $workbenchRepo "scripts\\live\\Validate-LotusFrontOfficeCanonical.ps1") @validationArguments
+      if ($LASTEXITCODE -ne 0) { throw "Canonical validation failed with exit code $LASTEXITCODE." }
+    }
 }
 $runtimeOutcome = 'success'
 } finally {
   $timingPath=Join-Path $canonicalEvidenceRoot "runtime-phases-$runtimeTimingId.json"
   $excludedProofs = @()
   if ($ValidationProfile -eq 'client-demo') {
-    $excludedProofs = @('idea.synthetic_downstream_capacity_workload')
+    $excludedProofs = @('idea.presentation_backed_downstream_capacity_probe')
   }
   $timingReceipt = @{
     schema = 'lotus-workbench.canonical-runtime-phases.v1'

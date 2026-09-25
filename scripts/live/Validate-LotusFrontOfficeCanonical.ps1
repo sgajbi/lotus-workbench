@@ -14,9 +14,11 @@ param(
   [string]$ScreenshotDirectory = "",
   [string]$CanonicalEvidenceDirectory = "",
   [string]$IdeaCandidateSeedEvidencePath = "",
-  [string]$IdeaCapacitySeedEvidencePath = "",
   [ValidateSet('full', 'client-demo')][string]$ValidationProfile = 'full',
-  [string]$MainlineSourceProvenancePath = ""
+  [string]$MainlineSourceProvenancePath = "",
+  [string]$ExpectedIdeaCommitSha = "",
+  [string]$ExpectedIdeaBranch = "",
+  [string]$ExpectedIdeaRunId = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -27,6 +29,16 @@ if ($WorkbenchRepoPath -and [System.IO.Path]::GetFullPath($WorkbenchRepoPath) -n
 $WorkbenchRepoPath = $repoRoot
 Import-Module (Join-Path $PSScriptRoot 'CanonicalWorkspace.psm1') -Force
 $ProjectsRoot = Resolve-CanonicalWorkspaceRoot -ProjectsRoot $ProjectsRoot -WorkbenchRepoPath $repoRoot
+if (
+  $ValidationProfile -eq 'full' -and
+  [string]::IsNullOrWhiteSpace($env:LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT)
+) {
+  throw (
+    "Full canonical validation requires the ephemeral Idea capacity capability created by " +
+    "'npm run live:stack:up:validate'. Standalone live:validate supports only " +
+    "'-ValidationProfile client-demo'."
+  )
+}
 Import-Module (Join-Path $ProjectsRoot 'lotus-platform/automation/CanonicalRuntimeReservation.psm1')
 $validationOperation = $null
 $validationOutcome = 'failure'
@@ -47,16 +59,23 @@ $canonicalEvidenceRoot = if ([string]::IsNullOrWhiteSpace($CanonicalEvidenceDire
 } else {
   Join-Path $repoRoot $CanonicalEvidenceDirectory
 }
-$ideaCapacitySeedEvidencePath = if ([string]::IsNullOrWhiteSpace($IdeaCapacitySeedEvidencePath)) {
-  Join-Path $canonicalEvidenceRoot "idea-capacity-seed-evidence.json"
-} else {
-  $IdeaCapacitySeedEvidencePath
-}
 $ideaCandidateSeedEvidencePath = if ([string]::IsNullOrWhiteSpace($IdeaCandidateSeedEvidencePath)) {
   Join-Path $canonicalEvidenceRoot "idea-candidate-seed-evidence.json"
 } else {
   $IdeaCandidateSeedEvidencePath
 }
+$publishedBrowserEvidenceDirectory = if ([string]::IsNullOrWhiteSpace($ScreenshotDirectory)) {
+  Join-Path $repoRoot "output\playwright\live-canonical"
+} elseif ([System.IO.Path]::IsPathRooted($ScreenshotDirectory)) {
+  $ScreenshotDirectory
+} else {
+  Join-Path $repoRoot $ScreenshotDirectory
+}
+Import-Module (Join-Path $PSScriptRoot 'CanonicalEvidencePublication.psm1') -Force
+$browserEvidenceDirectory = New-CanonicalEvidencePublicationWorkspace `
+  -PublishedDirectory $publishedBrowserEvidenceDirectory `
+  -Stage:($ValidationProfile -eq 'full') `
+  -Diagnostic:($ValidationProfile -eq 'client-demo')
 $canonicalCallerContextHeaders = @{
   "X-Actor-Id" = "workbench-system"
   "X-Tenant-Id" = "tenant-sg"
@@ -162,10 +181,6 @@ Assert-IdeaQueueSeed `
   -ExpectedSourceCutPosture $ideaCandidateSeedEvidence.sourceCutPosture `
   -EvaluatedAtUtc $ideaCandidateSeedEvidence.queueEvaluatedAtUtc `
   -AccessScope $ideaCandidateSeedEvidence.accessScope
-if ($ValidationProfile -eq 'full' -and -not (Test-Path $ideaCapacitySeedEvidencePath)) {
-  throw "Canonical Lotus Idea capacity seed evidence is missing: $ideaCapacitySeedEvidencePath"
-}
-
 Push-Location $repoRoot
 try {
   $validatorArguments = @(
@@ -189,12 +204,7 @@ try {
     "--idea-candidate-lifecycle",
     $ideaCandidateSeedEvidence.lifecycleStatus
   )
-  if ($ValidationProfile -eq 'full') {
-    $validatorArguments += @("--idea-capacity-seed-evidence", $ideaCapacitySeedEvidencePath)
-  }
-  if (-not [string]::IsNullOrWhiteSpace($ScreenshotDirectory)) {
-    $validatorArguments += @("--output-dir", $ScreenshotDirectory)
-  }
+  $validatorArguments += @("--output-dir", $browserEvidenceDirectory)
   if (-not [string]::IsNullOrWhiteSpace($MainlineSourceProvenancePath)) {
     $validatorArguments += @("--mainline-source-provenance", $MainlineSourceProvenancePath)
   }
@@ -206,6 +216,62 @@ try {
   }
 } finally {
   Pop-Location
+}
+if ($ValidationProfile -eq 'full') {
+  $ideaVersion = Invoke-RestMethod -Uri "http://127.0.0.1:8330/version" -TimeoutSec 30
+  $expectedIdeaProvenance = @($ExpectedIdeaCommitSha, $ExpectedIdeaBranch, $ExpectedIdeaRunId)
+  $configuredIdeaProvenanceCount = @(
+    $expectedIdeaProvenance | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }
+  ).Count
+  if ($configuredIdeaProvenanceCount -notin @(0, 3)) {
+    throw 'Expected Idea commit, branch, and run provenance must be supplied together.'
+  }
+  $probeCommitSha = if ($configuredIdeaProvenanceCount -eq 3) {
+    $ExpectedIdeaCommitSha
+  } else {
+    [string]$ideaVersion.build.gitCommitSha
+  }
+  $probeBranch = if ($configuredIdeaProvenanceCount -eq 3) {
+    $ExpectedIdeaBranch
+  } else {
+    [string]$ideaVersion.build.gitBranch
+  }
+  $probeRunId = if ($configuredIdeaProvenanceCount -eq 3) {
+    $ExpectedIdeaRunId
+  } else {
+    [string]$ideaVersion.build.ciRunId
+  }
+  & (Join-Path $repoRoot "scripts\live\Invoke-IdeaCapacityProbe.ps1") `
+    -ProjectsRoot $ProjectsRoot `
+    -IdeaBaseUrl "http://127.0.0.1:8330" `
+    -CandidateEvidencePath $ideaCandidateSeedEvidencePath `
+    -RunId $probeRunId `
+    -ExpectedCommitSha $probeCommitSha `
+    -ExpectedBranch $probeBranch `
+    -ExpectedCandidateId $ideaCandidateSeedEvidence.candidateId `
+    -EvidenceDirectory $canonicalEvidenceRoot
+  if ($LASTEXITCODE -ne 0) {
+    throw "Canonical Lotus Idea capacity probe failed with exit code $LASTEXITCODE."
+  }
+
+  $capacityEvidencePath = Join-Path $canonicalEvidenceRoot "idea-capacity-probe-evidence.json"
+  $summaryPath = Join-Path $browserEvidenceDirectory "live-validation-summary.json"
+  if (-not (Test-Path -LiteralPath $summaryPath)) {
+    throw "Canonical browser validation summary is missing: $summaryPath"
+  }
+  $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+  $summary.ideaCapacityProbe = Get-Content -LiteralPath $capacityEvidencePath -Raw | ConvertFrom-Json
+  $pendingSummaryPath = "$summaryPath.pending"
+  $summaryJson = ($summary | ConvertTo-Json -Depth 100) + [Environment]::NewLine
+  [System.IO.File]::WriteAllText(
+    $pendingSummaryPath,
+    $summaryJson,
+    [System.Text.UTF8Encoding]::new($false)
+  )
+  Move-Item -LiteralPath $pendingSummaryPath -Destination $summaryPath -Force
+  Publish-CanonicalBrowserEvidence `
+    -StagedDirectory $browserEvidenceDirectory `
+    -PublishedDirectory $publishedBrowserEvidenceDirectory
 }
 $validationOutcome = 'success'
 } finally {

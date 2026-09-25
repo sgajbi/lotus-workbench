@@ -24,7 +24,7 @@
 ```bash
 make check
 make test-e2e
-npm run live:validate
+npm run live:stack:up:validate
 ```
 
 ## References

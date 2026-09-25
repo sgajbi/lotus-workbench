@@ -99,7 +99,7 @@ that evidence is unavailable. It is not a future placeholder and does not infer 
 - `npm run quality:screen-docs` reconciles routes, modes, source owners, evidence, and guides.
 - Unit and integration tests prove feature-specific mapping and failure behavior.
 - Fixture browser families prove deterministic Workbench states against governed fixtures.
-- `npm run live:validate` is required for an integrated source-backed capability claim.
+- `npm run live:stack:up:validate` is required for an integrated source-backed capability claim.
 
 Historical latency samples or delivery-slice measurements are not a current performance baseline.
 Use current run artefacts and source timings when making a performance claim.

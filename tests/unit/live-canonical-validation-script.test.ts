@@ -331,7 +331,7 @@ describe("canonical live validation script", () => {
       "Stop-LotusFrontOfficeCanonical.ps1",
       "Validate-LotusFrontOfficeCanonical.ps1",
       "Capture-LotusFrontOfficeEvidence.ps1",
-      "Invoke-IdeaCapacitySeed.ps1",
+      "Invoke-IdeaCapacityProbe.ps1",
     ]) {
       const script = readFileSync(
         join(process.cwd(), "scripts", "live", scriptName),
@@ -725,18 +725,13 @@ describe("canonical live validation script", () => {
     );
     expect(script).toContain("[string]$ScreenshotDirectory");
     expect(script).toContain("ScreenshotDirectory = $ScreenshotDirectory");
-    expect(script).toContain("function Invoke-CanonicalIdeaCapacitySeed");
-    expect(script).toContain("Invoke-CanonicalIdeaCapacitySeed");
-    expect(script).toContain("function Wait-HttpReady");
-    expect(script).toContain(
-      'Wait-HttpReady -Url "http://127.0.0.1:8000/health/ready" -Description "lotus-advise"',
-    );
+    expect(script).not.toContain("function Invoke-CanonicalIdeaCapacitySeed");
     expect(script).toContain("output\\\\canonical-front-office");
     expect(script).toContain("function Get-GitRepositoryIdentity");
     expect(script).toContain("LOTUS_IDEA_BUILD_GIT_COMMIT_SHA");
     expect(script).toContain("LOTUS_IDEA_BUILD_GIT_BRANCH");
     expect(script).toContain("[guid]::NewGuid().ToString('N')");
-    expect(script).toContain("-RunId $ideaCanonicalRunId");
+    expect(script).toContain("LOTUS_IDEA_BUILD_RUN_ID = $ideaCanonicalRunId");
     expect(script).toContain(
       "Invoke-ComposeUp $ideaRepo $ideaBuildEnvironment -Build",
     );
@@ -833,8 +828,8 @@ describe("canonical live validation script", () => {
     expect(validationScript).toContain(
       'Test-Endpoint "http://idea.dev.lotus/health/ready"',
     );
-    expect(validationScript).toContain("idea-capacity-seed-evidence.json");
-    expect(validationScript).toContain('"--idea-capacity-seed-evidence"');
+    expect(validationScript).toContain("idea-capacity-probe-evidence.json");
+    expect(validationScript).toContain("Invoke-IdeaCapacityProbe.ps1");
     expect(validationScript).toContain("idea-candidate-seed-evidence.json");
     expect(validationScript).toContain('"--idea-candidate-id"');
     expect(validationScript).toContain(
@@ -851,7 +846,7 @@ describe("canonical live validation script", () => {
       "function Invoke-CanonicalIdeaSeed",
     );
     const ideaSeedEnd = startScript.indexOf(
-      "function Invoke-CanonicalIdeaCapacitySeed",
+      "Import-Module (Join-Path $platformRepo 'automation/CanonicalRuntimeReservation.psm1')",
       ideaSeedStart,
     );
     const ideaSeedScript = startScript.slice(ideaSeedStart, ideaSeedEnd);
@@ -1135,13 +1130,9 @@ describe("canonical live validation script", () => {
     expect(startScript).toContain("mainline-source-provenance-runtime.json");
     expect(startScript).toContain("SpecialFolder]::LocalApplicationData");
     expect(startScript).toContain("mainlineProvenanceRoot");
-    expect(startScript).toContain(
-      "$ideaCapacityEvidenceRoot = $mainlineProvenance.EvidenceRoot",
-    );
-    expect(startScript).toContain("IdeaCapacitySeedEvidencePath");
     expect(startScript).toContain("Get-FileHash -Algorithm SHA256");
     expect(startScript).toContain("MainlineSourceProvenancePath");
-    expect(validationScript).toContain("IdeaCapacitySeedEvidencePath");
+    expect(validationScript).not.toContain("IdeaCapacitySeedEvidencePath");
     expect(validationScript).toContain("--mainline-source-provenance");
     expect(browserValidator).toContain("mainlineSourceProvenance");
     expect(browserValidator).toContain("bindMainlineSourceManifestToRuntime");
@@ -1287,9 +1278,9 @@ describe("canonical live validation script", () => {
     expect(script).not.toContain("fetchOptionalJson");
   });
 
-  it("delegates isolated Idea capacity seeding without exposing credentials or client state", () => {
+  it("runs the bounded Idea capacity probe only after browser review", () => {
     const script = readFileSync(
-      join(process.cwd(), "scripts", "live", "Invoke-IdeaCapacitySeed.ps1"),
+      join(process.cwd(), "scripts", "live", "Invoke-IdeaCapacityProbe.ps1"),
       "utf8",
     );
 
@@ -1303,21 +1294,61 @@ describe("canonical live validation script", () => {
     expect(script).toContain('$provenanceMismatches += "commit"');
     expect(script).toContain('$provenanceMismatches += "branch"');
     expect(script).toContain('$provenanceMismatches += "run"');
-    expect(script).toContain("targeted Idea build did not produce");
     expect(script).toContain("runtime provenance does not match");
-    expect(script).toContain("seed_downstream_capacity_resource.py");
+    expect(script).toContain("select_downstream_capacity_resource.py");
     expect(script).toContain("run_service_capacity_workload.py");
+    expect(script).toContain("CandidateEvidencePath");
+    expect(script).toContain("ExpectedCandidateId");
+    expect(script).toContain(
+      "candidate evidence does not match the expected browser candidate",
+    );
+    expect(script).not.toContain('"--accepted-not-before-utc"');
+    expect(script).toContain('"--downstream-capacity-resource"');
     expect(script).toContain('"--scenario", "downstream_submission"');
     expect(script).toContain('"--request-count", "1"');
     expect(script).toContain('"--allow-mutating-workflows"');
-    expect(script).toContain("SEED_SYNTHETIC_LOTUS_IDEA_CAPACITY_RESOURCE");
-    expect(script).toContain("Validate-IdeaCapacitySeedEvidence.mjs");
+    expect(script).not.toContain("SEED_SYNTHETIC_LOTUS_IDEA_CAPACITY_RESOURCE");
+    expect(script).toContain("Validate-IdeaCapacityProbeEvidence.mjs");
     expect(script).toContain("[System.IO.Path]::GetTempPath()");
     expect(script).toContain("Remove-Item -LiteralPath $rawArtifactDirectory");
-    expect(script).not.toContain("PB_SG_GLOBAL_BAL_001");
-    expect(script).not.toContain("client-001");
     expect(script).not.toContain("LOTUS_IDEA_CAPACITY_AUTHORIZATION");
     expect(script).not.toContain("LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT");
+
+    const validationScript = readFileSync(
+      join(
+        process.cwd(),
+        "scripts",
+        "live",
+        "Validate-LotusFrontOfficeCanonical.ps1",
+      ),
+      "utf8",
+    );
+    expect(validationScript).toContain("ExpectedIdeaCommitSha");
+    expect(validationScript).toContain("ExpectedIdeaBranch");
+    expect(validationScript).toContain("ExpectedIdeaRunId");
+    expect(validationScript).toContain("must be supplied together");
+    const fullValidationGuardIndex = validationScript.indexOf(
+      "Full canonical validation requires the ephemeral Idea capacity capability",
+    );
+    const browserIndex = validationScript.indexOf("& node @validatorArguments");
+    expect(fullValidationGuardIndex).toBeGreaterThanOrEqual(0);
+    expect(fullValidationGuardIndex).toBeLessThan(browserIndex);
+    expect(validationScript).toContain(
+      "LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT",
+    );
+    expect(validationScript).toContain(
+      "-Diagnostic:($ValidationProfile -eq 'client-demo')",
+    );
+
+    const browserScript = readFileSync(
+      join(process.cwd(), "scripts", "live", "validate-canonical-workbench-live.mjs"),
+      "utf8",
+    );
+    expect(browserScript).toContain("validationProfile === \"full\"");
+    expect(browserScript).toContain("LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT");
+    expect(browserScript).toContain(
+      "direct live:validate:ui supports only diagnostic client-demo validation",
+    );
 
     const startScript = readFileSync(
       join(
@@ -1334,42 +1365,66 @@ describe("canonical live validation script", () => {
     expect(startScript).toContain(
       "'npm run live:validate -- -ValidationProfile client-demo'",
     );
+    expect(startScript).toContain("'npm run live:stack:up:validate'");
     expect(startScript).toContain(
       "Write-Host \"Run '$followUpValidationCommand' from lotus-workbench when you want end-to-end validation.\"",
     );
     expect(startScript).toContain(
-      "$ideaCapacityTrustedCallerContext = \"canonical-local-idea-capacity-seed-$([guid]::NewGuid().ToString('N'))\"",
+      "$ideaTrustedCallerContext = \"canonical-local-idea-runtime-$([guid]::NewGuid().ToString('N'))\"",
+    );
+    expect(startScript).toContain("ExpectedIdeaCommitSha = $ideaSourceIdentity.CommitSha");
+    expect(startScript).toContain("ExpectedIdeaBranch = $ideaSourceIdentity.Branch");
+    expect(startScript).toContain("ExpectedIdeaRunId = $ideaCanonicalRunId");
+    expect(startScript).toContain('[string]$StartDate = "2025-03-31"');
+    expect(startScript).toContain('[string]$AsOfDate = "2026-04-10"');
+    expect(startScript).toContain("StartDate = $StartDate");
+    expect(startScript).toContain("AsOfDate = $AsOfDate");
+    expect(startScript).toContain("Assert-CanonicalValidationDateWindow");
+    expect(startScript).toContain(
+      "Validation as-of date must equal governed canonical date",
+    );
+    expect(startScript).toContain(
+      "Validation start date must be within governed seeded window",
+    );
+    expect(startScript.indexOf("Assert-CanonicalValidationDateWindow\n}")).toBeLessThan(
+      startScript.indexOf("Enter-CanonicalRuntimeOperation"),
     );
     expect(startScript).toContain("LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN");
     expect(startScript).toContain("LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT");
     expect(startScript).toContain("Invoke-WithProcessEnvironment");
-    const capacitySeed = startScript.slice(
-      startScript.indexOf("function Invoke-CanonicalIdeaCapacitySeed"),
-      startScript.indexOf(
-        "Import-Module (Join-Path $platformRepo",
-        startScript.indexOf("function Invoke-CanonicalIdeaCapacitySeed"),
+    const capacityProbeIndex = validationScript.indexOf(
+      "Invoke-IdeaCapacityProbe.ps1",
+    );
+    expect(browserIndex).toBeGreaterThanOrEqual(0);
+    expect(capacityProbeIndex).toBeGreaterThan(browserIndex);
+    expect(validationScript).toContain("idea-capacity-probe-evidence.json");
+    expect(validationScript).toContain("$summary.ideaCapacityProbe");
+    expect(validationScript).toContain("[System.Text.UTF8Encoding]::new($false)");
+    const publicationModule = readFileSync(
+      join(
+        process.cwd(),
+        "scripts",
+        "live",
+        "CanonicalEvidencePublication.psm1",
       ),
+      "utf8",
     );
-    expect(capacitySeed).toContain("-AsOfDate $datePolicy.AsOfDate");
-    expect(capacitySeed).toContain("-SeededAtUtc $capacityObservedAtUtc");
-    expect(capacitySeed).not.toContain(
-      "-SeededAtUtc $datePolicy.GeneratedAtUtc",
+    expect(publicationModule).toContain("diagnostic-$leaf-pending-");
+    expect(publicationModule).toContain("diagnostic-$leaf-superseded-");
+    expect(publicationModule).toContain("diagnostic-$leaf-client-demo-");
+    expect(publicationModule).toContain(
+      "Canonical browser evidence destination was recreated before full-profile publication",
     );
-    expect(startScript).not.toContain(
-      'GeneratedAtUtc = "$($asOfDate)T10:00:00Z"',
+    const stagingIndex = validationScript.indexOf(
+      "New-CanonicalEvidencePublicationWorkspace",
     );
-    const readyIndex = capacitySeed.indexOf(
-      'Wait-HttpReady -Url "http://127.0.0.1:8000/health/ready"',
+    const nodeIndex = validationScript.indexOf("& node @validatorArguments");
+    const publishIndex = validationScript.lastIndexOf(
+      "Publish-CanonicalBrowserEvidence",
     );
-    const clockIndex = capacitySeed.indexOf(
-      "$capacityObservedAtUtc = (Get-Date).ToUniversalTime()",
-    );
-    const seedIndex = capacitySeed.indexOf(
-      "-SeededAtUtc $capacityObservedAtUtc",
-    );
-    expect(readyIndex).toBeGreaterThanOrEqual(0);
-    expect(clockIndex).toBeGreaterThan(readyIndex);
-    expect(seedIndex).toBeGreaterThan(clockIndex);
+    expect(stagingIndex).toBeGreaterThanOrEqual(0);
+    expect(stagingIndex).toBeLessThan(nodeIndex);
+    expect(publishIndex).toBeGreaterThan(capacityProbeIndex);
   });
 
   it("asserts canonical performance and risk calculation sanity", () => {
@@ -1383,7 +1438,6 @@ describe("canonical live validation script", () => {
       "utf8",
     );
     expect(script).toContain("`${ideaBaseUrl}/version`");
-    expect(script).toContain("runId: ideaVersion?.build?.ciRunId");
     const calculationModule = readFileSync(
       join(
         process.cwd(),
@@ -2447,6 +2501,13 @@ describe("canonical live validation script", () => {
     );
     expect(browserWorkflowModule).toContain(
       "export async function validateCompletedCanonicalIdeaJourney",
+    );
+    expect(browserWorkflowModule).toContain(
+      "resolveCanonicalIdeaRestartPlan",
+    );
+    expect(browserWorkflowModule).toContain('"resume_conversion_intent"');
+    expect(browserWorkflowModule).toContain(
+      "Idea candidate detail response data",
     );
     const completedIdeaJourneyStart = browserWorkflowModule.indexOf(
       "export async function validateCompletedCanonicalIdeaJourney",
