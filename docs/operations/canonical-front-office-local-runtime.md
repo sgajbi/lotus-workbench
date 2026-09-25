@@ -861,6 +861,10 @@ Gateway `source_supportability` arrays. Stale source supportability takes preced
 source supportability so browser proof cannot mask upstream freshness degradation.
 
 The summary also includes `panelClassifications` for the product surfaces validated during the run.
+The governed partial `performance.analysis.attribution` classification carries the source-owned
+attribution status, reason codes, and supportability evidence from the same Gateway response. The
+validator fails closed when any of those qualifications is missing; it does not create a browser
+reason or treat populated rows as unqualified readiness.
 Panels must be classified as `ready`, `partial`, `unavailable`, or another explicit governed state.
 The validator fails if a supported panel is recorded as blank without a governed empty, partial, or
 unavailable posture.
