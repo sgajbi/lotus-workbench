@@ -390,9 +390,10 @@ CODEOWNERS when a second accepted reviewer exists.
   Published Workbench evidence retains source digests and provenance but excludes candidate and
   intent identifiers, downstream paths, and credentials. Canonical startup binds one per-run local
   trusted-caller marker to the Idea runtime and post-browser selector while preserving exact tenant,
-  book, portfolio, and client scope. This is local/dev proof wiring only; it is not a production
-  identity provider, endpoint-policy bypass, load, soak, production capacity, or feature-support
-  certification.
+  book, portfolio, and client scope. The workload receives those same four admitted identifiers
+  explicitly and fails before transport if any is missing; it never invents a default tenant or
+  entitlement. This is local/dev proof wiring only; it is not a production identity provider,
+  endpoint-policy bypass, load, soak, production capacity, or feature-support certification.
   Full-profile browser output remains diagnostic and unpublished until this probe succeeds; a
   failed probe cannot leave a canonical summary, screenshot index, or demo-ready directory.
 - RFC-0028 bank-demo proof validation must read the Gateway-backed scenario contract and
