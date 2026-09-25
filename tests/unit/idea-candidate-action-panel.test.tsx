@@ -9,7 +9,9 @@ import {
 import { type ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import IdeaCandidateActionPanel from "../../src/features/proposals/components/idea-candidate-action-panel";
+import IdeaCandidateActionPanel, {
+  type IdeaActionRefreshResult,
+} from "../../src/features/proposals/components/idea-candidate-action-panel";
 import { NOT_USEFUL_REASON_OPTIONS } from "../../src/features/proposals/idea-feedback";
 import { WorkbenchApiError } from "../../src/features/workbench/api-client";
 
@@ -64,7 +66,7 @@ function wrapper({ children }: { children: ReactNode }) {
 }
 
 function renderPanel(
-  onRecorded: () => Promise<boolean>,
+  onRecorded: () => Promise<boolean | IdeaActionRefreshResult>,
   evidenceIdentity: typeof EVIDENCE_IDENTITY | null = EVIDENCE_IDENTITY,
   candidateReasonCodes: readonly string[] = [
     "high_cash_ratio",
@@ -73,12 +75,14 @@ function renderPanel(
   persistedAcceptedReviewAuthority?: typeof PERSISTED_REVIEW_AUTHORITY,
   presentationAuthority:
     typeof PRESENTATION_AUTHORITY | null = PRESENTATION_AUTHORITY,
+  currentQueueCandidatePresent = true,
 ) {
   return render(
     <IdeaCandidateActionPanel
       actionAuthority={ACTION_AUTHORITY}
       candidateId="idea_high_cash_001"
       candidateReasonCodes={candidateReasonCodes}
+      currentQueueCandidatePresent={currentQueueCandidatePresent}
       evidenceIdentity={evidenceIdentity ?? undefined}
       persistedAcceptedReviewAuthority={persistedAcceptedReviewAuthority}
       portfolioId="PB_SG_GLOBAL_BAL_001"
@@ -828,13 +832,14 @@ describe("IdeaCandidateActionPanel", () => {
     ).toBe("review-persisted-001");
   });
 
-  it("withholds conversion until the refreshed snapshot has a presentation receipt", () => {
+  it("does not restore conversion from a prior review after its queue row leaves", () => {
     renderPanel(
       async () => true,
       EVIDENCE_IDENTITY,
       ["high_cash_ratio", "review_required"],
       PERSISTED_REVIEW_AUTHORITY,
-      null,
+      PRESENTATION_AUTHORITY,
+      false,
     );
 
     expect(
@@ -842,6 +847,41 @@ describe("IdeaCandidateActionPanel", () => {
     ).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Record intent" }));
     expect(ideaApi.recordAdvisorIdeaConversionIntent).not.toHaveBeenCalled();
+  });
+
+  it("does not create a row-removal handoff when the approval refresh retained the row", async () => {
+    const onRecorded = vi.fn(async () => ({
+      sourceRefreshSucceeded: true,
+      currentQueueCandidatePresent: true,
+    }));
+    const rendered = renderPanel(onRecorded);
+
+    fireEvent.click(screen.getByRole("button", { name: "Record review" }));
+    await screen.findByTestId("idea-action-review-status");
+    const acceptedRequest =
+      ideaApi.recordAdvisorIdeaReviewAction.mock.calls[0][0].request;
+
+    rendered.rerender(
+      <IdeaCandidateActionPanel
+        actionAuthority={ACTION_AUTHORITY}
+        candidateId="idea_high_cash_001"
+        candidateReasonCodes={["high_cash_ratio", "review_required"]}
+        currentQueueCandidatePresent={false}
+        evidenceIdentity={EVIDENCE_IDENTITY}
+        persistedAcceptedReviewAuthority={{
+          ...ACTION_AUTHORITY,
+          reviewId: acceptedRequest.reviewId,
+          presentationReceiptId: acceptedRequest.presentationReceiptId,
+        }}
+        portfolioId="PB_SG_GLOBAL_BAL_001"
+        presentationAuthority={PRESENTATION_AUTHORITY}
+        onRecorded={onRecorded}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "Record intent" }),
+    ).toBeDisabled();
   });
 
   it("keeps a failed source refresh latched across a later failed feedback request", async () => {

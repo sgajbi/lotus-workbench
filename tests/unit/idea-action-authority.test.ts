@@ -233,12 +233,11 @@ describe("Idea action authority", () => {
       buildIdeaConversionRequestAuthority(
         { ...candidateAuthority, expectedEvidenceVersion: 4 },
         review,
-        presentationAuthority,
       ),
     ).toBeUndefined();
   });
 
-  it("requires a current exact presentation receipt before conversion", () => {
+  it("requires a current presentation except for the exact completed review handoff", () => {
     const review = {
       ...candidateAuthority,
       reviewId: "review-001",
@@ -246,25 +245,33 @@ describe("Idea action authority", () => {
     };
 
     expect(
-      buildIdeaConversionRequestAuthority(
-        candidateAuthority,
-        review,
-        undefined,
-      ),
+      buildIdeaConversionRequestAuthority(candidateAuthority, review),
     ).toBeUndefined();
+
     expect(
       buildIdeaConversionRequestAuthority(candidateAuthority, review, {
-        ...presentationAuthority,
-        candidateEvidenceVersion: 4,
+        presentation: presentationAuthority,
+      }),
+    ).toMatchObject({ expectedReviewId: "review-001" });
+
+    expect(
+      buildIdeaConversionRequestAuthority(candidateAuthority, review, {
+        completedReviewHandoff: review,
+      }),
+    ).toMatchObject({ expectedReviewId: "review-001" });
+
+    expect(
+      buildIdeaConversionRequestAuthority(candidateAuthority, review, {
+        completedReviewHandoff: { ...review, reviewId: "review-other" },
       }),
     ).toBeUndefined();
+
     expect(
       buildIdeaConversionRequestAuthority(
-        candidateAuthority,
+        { ...candidateAuthority, expectedEvidenceVersion: 4 },
         review,
-        presentationAuthority,
       ),
-    ).toMatchObject({ expectedReviewId: "review-001" });
+    ).toBeUndefined();
 
     const nonAuthoritative = {
       ...candidateAuthority,
@@ -274,7 +281,12 @@ describe("Idea action authority", () => {
       buildIdeaConversionRequestAuthority(
         nonAuthoritative,
         { ...review, expectedSourceCutPosture: "unknown" },
-        { ...presentationAuthority, sourceCutPosture: "unknown" },
+        {
+          completedReviewHandoff: {
+            ...review,
+            expectedSourceCutPosture: "unknown",
+          },
+        },
       ),
     ).toBeUndefined();
   });

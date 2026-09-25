@@ -36,7 +36,9 @@ import {
   type IdeaPresentationAuthority,
 } from "../use-idea-presentation-receipts";
 import AdvisoryOpportunityGrid from "./advisory-opportunity-grid";
-import IdeaCandidateActionPanel from "./idea-candidate-action-panel";
+import IdeaCandidateActionPanel, {
+  type IdeaActionRefreshResult,
+} from "./idea-candidate-action-panel";
 import styles from "./advisory-opportunities-workspace.module.css";
 
 const CANONICAL_IDEA_PORTFOLIO_ID = "PB_SG_GLOBAL_BAL_001";
@@ -294,6 +296,7 @@ export default function AdvisoryOpportunitiesWorkspace({
       {selectedCandidate ? (
         <IdeaCandidateDetailPanel
           detail={candidateDetail}
+          currentQueueCandidatePresent={Boolean(selectedQueueItem)}
           error={candidateDetailError}
           isLoading={isCandidateDetailLoading}
           portfolioId={portfolioId}
@@ -326,7 +329,7 @@ export default function AdvisoryOpportunitiesWorkspace({
                 queryKey: detailQueryKey,
                 refetchType: "none",
               });
-              await Promise.all([
+              const [refreshedQueue] = await Promise.all([
                 queryClient.fetchQuery(
                   advisorIdeaQueueQueryOptions(
                     portfolioId,
@@ -343,9 +346,20 @@ export default function AdvisoryOpportunitiesWorkspace({
                 evaluatedAtUtc: refreshedQueueEvaluatedAtUtc,
               });
               setQueueEvaluatedAtUtc(refreshedQueueEvaluatedAtUtc);
-              return true;
+              return {
+                sourceRefreshSucceeded: true,
+                currentQueueCandidatePresent: Boolean(
+                  findQueueItemByCandidateId(
+                    refreshedQueue.items,
+                    selectedCandidate,
+                  ),
+                ),
+              } satisfies IdeaActionRefreshResult;
             } catch {
-              return false;
+              return {
+                sourceRefreshSucceeded: false,
+                currentQueueCandidatePresent: Boolean(selectedQueueItem),
+              } satisfies IdeaActionRefreshResult;
             }
           }}
         />
@@ -387,6 +401,7 @@ export default function AdvisoryOpportunitiesWorkspace({
 
 function IdeaCandidateDetailPanel({
   candidateReasonCodes,
+  currentQueueCandidatePresent,
   detail,
   error,
   isLoading,
@@ -400,6 +415,7 @@ function IdeaCandidateDetailPanel({
   onActionRecorded,
 }: {
   candidateReasonCodes: string[];
+  currentQueueCandidatePresent: boolean;
   detail?: AdvisorIdeaCandidateDetailData;
   error: Error | null;
   isLoading: boolean;
@@ -410,7 +426,7 @@ function IdeaCandidateDetailPanel({
   queuePolicyVersion?: string;
   selectedCandidateId: string;
   sourceSignalIds: string[];
-  onActionRecorded: () => Promise<boolean>;
+  onActionRecorded: () => Promise<IdeaActionRefreshResult>;
 }) {
   const candidate = detail?.candidate;
   const evidence = detail?.evidence;
@@ -518,6 +534,7 @@ function IdeaCandidateDetailPanel({
               key={candidate.candidateId}
               candidateId={candidate.candidateId}
               candidateReasonCodes={candidateReasonCodes}
+              currentQueueCandidatePresent={currentQueueCandidatePresent}
               actionAuthority={actionAuthority}
               evidenceIdentity={evidenceIdentity}
               persistedAcceptedReviewAuthority={
