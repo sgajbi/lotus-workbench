@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "lotus-workbench.unused-code-baseline.v1",
+  "tool": "knip",
+  "toolVersion": "6.38.0",
+  "scope": "production source graph; repository scripts and tests are explicit entry points outside this inventory",
+  "ignoredEntrypoints": [
+    "scripts/** are invoked by package.json, Make, Docker, CI, or governed operator commands",
+    "tests/** are executable proof and are not production reachability roots",
+    "eslint.react-compiler.config.mjs and playwright.live.config.ts are alternate tool entry points"
+  ],
+  "findingCount": 614,
+  "identityDigest": "615b78d58c527da459a5249786c22b04a8f0f7574cec9c6dad8f826310311e15"
+}

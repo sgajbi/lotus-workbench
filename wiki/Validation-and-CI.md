@@ -126,6 +126,12 @@ CODEOWNERS when a second accepted reviewer exists.
   ownership, ownerless architecture or exit posture, expired reviews, prohibited state, and
   incomplete or expired exceptions. This is a blocking Workbench control; the referenced Lotus
   platform technology policy remains report-only.
+- `npm run quality:unused-code`
+  runs pinned Knip analysis over the production source graph and requires the finding count and
+  normalized identity digest to match the checked-in ratchet exactly. New unreachable files,
+  unused exports, or unused exported types fail `npm run lint`; a reviewed cleanup must lower the
+  baseline in the same change. Repository scripts, tests, and alternate tool configurations remain
+  explicit executable entry points outside this production-reachability inventory.
 - `npm run quality:product-copy`
   parses productive TypeScript and JSX, rejects transport and engineering language in business
   copy, resolves statically inspectable local `const` references that feed rendered copy, and

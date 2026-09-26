@@ -131,8 +131,9 @@ Workbench exposes `/api/health/live` and `/api/health/ready` for container orche
 operator diagnosis. The scale proof exercises distribution, latency, error, persistence, resource,
 and replica-replacement controls; it is not production capacity or resilience certification.
 
-`make check` covers dependency/security policy, lint and architecture controls, React correctness,
-screen-documentation governance, type safety, coverage-backed tests, and a production build. The
+`make check` covers dependency/security policy, an exact production-reachability dead-code ratchet,
+lint and architecture controls, React correctness, screen-documentation governance, type safety,
+coverage-backed tests, and a production build. The
 fixture gate proves deterministic Workbench behavior; `npm run live:stack:up:validate` is required
 for an integrated source-backed product claim. Neither a local screenshot nor fixture proof alone
 certifies production readiness.
