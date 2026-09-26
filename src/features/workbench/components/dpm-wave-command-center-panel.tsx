@@ -7,6 +7,7 @@ import {
   SectionBlock,
   SemanticBadge,
 } from "@/design-system";
+import { useClientMounted } from "@/design-system/hooks/use-client-mounted";
 import DpmWaveActiveRebalanceSection from "@/features/workbench/components/dpm-wave-active-rebalance-section";
 import DpmWaveDecisionSupport from "@/features/workbench/components/dpm-wave-decision-support";
 import DpmCampaignDefinitionsSection from "@/features/workbench/components/dpm-campaign-definitions-section";
@@ -76,6 +77,7 @@ export default function DpmWaveCommandCenterPanel({
   mandateType = null,
   portfolioCurrency = null,
 }: Props) {
+  const interactiveReady = useClientMounted();
   const {
     model,
     selectedCampaign,
@@ -177,6 +179,7 @@ export default function DpmWaveCommandCenterPanel({
       title="Rebalance"
       subtitle="Proposed rebalance, advisor review, and approval readiness."
       className="rebalance-workspace"
+      interactiveReady={interactiveReady}
       actions={
         <div className="rebalance-context-row" aria-label="Rebalance source context">
           <span>{header.mandateLabel}</span>

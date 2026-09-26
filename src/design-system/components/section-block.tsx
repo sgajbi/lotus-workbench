@@ -15,6 +15,7 @@ export default function SectionBlock({
   bodyClassName,
   bodyRef,
   id,
+  interactiveReady,
 }: {
   title?: string;
   subtitle?: string;
@@ -25,11 +26,20 @@ export default function SectionBlock({
   bodyClassName?: string;
   bodyRef?: Ref<HTMLDivElement>;
   id?: string;
+  interactiveReady?: boolean;
 }) {
   const hasHeader = Boolean(title || subtitle || actions);
 
   return (
-    <Panel id={id} className={cx("section-block", className)}>
+    <Panel
+      id={id}
+      className={cx("section-block", className)}
+      aria-busy={interactiveReady === false ? true : undefined}
+      data-client-interactive={
+        interactiveReady === undefined ? undefined : String(interactiveReady)
+      }
+      inert={interactiveReady === false ? true : undefined}
+    >
       {hasHeader ? (
         <SectionHeader
           title={title ?? "Section"}

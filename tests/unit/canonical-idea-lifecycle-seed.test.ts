@@ -243,7 +243,7 @@ describe("canonical Idea lifecycle seed", () => {
     );
   }, 30_000);
 
-  it.each(["reviewed_by_advisor", "approved"])(
+  it.each(["reviewed_by_advisor", "approved", "converted_to_proposal"])(
     "accepts an existing source-owned %s lifecycle without replaying setup transitions",
     async (sourceStatus) => {
       const result = await runLifecycleSeed(

@@ -229,7 +229,7 @@ That script performs:
    build metadata; built-image mode verifies Core query `/version` and OCI identity before seeding
 4. materialize the governed `PB_SG_GLOBAL_BAL_001` portfolio in Core without waiting for downstream products that have not started
 5. `docker compose up -d` for `lotus-performance`, `lotus-risk`, `lotus-ai`, `lotus-advise`, `lotus-manage`, `lotus-report`, and `lotus-idea`
-6. evaluate the materialized cash-movement and projection products through `lotus-idea`, persist the resulting low-income liquidity candidate, and progress that exact persisted candidate through Idea's public lifecycle API to source-confirmed review readiness
+6. evaluate the materialized cash-movement and projection products through `lotus-idea`, persist the resulting low-income liquidity candidate, and progress that exact persisted candidate through Idea's public lifecycle API to source-confirmed review readiness only when it has not already been reviewed, approved, or converted to a proposal
 7. start `lotus-archive` and `lotus-render`
 8. direct ingress restart on port `80` using `lotus-platform/platform-stack/dev-ingress/Caddyfile.direct-host`
 9. canonical `lotus-gateway` exposure on port `8100`
@@ -303,10 +303,11 @@ the exact tenant, book, portfolio, and client scope admitted by the seed request
 a missing, malformed, incomplete-scope, scope-mismatched, non-UTC, out-of-order, or non-reviewable
 artifact; forwards the recorded scope unchanged when it asks Gateway for the queue at the recorded
 queue-evaluation boundary; requires the review-ready candidate exactly once; allows a source-confirmed
-reviewed or approved candidate to be absent from the pending queue; and rejects evidence whose run
-identity differs from the active Idea `/version` build identity. A reviewed-candidate restart
-resumes only the missing conversion intent through the advisor UI; an approved-candidate restart is
-validated read-only through Gateway. Neither path manufactures another review.
+reviewed, approved, or proposal-converted candidate to be absent from the pending queue; and rejects
+evidence whose run identity differs from the active Idea `/version` build identity. A
+reviewed-candidate restart resumes only the missing conversion intent through the advisor UI; an
+approved or `converted_to_proposal` restart is validated read-only through Gateway. Neither path
+manufactures another review or conversion intent.
 Earlier unconverted candidates, stale artifacts, and fixed example-time defaults therefore cannot
 stand in for current-run browser evidence.
 
@@ -494,9 +495,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFron
 Run both commands from `lotus-workbench` with the same admitted
 `LOTUS_CANONICAL_RUNTIME_HOLDER`. `-RemoveVolumes` deletes only the Docker volumes owned by the
 admitted canonical Compose projects, but it destroys their local fixture data; use it only when a
-clean rehearsal is intended. An approved candidate is completed work and is correctly absent from
-the advisor-review queue. Do not rewind it, expand the queue contract, or use a volume reset as
-accepted-then-replayed durability evidence.
+clean rehearsal is intended. An approved or proposal-converted candidate is completed work and is
+correctly absent from the advisor-review queue.
+Do not rewind it, expand the queue contract, or use a volume reset as accepted-then-replayed
+durability evidence.
 
 ## Canonical bring-up with validation
 
@@ -518,7 +520,7 @@ probe. For a bounded diagnostic recheck, use standalone `client-demo`; it still 
 actual candidate and visible Workbench journey, but it is not demo-ready evidence:
 
 ```powershell
-npm run live:validate -- -ValidationProfile client-demo
+npm run live:validate:client-demo
 ```
 
 Reacquire and run `npm run live:stack:up:validate` before demo or release claims.
@@ -542,7 +544,7 @@ That script:
 To validate an already-running canonical stack in the `client-demo` profile:
 
 ```powershell
-npm run live:validate -- -ValidationProfile client-demo
+npm run live:validate:client-demo
 ```
 
 The standalone command is suitable for `client-demo`, which does not invoke the downstream probe.

@@ -20,8 +20,36 @@ export function assertClientContextMandateProof(proof: {
   renderedValue: string;
 }): { sourceMandate: string; renderedMandate: string };
 
+export function waitForClientInteractivity(
+  page: {
+    waitForFunction(
+      predicate: (selector: string) => boolean,
+      selector: string,
+      options: { timeout: number },
+    ): Promise<unknown>;
+  },
+  selector: string,
+  timeoutMs: number,
+): Promise<void>;
+
+export function navigateForInteractiveBusinessProof(
+  page: Parameters<typeof waitForClientInteractivity>[0] & {
+    goto(url: string, options?: Record<string, unknown>): Promise<{
+      ok(): boolean;
+      status(): number;
+    } | null>;
+  },
+  route: string,
+  interactiveSelector: string,
+  options: { timeout: number } & Record<string, unknown>,
+): Promise<{ ok(): boolean; status(): number }>;
+
 export function resolveCanonicalIdeaRestartPlan(
-  lifecycleStatus: "ready_for_review" | "reviewed_by_advisor" | "approved",
+  lifecycleStatus:
+    | "ready_for_review"
+    | "reviewed_by_advisor"
+    | "approved"
+    | "converted_to_proposal",
 ): {
   mutationsAllowed: boolean;
   reviewRequired: boolean;

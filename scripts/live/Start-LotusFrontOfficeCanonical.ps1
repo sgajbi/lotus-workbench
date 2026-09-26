@@ -915,7 +915,12 @@ function Invoke-CanonicalIdeaSeed {
     [string]$candidateDetail.candidate.candidateId -ne $candidateId -or
     [string]$candidateDetail.candidate.family -ne "low_income" -or
     [string]$candidateDetail.evidence.sourceCutPosture -ne $sourceCutPosture -or
-    $preparedLifecycleStatus -notin @("ready_for_review", "reviewed_by_advisor", "approved")
+    $preparedLifecycleStatus -notin @(
+      "ready_for_review",
+      "reviewed_by_advisor",
+      "approved",
+      "converted_to_proposal"
+    )
   ) {
     throw "Canonical Lotus Idea detail changed the persisted candidate's economic or lifecycle identity."
   }
@@ -1160,7 +1165,7 @@ if (-not $RunValidation) {
   Write-Host "  Render:    http://render.dev.lotus"
   Write-Host ""
   $followUpValidationCommand = if ($ValidationProfile -eq 'client-demo') {
-    'npm run live:validate -- -ValidationProfile client-demo'
+    'npm run live:validate:client-demo'
   } else {
     'npm run live:stack:up:validate'
   }

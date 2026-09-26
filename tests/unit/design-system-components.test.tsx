@@ -505,6 +505,29 @@ describe("design-system components", () => {
     expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
+  it("keeps server-rendered panel controls inert until their client owner is interactive", () => {
+    const { rerender } = render(
+      <SectionBlock title="Rebalance" interactiveReady={false}>
+        <button type="button">Preview</button>
+      </SectionBlock>,
+    );
+
+    const panel = screen.getByRole("article");
+    expect(panel).toHaveAttribute("aria-busy", "true");
+    expect(panel).toHaveAttribute("data-client-interactive", "false");
+    expect(panel).toHaveAttribute("inert");
+
+    rerender(
+      <SectionBlock title="Rebalance" interactiveReady>
+        <button type="button">Preview</button>
+      </SectionBlock>,
+    );
+
+    expect(panel).not.toHaveAttribute("aria-busy");
+    expect(panel).toHaveAttribute("data-client-interactive", "true");
+    expect(panel).not.toHaveAttribute("inert");
+  });
+
   it("renders shared semantic badges, action buttons, and true mode tabs", () => {
     const onChange = vi.fn();
     const onClick = vi.fn();

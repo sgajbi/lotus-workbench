@@ -70,6 +70,32 @@ export async function navigateForBusinessProof(page, route, options) {
   return response;
 }
 
+export async function waitForClientInteractivity(page, selector, timeoutMs) {
+  await page.waitForFunction(
+    (panelSelector) =>
+      globalThis.document
+        .querySelector(panelSelector)
+        ?.getAttribute("data-client-interactive") === "true",
+    selector,
+    { timeout: timeoutMs },
+  );
+}
+
+export async function navigateForInteractiveBusinessProof(
+  page,
+  route,
+  interactiveSelector,
+  options,
+) {
+  const timeoutMs = options?.timeout;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("Interactive canonical navigation requires a positive timeout.");
+  }
+  const response = await navigateForBusinessProof(page, route, options);
+  await waitForClientInteractivity(page, interactiveSelector, timeoutMs);
+  return response;
+}
+
 export function resolveLowIncomeIdeaCandidateId(candidateHref, workbenchBaseUrl) {
   if (!candidateHref) {
     throw new Error("The canonical cash-shortfall candidate link has no href.");
@@ -462,7 +488,10 @@ export function resolveCanonicalIdeaRestartPlan(lifecycleStatus) {
       actions: ["resume_conversion_intent"],
     };
   }
-  if (lifecycleStatus === "approved") {
+  if (
+    lifecycleStatus === "approved" ||
+    lifecycleStatus === "converted_to_proposal"
+  ) {
     return {
       mutationsAllowed: false,
       reviewRequired: false,
@@ -1183,10 +1212,18 @@ export async function validateAdvisoryJourneyScreens(
           "Idea candidate source-safe detail",
         );
         await expect(candidateDetailPanel).toBeVisible({ timeout: timeoutMs });
+        const completedLifecycleLabels = {
+          approved: "Approved",
+          converted_to_proposal: "Converted To Proposal",
+          reviewed_by_advisor: "Reviewed By Advisor",
+        };
         const expectedLifecycleLabel =
-          canonicalIdeaCandidateLifecycle === "approved"
-            ? "Approved"
-            : "Reviewed By Advisor";
+          completedLifecycleLabels[canonicalIdeaCandidateLifecycle];
+        if (!expectedLifecycleLabel) {
+          throw new Error(
+            `Unsupported read-only Idea lifecycle '${canonicalIdeaCandidateLifecycle}'.`,
+          );
+        }
         await expect(
           candidateDetailPanel.getByText(
             `Lifecycle: ${expectedLifecycleLabel}`,
@@ -3108,9 +3145,12 @@ export async function validateDpmCommandCenterPanel(
     screenshotRegisteredPanel,
   },
 ) {
-  await navigateForBusinessProof(page, `${workbenchBaseUrl}/workbench/${portfolioId}?mode=mandate`, {
-    timeout: timeoutMs,
-  });
+  await navigateForInteractiveBusinessProof(
+    page,
+    `${workbenchBaseUrl}/workbench/${portfolioId}?mode=mandate`,
+    "article#mandate-health-panel",
+    { timeout: timeoutMs },
+  );
   await expect(
     page.getByRole("heading", { name: "Mandate Health", exact: true }).first(),
   ).toBeVisible({
@@ -3197,9 +3237,12 @@ export async function validateDpmWaveCommandCenterPanel(
   page,
   { workbenchBaseUrl, portfolioId, timeoutMs, screenshotRegisteredPanel },
 ) {
-  await navigateForBusinessProof(page, `${workbenchBaseUrl}/workbench/${portfolioId}?mode=waves`, {
-    timeout: timeoutMs,
-  });
+  await navigateForInteractiveBusinessProof(
+    page,
+    `${workbenchBaseUrl}/workbench/${portfolioId}?mode=waves`,
+    "#rebalance-workspace",
+    { timeout: timeoutMs },
+  );
   const wavePanel = page.locator("#rebalance-workspace");
   await expect(
     wavePanel.getByRole("heading", { name: "Rebalance", exact: true }),
@@ -3386,8 +3429,9 @@ export async function validateConstructionAlternativesPanel(
   page,
   { workbenchBaseUrl, portfolioId, timeoutMs, screenshotRegisteredPanel },
 ) {
-  await navigateForBusinessProof(page,
+  await navigateForInteractiveBusinessProof(page,
     `${workbenchBaseUrl}/workbench/${portfolioId}?mode=construction`,
+    ".construction-alternatives-panel",
     {
       timeout: timeoutMs,
     },
@@ -3613,9 +3657,12 @@ export async function validateProofPackPanel(
     screenshotRegisteredPanel,
   },
 ) {
-  await navigateForBusinessProof(page, `${workbenchBaseUrl}/workbench/${portfolioId}?mode=proof`, {
-    timeout: timeoutMs,
-  });
+  await navigateForInteractiveBusinessProof(
+    page,
+    `${workbenchBaseUrl}/workbench/${portfolioId}?mode=proof`,
+    "#evidence-pack-panel",
+    { timeout: timeoutMs },
+  );
   const proofPackPanel = page.locator("#evidence-pack-panel");
   await expect(
     page.getByRole("heading", {
@@ -3634,6 +3681,11 @@ export async function validateProofPackPanel(
   ).toBeVisible({
     timeout: timeoutMs,
   });
+  const prepareEvidenceButton = proofPackPanel.getByRole("button", {
+    name: "Prepare evidence",
+    exact: true,
+  });
+  await expect(prepareEvidenceButton).toBeEnabled({ timeout: timeoutMs });
   const generationResponsePromise = page.waitForResponse(
     (response) => {
       const request = response.request();
@@ -3645,10 +3697,13 @@ export async function validateProofPackPanel(
     },
     { timeout: timeoutMs },
   );
-  await proofPackPanel
-    .getByRole("button", { name: "Prepare evidence", exact: true })
-    .click({ timeout: timeoutMs });
-  const generationResponse = await generationResponsePromise;
+  await prepareEvidenceButton.click({ timeout: timeoutMs });
+  const generationResponse = await generationResponsePromise.catch((error) => {
+    throw new Error(
+      "Prepare evidence did not emit the expected Workbench proof-pack response after client hydration.",
+      { cause: error },
+    );
+  });
   if (!generationResponse.ok()) {
     throw new Error(
       `Evidence-pack generation failed through Workbench BFF with HTTP ${generationResponse.status()}.`,
@@ -3686,7 +3741,12 @@ export async function validateProofPackPanel(
     { timeout: timeoutMs },
   );
   await advisorMemoButton.click({ timeout: timeoutMs });
-  const memoResponse = await memoResponsePromise;
+  const memoResponse = await memoResponsePromise.catch((error) => {
+    throw new Error(
+      "Open advisor memo did not emit the expected Workbench AI memo response.",
+      { cause: error },
+    );
+  });
   if (!memoResponse.ok()) {
     throw new Error(
       `Evidence Pack decision memo failed through Workbench BFF with HTTP ${memoResponse.status()}.`,

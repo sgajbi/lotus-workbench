@@ -98,7 +98,7 @@ The default `full` profile completes the real browser presentation, review, and 
 before Idea selects that current resource for one report-only downstream-capacity probe. Use the
 one-command entry point so its per-run trusted caller marker stays in memory and is never persisted.
 For a bounded diagnostic recheck of an already-running stack, use
-`npm run live:validate -- -ValidationProfile client-demo`. It records the excluded capacity probe
+`npm run live:validate:client-demo`. It records the excluded capacity probe
 and is not demo, full-profile, or release evidence; rerun the combined full command before claims.
 
 The runner refuses a missing or mismatched workspace before Docker mutation. PowerShell 7 can

@@ -4,6 +4,7 @@ import {
   SectionBlock,
   SemanticBadge,
 } from "@/design-system";
+import { useClientMounted } from "@/design-system/hooks/use-client-mounted";
 import type {
   WorkbenchPortfolio360,
 } from "@/features/workbench/types";
@@ -23,6 +24,7 @@ type Props = {
 };
 
 export default function ConstructionAlternativesPanel({ portfolio }: Props) {
+  const interactiveReady = useClientMounted();
   const {
     model,
     portfolioId,
@@ -48,6 +50,7 @@ export default function ConstructionAlternativesPanel({ portfolio }: Props) {
       title="Construction Alternatives"
       subtitle="Compare suitable implementation paths before advisor approval."
       className="construction-alternatives-panel"
+      interactiveReady={interactiveReady}
       actions={
         <div className="construction-alternatives-badge-row">
           <SemanticBadge tone={evidenceStatus.tone}>
