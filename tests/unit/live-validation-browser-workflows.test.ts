@@ -1634,7 +1634,7 @@ describe("live validation browser workflow helpers", () => {
     expect(source).toContain("submissionResponsePromise");
     expect(source).toContain("waitForReportJobTerminalProof");
     expect(source).toContain('name: "Refresh"');
-    expect(source).toContain('getByText("Current request"');
+    expect(source).toContain('filter({ hasText: "Current request" })');
     expect(source).not.toContain('"Report request recorded"');
     expect(source).not.toContain("screenshotRegisteredPanel");
   });

@@ -2154,9 +2154,9 @@ export async function validateReportCentrePanel(
   await expect(refreshHistoryButton).toHaveCount(1);
   await expect(refreshHistoryButton).toBeEnabled({ timeout: timeoutMs });
   await refreshHistoryButton.click({ timeout: timeoutMs });
-  const currentRequestRow = requestHistoryTable.getByRole("row").filter({
-    has: requestHistoryTable.getByText("Current request", { exact: true }),
-  });
+  const currentRequestRow = requestHistoryTable
+    .getByRole("row")
+    .filter({ hasText: "Current request" });
   await expect(currentRequestRow).toHaveCount(1, { timeout: timeoutMs });
   await expect(currentRequestRow).toContainText(
     terminalProof.terminalStatus === "archived"
