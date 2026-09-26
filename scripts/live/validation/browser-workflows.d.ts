@@ -48,6 +48,17 @@ export function waitForClientInteractivity(
   timeoutMs: number,
 ): Promise<void>;
 
+export function waitForWorkspaceNavigationSettlement(
+  page: {
+    waitForFunction(
+      predicate: (selector: string) => boolean,
+      selector: string,
+      options: { timeout: number },
+    ): Promise<unknown>;
+  },
+  timeoutMs: number,
+): Promise<void>;
+
 export function navigateForInteractiveBusinessProof(
   page: Parameters<typeof waitForClientInteractivity>[0] & {
     goto(url: string, options?: Record<string, unknown>): Promise<{

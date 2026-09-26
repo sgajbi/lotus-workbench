@@ -666,6 +666,10 @@ validator selects it and proves the reviewed request can be submitted. Both path
 review gates submission, one request is accepted, recent report-data history is populated, and
 archive retention and client delivery remain separate controls. The governed panel identifier is
 `reporting.report_centre`; central platform registration is tracked in `lotus-platform#582`.
+Every governed screenshot waits for both the panel proof and the shared **Workspace Navigation**
+shell to replace its availability-loading state. A shell that remains on **Checking availability**
+fails the run before a screenshot or `demo_ready` record is written; panel readiness alone is not
+visual acceptance.
 Advisor-book checks prove exactly one canonical portfolio belongs to the configured manager's
 Gateway own-book response through Core `PortfolioManagerBookMembership:v1` with
 `membership_basis=governed_role_assignment`. Before browser capture, the validator requires current

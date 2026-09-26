@@ -29,6 +29,7 @@ const {
   resolveCanonicalIdeaRestartPlan,
   waitForAdvisorBriefReviewConfirmation,
   waitForClientInteractivity,
+  waitForWorkspaceNavigationSettlement,
   navigateForInteractiveBusinessProof,
   navigateForBusinessProof,
   resolveLowIncomeIdeaCandidateId,
@@ -173,6 +174,16 @@ const {
       ) => Promise<void>;
     },
     selector: string,
+    timeoutMs: number,
+  ) => Promise<void>;
+  waitForWorkspaceNavigationSettlement: (
+    page: {
+      waitForFunction: (
+        predicate: (selector: string) => boolean,
+        selector: string,
+        options: { timeout: number },
+      ) => Promise<void>;
+    },
     timeoutMs: number,
   ) => Promise<void>;
   navigateForInteractiveBusinessProof: (
@@ -1345,6 +1356,26 @@ describe("live validation browser workflow helpers", () => {
     );
   });
 
+  it("waits for the global workspace shell before capturing governed screenshots", async () => {
+    const calls: Array<{ selector: string; timeout: number }> = [];
+
+    await waitForWorkspaceNavigationSettlement(
+      {
+        waitForFunction: async (_predicate, selector, options) => {
+          calls.push({ selector, timeout: options.timeout });
+        },
+      },
+      60_000,
+    );
+
+    expect(calls).toEqual([
+      { selector: '[aria-label="Workspace Navigation"]', timeout: 60_000 },
+    ]);
+    expect(waitForWorkspaceNavigationSettlement.toString()).toContain(
+      '[aria-label="Checking workspace availability"]',
+    );
+  });
+
   it("waits for the exact interactive panel after successful navigation", async () => {
     const events: string[] = [];
     const response = {
@@ -1493,6 +1524,10 @@ describe("live validation browser workflow helpers", () => {
 
       await helpers.screenshotRegisteredPanel(
         {
+          waitForFunction: async (_predicate, selector, options) => {
+            expect(selector).toBe('[aria-label="Workspace Navigation"]');
+            expect(options).toEqual({ timeout: 60000 });
+          },
           mouse: {
             move: async (x: number, y: number) => {
               mouseMoves.push({ x, y });
@@ -1533,4 +1568,48 @@ describe("live validation browser workflow helpers", () => {
       rmSync(tempDir, { recursive: true, force: true });
     }
   });
+  it("does not publish screenshot evidence when workspace settlement times out", async () => {
+    const tempDir = mkdtempSync(join(tmpdir(), "lotus-browser-workflow-unsettled-"));
+    const screenshot = vi.fn();
+    const summary = { uiChecks: [], screenshots: [], panelClassifications: [] };
+
+    try {
+      const helpers = createBrowserValidationHelpers({
+        outputDir: tempDir,
+        summary,
+        portfolioId: "PB_SG_GLOBAL_BAL_001",
+        benchmarkCode: "BMK_PB_GLOBAL_BALANCED_60_40",
+        canonicalAsOfDate: "2026-04-10",
+        timeoutMs: 100,
+        panelRegistryById: new Map([
+          [
+            "dpm.command_center",
+            {
+              screenshotName: "dpm-command-center-live.png",
+              route: "/workbench/{portfolio_id}",
+              requiredSupportState: "ready",
+            },
+          ],
+        ]),
+      });
+
+      await expect(
+        helpers.screenshotRegisteredPanel(
+          {
+            waitForFunction: async () => {
+              throw new Error("workspace navigation did not settle");
+            },
+            screenshot,
+          },
+          "dpm.command_center",
+        ),
+      ).rejects.toThrow("workspace navigation did not settle");
+
+      expect(screenshot).not.toHaveBeenCalled();
+      expect(summary.screenshots).toEqual([]);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
 });
