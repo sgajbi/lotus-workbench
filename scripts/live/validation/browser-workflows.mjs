@@ -1926,8 +1926,10 @@ export async function waitForReportJobTerminalProof({
 
   const deadline = now() + timeoutMs;
   let latestStatus = receipt?.status ?? "not_observed";
-  while (now() <= deadline) {
-    const history = await readHistory();
+  while (true) {
+    const remainingMs = deadline - now();
+    if (remainingMs <= 0) break;
+    const history = await readHistory(remainingMs);
     if (!history || !Array.isArray(history.items)) {
       throw new Error("Report Centre history returned no report-job collection.");
     }
@@ -1992,7 +1994,9 @@ export async function waitForReportJobTerminalProof({
         };
       }
     }
-    await wait(pollIntervalMs);
+    const remainingAfterReadMs = deadline - now();
+    if (remainingAfterReadMs <= 0) break;
+    await wait(Math.min(pollIntervalMs, remainingAfterReadMs));
   }
 
   throw new Error(
@@ -2000,25 +2004,55 @@ export async function waitForReportJobTerminalProof({
   );
 }
 
-async function readReportJobHistoryThroughWorkbench(page, portfolioId) {
+export async function readReportJobHistoryThroughWorkbench(
+  page,
+  portfolioId,
+  requestTimeoutMs,
+) {
+  if (!Number.isFinite(requestTimeoutMs) || requestTimeoutMs <= 0) {
+    throw new Error("Report Centre history request requires a positive timeout.");
+  }
   const query = new URLSearchParams({
     portfolioId,
     reportType: "portfolio_review",
     limit: "10",
   });
-  const result = await page.evaluate(async (pathWithQuery) => {
-    const response = await fetch(pathWithQuery, {
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: { Accept: "application/json" },
-    });
-    const body = await response.text();
-    return {
-      ok: response.ok,
-      status: response.status,
-      body,
-    };
-  }, `/api/bff/api/v1/report-jobs?${query.toString()}`);
+  const result = await page.evaluate(
+    async ({ pathWithQuery, requestTimeoutMs: browserTimeoutMs }) => {
+      const controller = new AbortController();
+      const timeout = globalThis.setTimeout(
+        () => controller.abort(),
+        browserTimeoutMs,
+      );
+      try {
+        const response = await fetch(pathWithQuery, {
+          cache: "no-store",
+          credentials: "same-origin",
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
+        const body = await response.text();
+        return {
+          ok: response.ok,
+          status: response.status,
+          body,
+        };
+      } catch (error) {
+        if (controller.signal.aborted) {
+          throw new Error(
+            `Report Centre history request exceeded ${browserTimeoutMs}ms through Workbench BFF.`,
+          );
+        }
+        throw error;
+      } finally {
+        globalThis.clearTimeout(timeout);
+      }
+    },
+    {
+      pathWithQuery: `/api/bff/api/v1/report-jobs?${query.toString()}`,
+      requestTimeoutMs,
+    },
+  );
   if (!result.ok) {
     throw new Error(
       `Report Centre history request failed through Workbench BFF with HTTP ${result.status}.`,
@@ -2145,7 +2179,8 @@ export async function validateReportCentrePanel(
     outputFormat: reportCentreProof.outputFormat,
     portfolioId,
     timeoutMs,
-    readHistory: () => readReportJobHistoryThroughWorkbench(page, portfolioId),
+    readHistory: (remainingMs) =>
+      readReportJobHistoryThroughWorkbench(page, portfolioId, remainingMs),
   });
   const refreshHistoryButton = page.getByRole("button", {
     name: "Refresh",

@@ -135,7 +135,7 @@ export function waitForReportJobTerminalProof(options: {
   outputFormat: "json" | "pdf";
   portfolioId: string;
   timeoutMs: number;
-  readHistory: () => Promise<unknown>;
+  readHistory: (requestTimeoutMs: number) => Promise<unknown>;
   pollIntervalMs?: number;
   now?: () => number;
   wait?: (delayMs: number) => Promise<void>;
@@ -145,6 +145,11 @@ export function waitForReportJobTerminalProof(options: {
   statusUrl: string;
   terminalStatus: "completed" | "archived";
 }>;
+export function readReportJobHistoryThroughWorkbench(
+  page: BrowserValidationPage,
+  portfolioId: string,
+  requestTimeoutMs: number,
+): Promise<unknown>;
 export function validateAdvisorBookPanel(
   page: BrowserValidationPage,
   options: Record<string, unknown>
