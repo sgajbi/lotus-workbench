@@ -150,6 +150,10 @@ export function readReportJobHistoryThroughWorkbench(
   portfolioId: string,
   requestTimeoutMs: number,
 ): Promise<unknown>;
+export function readReportSubmissionReceiptWithinDeadline(
+  response: { json: () => Promise<unknown> },
+  remainingMs: number,
+): Promise<unknown>;
 export function validateAdvisorBookPanel(
   page: BrowserValidationPage,
   options: Record<string, unknown>

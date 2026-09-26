@@ -27,6 +27,7 @@ const {
   hasRecordedAdvisorBriefAcceptProof,
   readAdvisorBriefReviewEvidence,
   readReportJobHistoryThroughWorkbench,
+  readReportSubmissionReceiptWithinDeadline,
   resolveCanonicalIdeaRestartPlan,
   waitForAdvisorBriefReviewConfirmation,
   waitForClientInteractivity,
@@ -194,6 +195,10 @@ const {
     },
     portfolioId: string,
     requestTimeoutMs: number,
+  ) => Promise<unknown>;
+  readReportSubmissionReceiptWithinDeadline: (
+    response: { json: () => Promise<unknown> },
+    remainingMs: number,
   ) => Promise<unknown>;
   waitForClientInteractivity: (
     page: {
@@ -1503,6 +1508,24 @@ describe("live validation browser workflow helpers", () => {
         },
       };
     };
+
+    it("bounds a stalled submission body by the remaining validation deadline", async () => {
+      await expect(
+        readReportSubmissionReceiptWithinDeadline(
+          { json: () => new Promise(() => undefined) },
+          20,
+        ),
+      ).rejects.toThrow(
+        "Report Centre submission response body exceeded the validation deadline.",
+      );
+
+      await expect(
+        readReportSubmissionReceiptWithinDeadline(
+          { json: async () => receipt },
+          100,
+        ),
+      ).resolves.toEqual(receipt);
+    });
 
     it("waits through delayed history and proves the exact archived PDF job", async () => {
       const responses = [

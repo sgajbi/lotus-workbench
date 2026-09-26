@@ -1920,6 +1920,36 @@ function normalizeCanonicalReportJobLifecycle(value) {
     : null;
 }
 
+export async function readReportSubmissionReceiptWithinDeadline(
+  response,
+  remainingMs,
+) {
+  if (!Number.isFinite(remainingMs) || remainingMs <= 0) {
+    throw new Error(
+      "Report Centre submission response body exceeded the validation deadline.",
+    );
+  }
+  let timeout;
+  try {
+    return await Promise.race([
+      response.json(),
+      new Promise((_, reject) => {
+        timeout = globalThis.setTimeout(
+          () =>
+            reject(
+              new Error(
+                "Report Centre submission response body exceeded the validation deadline.",
+              ),
+            ),
+          remainingMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timeout !== undefined) globalThis.clearTimeout(timeout);
+  }
+}
+
 export async function waitForReportJobTerminalProof({
   receipt,
   outputFormat,
@@ -2140,6 +2170,7 @@ export async function validateReportCentrePanel(
     name: "Submit Report Request",
   });
   await expect(submitButton).toBeEnabled({ timeout: timeoutMs });
+  const submissionDeadline = Date.now() + timeoutMs;
   const submissionResponsePromise = page.waitForResponse(
     (response) => {
       const url = new URL(response.url());
@@ -2157,7 +2188,10 @@ export async function validateReportCentrePanel(
       `Report Centre submission failed through Workbench BFF with HTTP ${submissionResponse.status()}.`,
     );
   }
-  const receipt = await submissionResponse.json();
+  const receipt = await readReportSubmissionReceiptWithinDeadline(
+    submissionResponse,
+    submissionDeadline - Date.now(),
+  );
   const requestReadiness = page.getByRole("region", {
     name: "Report request readiness",
   });
