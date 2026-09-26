@@ -623,8 +623,47 @@
 .historyStatus {
   display: grid;
   gap: 4px;
-  min-width: 230px;
+  min-width: 0;
   white-space: normal;
+}
+
+.historyIdentity {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.historyIdentity small {
+  color: #315d8a;
+  font-size: 0.67rem;
+  font-weight: 760;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.retainedHistoryDisclosure {
+  margin-top: 10px;
+  border-top: 1px solid #d8dde3;
+}
+
+.retainedHistoryDisclosure > summary {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  cursor: pointer;
+  color: #315d8a;
+  font-size: 0.78rem;
+  font-weight: 720;
+}
+
+.retainedHistoryDisclosure > summary:focus-visible {
+  border-radius: var(--radius-control);
+  outline: 3px solid rgba(54, 95, 139, 0.32);
+  outline-offset: 2px;
+}
+
+.retainedHistoryDisclosure[open] > summary {
+  margin-bottom: 8px;
 }
 
 .historyResponsive {
@@ -675,7 +714,7 @@
   }
 }
 
-@container report-request-history (min-width: 54rem) {
+@container report-request-history (min-width: 48rem) {
   .historyDesktop {
     display: block;
   }

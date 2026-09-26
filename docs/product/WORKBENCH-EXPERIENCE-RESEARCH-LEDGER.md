@@ -5602,19 +5602,21 @@ Research was reviewed on 2026-08-15 from standards and official enterprise-produ
 
 ### Adopted decisions
 
-1. Keep the semantic five-column comparison table when the history module owns at least 54rem
+1. Keep the semantic five-column comparison table when the history module owns at least 48rem
    of content width and all lifecycle and support fields fit without clipping.
-2. Below that content capacity, render a compact operational record that leads with report identity and
-   lifecycle, keeps report date and requested time together, and places the exact support reference
-   in a native disclosure.
-3. Derive both presentations from the same `ReportRequestRow`; compact layout must not invent,
+2. Below that content capacity, render at most three decision-relevant operational records by
+   default. Put the source-observed current accepted request first and state the exact number of
+   additional retained requests in a native disclosure.
+3. Each compact record leads with report identity and lifecycle, keeps report date and requested
+   time together, and places the exact support reference in its own native disclosure.
+4. Derive both presentations from the same `ReportRequestRow`; compact layout must not invent,
    reinterpret, or remove source evidence.
-4. Make the support disclosure keyboard-operable with stable focus and a measured 44-pixel target.
-5. Create a reusable design-system operational-record primitive with component-owned CSS rather
+5. Make both disclosure levels keyboard-operable with stable focus and a measured 44-pixel target.
+6. Create a reusable design-system operational-record primitive with component-owned CSS rather
    than adding Report Centre selectors to the global layer.
-6. Preserve explicit loading, empty, restricted, and error states in the compact presentation and
+7. Preserve explicit loading, empty, restricted, and error states in the compact presentation and
    keep the existing recovery actions.
-7. Preserve the last source-confirmed rows during background refresh and announce the refresh once
+8. Preserve the last source-confirmed rows during background refresh and announce the refresh once
    above both responsive presentations.
 
 ### Rejected decisions
@@ -5631,15 +5633,16 @@ Research was reviewed on 2026-08-15 from standards and official enterprise-produ
 
 ### Validation and publication decision
 
-Workbench #707 owns this slice. Focused design-system and history-state tests prove one complete row
-plus loading, empty, restricted, error, and recovery behavior; the existing Report Centre integration
-suite proves the underlying source workflow remains intact. The isolated optimized-production browser
-scenario proves the semantic table at a 1024-pixel tablet viewport, the compact record in a
-shell-constrained 1201-pixel workstation viewport and at 519 pixels, exact lifecycle and
-support access, keyboard disclosure focus, a 44-pixel target, and no page-level overflow. Reviewed
-diagnostic captures are stored under `output/playwright/diagnostic-report-centre-request-history-*`.
-The Report Centre guide, repository context, research ledger, and review ledger change. No Gateway,
-Report, OpenAPI, dependency, global CSS, runtime topology, identity, or entitlement truth changes.
+Workbench #707 introduced the responsive history; #1100 owns the retained-state hierarchy follow-up.
+Focused design-system, history-state, workflow-integration, registry-governance, and full Report Centre
+tests prove empty, single, current-out-of-order, and ten-record history plus loading, restricted, error,
+refresh, acceptance, and recovery behavior. The optimized-production browser scenario proves the
+semantic table at 1600 pixels, bounded compact history in a shell-constrained 1201-pixel workstation
+and at 519 pixels, complete expanded history, exact lifecycle and support access, keyboard disclosure
+focus, 44-pixel targets, and no page-level overflow. Reviewed diagnostic captures are stored under
+`output/playwright/diagnostic-report-centre-retained-history-*`. The Report Centre guide, research
+ledger, and review ledger change. No Gateway, Report, OpenAPI, dependency, global CSS, runtime
+topology, identity, or entitlement truth changes.
 
 ## Governed Same-Origin Typography Delivery
 

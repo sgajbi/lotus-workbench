@@ -407,7 +407,7 @@ test("keeps report lifecycle and support discoverable across content-width chang
   await page.keyboard.press("Enter");
   await expect(workstationHistory.getByText("rjob_1", { exact: true })).toBeVisible();
   await historyLayout.evaluate((element) => {
-    element.style.width = "54rem";
+    element.style.width = "48rem";
   });
   await expect(workstationHistory).toBeVisible();
   const workstationFrame = workstationHistory.locator("xpath=..");
@@ -415,7 +415,7 @@ test("keeps report lifecycle and support discoverable across content-width chang
     await workstationFrame.evaluate((element) => element.scrollWidth <= element.clientWidth),
   ).toBe(true);
   await historyLayout.evaluate((element) => {
-    element.style.width = "calc(54rem - 1px)";
+    element.style.width = "calc(48rem - 1px)";
   });
   await expect(workstationHistory).not.toBeVisible();
   await expect(
@@ -468,6 +468,74 @@ test("keeps report lifecycle and support discoverable across content-width chang
 
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(519);
   await captureDiagnosticScreenshot(page, "request-history-compact-519");
+});
+
+test("keeps retained request history decision-first and bounded at every content width", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.goto(
+    `/reports?portfolioId=${REPORT_CENTRE_FIXTURE_PORTFOLIOS.retainedHistory}`,
+    { waitUntil: "domcontentloaded" },
+  );
+  await expect(page.getByRole("heading", { name: "Approved report" })).toBeVisible({
+    timeout: 15_000,
+  });
+
+  const historyTable = page.getByRole("table", {
+    name: "Recent portfolio report requests",
+  });
+  await expect(historyTable).toBeVisible();
+  await expect(historyTable.getByRole("row")).toHaveCount(11);
+  expect(
+    await historyTable.locator("xpath=..").evaluate(
+      (element) => element.scrollWidth <= element.clientWidth,
+    ),
+  ).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1600);
+  await captureDiagnosticScreenshot(page, "retained-history-desktop-1600");
+
+  await page.setViewportSize({ width: 1201, height: 1000 });
+  await expect(historyTable).not.toBeVisible();
+  const recent = page.getByRole("list", {
+    name: "Recent portfolio report request details",
+  });
+  await expect(recent).toBeVisible();
+  await expect(recent.getByRole("article")).toHaveCount(3);
+
+  const retained = page.getByRole("list", {
+    name: "Additional retained portfolio report request details",
+  });
+  await expect(retained).not.toBeVisible();
+  const disclosure = page.getByText("Show 7 more retained requests", {
+    exact: true,
+  });
+  await disclosure.focus();
+  await expect(disclosure).toBeFocused();
+  expect(
+    await disclosure.evaluate((element) => element.getBoundingClientRect().height),
+  ).toBeGreaterThanOrEqual(44);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1201);
+  await captureDiagnosticScreenshot(page, "retained-history-shell-constrained-1201");
+
+  await page.keyboard.press("Enter");
+  await expect(retained).toBeVisible();
+  await expect(retained.getByRole("article")).toHaveCount(7);
+  await expect(disclosure).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(1201);
+  await captureDiagnosticScreenshot(page, "retained-history-expanded-1201");
+
+  await page.keyboard.press("Enter");
+  await expect(retained).not.toBeVisible();
+
+  await page.setViewportSize({ width: 519, height: 1000 });
+  await expect(historyTable).not.toBeVisible();
+  await expect(recent).toBeVisible();
+  await expect(recent.getByRole("article")).toHaveCount(3);
+  await expect(retained).not.toBeVisible();
+  await expect(disclosure).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(519);
+  await captureDiagnosticScreenshot(page, "retained-history-compact-519");
 });
 
 test("keeps Report centre task-aware while every specialist workspace remains reachable", async ({

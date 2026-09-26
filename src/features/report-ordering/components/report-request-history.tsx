@@ -15,11 +15,13 @@ import styles from "../report-ordering-workspace.module.css";
 
 export function ReportRequestHistory({
   rows,
+  currentReportJobId,
   state,
   error,
   onRefresh,
 }: {
   rows: ReportRequestRow[];
+  currentReportJobId: string | null;
   state: "loading" | "ready" | "permission_blocked" | "error";
   error: string | null;
   onRefresh: () => void;
@@ -28,6 +30,9 @@ export function ReportRequestHistory({
   const isInitialLoading = state === "loading" && !hasRows;
   const isRefreshing = state === "loading" && hasRows;
   const refreshFailed = state === "error" && hasRows;
+  const compactRows = prioritizeCurrentRequest(rows, currentReportJobId);
+  const visibleCompactRows = compactRows.slice(0, 3);
+  const retainedCompactRows = compactRows.slice(3);
 
   return (
     <SectionBlock
@@ -72,16 +77,21 @@ export function ReportRequestHistory({
                   body: "Submit the first approved report request for this portfolio.",
                 }}
                 columns={[
-                  { key: "report", label: "Report" },
-                  { key: "date", label: "Report date" },
-                  { key: "requested", label: "Requested" },
-                  { key: "status", label: "Lifecycle" },
-                  { key: "support", label: "Support" },
+                  { key: "report", label: "Report", width: "15%" },
+                  { key: "date", label: "Report date", width: "14%" },
+                  { key: "requested", label: "Requested", width: "19%" },
+                  { key: "status", label: "Lifecycle", width: "34%" },
+                  { key: "support", label: "Support", width: "18%" },
                 ]}
+                tableMinWidth="48rem"
                 rows={rows.map((row) => ({
                   key: row.key,
                   cells: [
-                    row.reportLabel,
+                    <ReportRequestIdentity
+                      key={`${row.key}-identity`}
+                      reportLabel={row.reportLabel}
+                      current={row.key === currentReportJobId}
+                    />,
                     row.reportDate,
                     row.requestedAt,
                     <div key={`${row.key}-status`} className={styles.historyStatus}>
@@ -110,26 +120,76 @@ export function ReportRequestHistory({
                   body="Submit the first approved report request for this portfolio."
                 />
               ) : (
-                <OperationalRecordList
-                  ariaLabel="Recent portfolio report request details"
-                  items={rows.map((row) => ({
-                    key: row.key,
-                    title: row.reportLabel,
-                    description: row.statusDetail,
-                    status: <SemanticBadge tone={row.tone}>{row.statusLabel}</SemanticBadge>,
-                    facts: [
-                      { label: "Report date", value: row.reportDate },
-                      { label: "Requested", value: row.requestedAt },
-                    ],
-                    detail: <ReportSupportReference reference={row.supportReference} />,
-                  }))}
-                />
+                <>
+                  <OperationalRecordList
+                    ariaLabel="Recent portfolio report request details"
+                    items={toOperationalRecords(visibleCompactRows, currentReportJobId)}
+                  />
+                  {retainedCompactRows.length > 0 ? (
+                    <details className={styles.retainedHistoryDisclosure}>
+                      <summary>
+                        Show {retainedCompactRows.length} more retained request
+                        {retainedCompactRows.length === 1 ? "" : "s"}
+                      </summary>
+                      <OperationalRecordList
+                        ariaLabel="Additional retained portfolio report request details"
+                        items={toOperationalRecords(retainedCompactRows, currentReportJobId)}
+                      />
+                    </details>
+                  ) : null}
+                </>
               )}
             </div>
           </div>
         </>
       )}
     </SectionBlock>
+  );
+}
+
+function prioritizeCurrentRequest(
+  rows: ReportRequestRow[],
+  currentReportJobId: string | null,
+): ReportRequestRow[] {
+  if (!currentReportJobId) return rows;
+  const currentRow = rows.find((row) => row.key === currentReportJobId);
+  return currentRow
+    ? [currentRow, ...rows.filter((row) => row.key !== currentReportJobId)]
+    : rows;
+}
+
+function toOperationalRecords(
+  rows: ReportRequestRow[],
+  currentReportJobId: string | null,
+) {
+  return rows.map((row) => ({
+    key: row.key,
+    title:
+      row.key === currentReportJobId
+        ? `Current request — ${row.reportLabel}`
+        : row.reportLabel,
+    description: row.statusDetail,
+    status: <SemanticBadge tone={row.tone}>{row.statusLabel}</SemanticBadge>,
+    facts: [
+      { label: "Report date", value: row.reportDate },
+      { label: "Requested", value: row.requestedAt },
+    ],
+    detail: <ReportSupportReference reference={row.supportReference} />,
+  }));
+}
+
+function ReportRequestIdentity({
+  reportLabel,
+  current,
+}: {
+  reportLabel: string;
+  current: boolean;
+}) {
+  return (
+    <div className={styles.historyIdentity}>
+      <span>{reportLabel}</span>
+      {current ? <small>Current request</small> : null}
+    </div>
   );
 }
 

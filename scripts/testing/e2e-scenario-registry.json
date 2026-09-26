@@ -272,7 +272,7 @@
         "LOTUS_ENVIRONMENT": "dev",
         "WORKBENCH_REPORTING_AUTH_MODE": "development_configured",
         "WORKBENCH_REPORTING_CALLER_ROLE": "client_advisor",
-        "WORKBENCH_REPORTING_CALLER_PORTFOLIO_IDS": "PB_REPORT_READY_001,PB_REPORT_RECOVERY_001,PB_REPORT_RESTRICTED_001,PB_REPORT_EMPTY_001"
+        "WORKBENCH_REPORTING_CALLER_PORTFOLIO_IDS": "PB_REPORT_READY_001,PB_REPORT_RETAINED_HISTORY_001,PB_REPORT_RECOVERY_001,PB_REPORT_RESTRICTED_001,PB_REPORT_EMPTY_001"
       },
       "scenarios": {
         "state-matrix": {
@@ -287,6 +287,7 @@
             "orders a reviewed portfolio bundle and renders source-owned outcomes",
             "tracks an accepted request and deliberately starts a second at constrained width",
             "keeps report lifecycle and support discoverable across content-width changes",
+            "keeps retained request history decision-first and bounded at every content width",
             "keeps Report centre task-aware while every specialist workspace remains reachable",
             "respects the shared rail content capacity at 721px",
             "respects the shared rail content capacity at 720px",
@@ -304,6 +305,9 @@
           "focuses": {
             "advisor-commentary": [
               "uses the exact source-reviewed Advisor Brief without manual authority"
+            ],
+            "retained-history": [
+              "keeps retained request history decision-first and bounded at every content width"
             ]
           }
         }
