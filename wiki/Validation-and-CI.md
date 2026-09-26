@@ -24,7 +24,7 @@ defaults to `full`: Idea's presentation-backed downstream-capacity probe and its
 required. The
 explicit `client-demo` profile is a bounded standalone diagnostic recheck. It records the excluded
 probe and still requires Idea readiness, a current-run candidate/queue, real API/calculation and
-browser-panel proof. Select it with `npm run live:validate -- -ValidationProfile client-demo`;
+browser-panel proof. Select it with `npm run live:validate:client-demo`;
 reacquire and rerun `npm run live:stack:up:validate` before demo or release claims.
 
 ## Lane model
@@ -238,7 +238,7 @@ CODEOWNERS when a second accepted reviewer exists.
   multi-region, identity, or bank-capacity certification.
   Successful replica distribution uses the terminal address from each balancer attempt chain; a
   failed first attempt retried through the same healthy replica cannot satisfy the two-replica gate.
-- `npm run live:validate -- -ValidationProfile client-demo`
+- `npm run live:validate:client-demo`
   bounded diagnostic recheck of an already-running stack; not demo or release evidence
 - `npm run live:stack:up:validate`
   one-command canonical stack bring-up and validation; this rebuilds Docker-backed service images

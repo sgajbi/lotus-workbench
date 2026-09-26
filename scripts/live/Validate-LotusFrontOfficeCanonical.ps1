@@ -36,7 +36,7 @@ if (
   throw (
     "Full canonical validation requires the ephemeral Idea capacity capability created by " +
     "'npm run live:stack:up:validate'. Standalone live:validate supports only " +
-    "'-ValidationProfile client-demo'."
+    "'npm run live:validate:client-demo'."
   )
 }
 Import-Module (Join-Path $ProjectsRoot 'lotus-platform/automation/CanonicalRuntimeReservation.psm1')

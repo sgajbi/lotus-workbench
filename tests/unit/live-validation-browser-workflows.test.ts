@@ -28,12 +28,18 @@ const {
   readAdvisorBriefReviewEvidence,
   resolveCanonicalIdeaRestartPlan,
   waitForAdvisorBriefReviewConfirmation,
+  waitForClientInteractivity,
+  navigateForInteractiveBusinessProof,
   navigateForBusinessProof,
   resolveLowIncomeIdeaCandidateId,
   requireLowIncomeIdeaCandidateId,
   validateAdvisorBriefPanel,
   validateAdvisoryJourneyScreens,
+  validateConstructionAlternativesPanel,
+  validateDpmCommandCenterPanel,
+  validateDpmWaveCommandCenterPanel,
   validatePmOperatingQualityPanel,
+  validateProofPackPanel,
 } = browserWorkflowModule as unknown as {
   assertClientContextMandateProof: (proof: {
     sourceValue: string;
@@ -112,7 +118,11 @@ const {
     candidateId: string;
   }) => string;
   resolveCanonicalIdeaRestartPlan: (
-    lifecycleStatus: "ready_for_review" | "reviewed_by_advisor" | "approved",
+    lifecycleStatus:
+      | "ready_for_review"
+      | "reviewed_by_advisor"
+      | "approved"
+      | "converted_to_proposal",
   ) => {
     mutationsAllowed: boolean;
     reviewRequired: boolean;
@@ -154,6 +164,33 @@ const {
       wait?: (delayMs: number) => Promise<void>;
     },
   ) => Promise<void>;
+  waitForClientInteractivity: (
+    page: {
+      waitForFunction: (
+        predicate: (selector: string) => boolean,
+        selector: string,
+        options: { timeout: number },
+      ) => Promise<void>;
+    },
+    selector: string,
+    timeoutMs: number,
+  ) => Promise<void>;
+  navigateForInteractiveBusinessProof: (
+    page: {
+      waitForFunction: (
+        predicate: (selector: string) => boolean,
+        selector: string,
+        options: { timeout: number },
+      ) => Promise<void>;
+      goto: (
+        url: string,
+        options: { timeout: number },
+      ) => Promise<{ ok: () => boolean; status: () => number }>;
+    },
+    route: string,
+    interactiveSelector: string,
+    options: { timeout: number },
+  ) => Promise<{ ok: () => boolean; status: () => number }>;
   navigateForBusinessProof: (
     page: {
       goto: (
@@ -171,7 +208,11 @@ const {
   requireLowIncomeIdeaCandidateId: (candidateId: string | null) => string;
   validateAdvisorBriefPanel: (...args: unknown[]) => Promise<void>;
   validateAdvisoryJourneyScreens: (...args: unknown[]) => Promise<void>;
+  validateConstructionAlternativesPanel: (...args: unknown[]) => Promise<void>;
+  validateDpmCommandCenterPanel: (...args: unknown[]) => Promise<void>;
+  validateDpmWaveCommandCenterPanel: (...args: unknown[]) => Promise<void>;
   validatePmOperatingQualityPanel: (...args: unknown[]) => Promise<void>;
+  validateProofPackPanel: (...args: unknown[]) => Promise<void>;
 };
 
 type AdvisorBriefReviewEvidence = {
@@ -1055,6 +1096,11 @@ describe("live validation browser workflow helpers", () => {
       reviewRequired: false,
       actions: [],
     });
+    expect(resolveCanonicalIdeaRestartPlan("converted_to_proposal")).toEqual({
+      mutationsAllowed: false,
+      reviewRequired: false,
+      actions: [],
+    });
     expect(() =>
       resolveCanonicalIdeaRestartPlan("generated" as "approved"),
     ).toThrow(/Unsupported canonical Idea restart lifecycle/);
@@ -1276,6 +1322,67 @@ describe("live validation browser workflow helpers", () => {
     );
     expect(source).not.toContain('{ name: "Operational details" }');
     expect(source).not.toContain('{ name: "Support details" }');
+  });
+
+  it("waits for client hydration before exercising a server-rendered mutation control", async () => {
+    const calls: Array<{ selector: string; timeout: number }> = [];
+
+    await waitForClientInteractivity(
+      {
+        waitForFunction: async (_predicate, selector, options) => {
+          calls.push({ selector, timeout: options.timeout });
+        },
+      },
+      "#rebalance-workspace",
+      60_000,
+    );
+
+    expect(calls).toEqual([
+      { selector: "#rebalance-workspace", timeout: 60_000 },
+    ]);
+    expect(waitForClientInteractivity.toString()).toContain(
+      'getAttribute("data-client-interactive") === "true"',
+    );
+  });
+
+  it("waits for the exact interactive panel after successful navigation", async () => {
+    const events: string[] = [];
+    const response = {
+      ok: () => true,
+      status: () => 200,
+    };
+
+    await navigateForInteractiveBusinessProof(
+      {
+        goto: async () => {
+          events.push("navigation-started");
+          return response;
+        },
+        waitForFunction: async (_predicate, selector) => {
+          events.push(`interactive:${selector}`);
+        },
+      },
+      "http://workbench.dev.lotus/workbench/PB_SG_GLOBAL_BAL_001?mode=proof",
+      "#evidence-pack-panel",
+      { timeout: 60_000 },
+    );
+
+    expect(events).toEqual([
+      "navigation-started",
+      "interactive:#evidence-pack-panel",
+    ]);
+    expect(
+      validateDpmCommandCenterPanel.toString(),
+    ).toContain('"article#mandate-health-panel"');
+    expect(
+      validateDpmWaveCommandCenterPanel.toString(),
+    ).toContain('"#rebalance-workspace"');
+    expect(
+      validateConstructionAlternativesPanel.toString(),
+    ).toContain('".construction-alternatives-panel"');
+    expect(validateProofPackPanel.toString()).toContain(
+      '"#evidence-pack-panel"',
+    );
   });
 
   it.each([

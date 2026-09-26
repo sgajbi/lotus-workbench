@@ -140,15 +140,16 @@ every transition it reads the exact candidate with the complete scope above. Sou
 `reviewed_by_advisor` and an exact current `approved` state already exceed that preparation
 boundary and are not rewound or replayed. Idea reopens only a pre-conversion approval whose
 recorded review authority was superseded by refreshed material evidence. An identity mismatch,
-converted or terminal state, or missing source proof stops startup. This prepares test data only
+unrelated conversion or terminal state, or missing source proof stops startup. The exact
+`converted_to_proposal` candidate is admitted only as completed read-only replay. This prepares test data only
 and does not move lifecycle policy into Workbench.
 
 An ordinary restart of a `reviewed_by_advisor` candidate resumes only the missing conversion
-intent through the advisor UI. An exactly approved candidate is completed work and is therefore
-absent from the pending advisor-review queue; restart confirms that lifecycle through Gateway and
-skips a second review/conversion mutation. If refreshed source evidence superseded the approval,
-Idea deliberately returns the pre-conversion candidate to review readiness. Before a clean
-full rehearsal of those mutations, acquire
+intent through the advisor UI. An exactly approved or `converted_to_proposal` candidate is
+completed work and is therefore absent from the pending advisor-review queue; restart confirms
+that lifecycle through Gateway and skips a second review/conversion mutation. If refreshed source
+evidence superseded the approval, Idea deliberately returns the pre-conversion candidate to review
+readiness. Before a clean full rehearsal of those mutations, acquire
 the canonical runtime reservation and run the
 shipped `scripts/live/Stop-LotusFrontOfficeCanonical.ps1` entry point with `-ProjectsRoot`,
 `-RemoveVolumes`, and `-KeepReservation`; then run `npm run live:stack:up:validate` under the same

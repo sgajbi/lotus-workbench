@@ -29,9 +29,12 @@ export function resolveValidationConfig(argv, cwd = process.cwd()) {
   const ideaCandidateLifecycle =
     args.get("idea-candidate-lifecycle") ?? "ready_for_review";
   if (
-    !["ready_for_review", "reviewed_by_advisor", "approved"].includes(
-      ideaCandidateLifecycle,
-    )
+    ![
+      "ready_for_review",
+      "reviewed_by_advisor",
+      "approved",
+      "converted_to_proposal",
+    ].includes(ideaCandidateLifecycle)
   ) {
     throw new Error(
       `Unsupported canonical Idea candidate lifecycle: ${ideaCandidateLifecycle}`,

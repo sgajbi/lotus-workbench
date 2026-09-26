@@ -59,6 +59,12 @@ describe("live validation contract modules", () => {
       resolveValidationConfig(["--idea-candidate-lifecycle", "approved"])
         .ideaCandidateLifecycle,
     ).toBe("approved");
+    expect(
+      resolveValidationConfig([
+        "--idea-candidate-lifecycle",
+        "converted_to_proposal",
+      ]).ideaCandidateLifecycle,
+    ).toBe("converted_to_proposal");
     expect(() =>
       resolveValidationConfig(["--idea-candidate-lifecycle", "generated"]),
     ).toThrow("Unsupported canonical Idea candidate lifecycle");

@@ -10,6 +10,7 @@ import {
   useAdmittedSourceSelection,
 } from "@/design-system";
 import { cx } from "@/design-system/utils/cx";
+import { useClientMounted } from "@/design-system/hooks/use-client-mounted";
 import { buildDpmCommandCenterPanelModel } from "@/features/workbench/dpm-command-center-view-model";
 import {
   clampMandateHealthPercent,
@@ -49,6 +50,7 @@ type Props = {
 };
 
 export default function ManageMandateHealth({ data }: Props) {
+  const interactiveReady = useClientMounted();
   const commandModel = buildDpmCommandCenterPanelModel({
     commandCenter: data.commandCenter,
     exceptions: data.commandCenterExceptions,
@@ -112,6 +114,7 @@ export default function ManageMandateHealth({ data }: Props) {
       subtitle="Review mandate posture, select an attention item, and inspect its source-owned next step and evidence."
       className={styles.panel}
       headerClassName={styles.header}
+      interactiveReady={interactiveReady}
       actions={
         <SemanticBadge tone={toneForState(commandModel.supportabilityState)}>
           {businessStateLabel(commandModel.supportabilityState)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { SectionBlock } from "@/design-system";
+import { useClientMounted } from "@/design-system/hooks/use-client-mounted";
 import DpmAiWorkflowResult from "@/features/workbench/components/dpm-ai-workflow-result";
 import ProofPackSummary from "@/features/workbench/components/proof-pack-summary";
 import ProofPackWorkspace from "@/features/workbench/components/proof-pack-workspace";
@@ -33,6 +34,7 @@ export default function ProofPackPanel({
   initialProofPack,
   errorMessage,
 }: Props) {
+  const interactiveReady = useClientMounted();
   const sharedProofPack = useManageProofPackState();
   const resolvedErrorMessage = sharedProofPack?.proofPack ? null : errorMessage;
   const context = deriveProofPackContext(outcomeReviews, rebalanceSnapshot ?? null);
@@ -63,6 +65,7 @@ export default function ProofPackPanel({
     <SectionBlock
       id="evidence-pack-panel"
       className={styles.panel}
+      interactiveReady={interactiveReady}
     >
       {showEmbeddedHeading ? (
         <h2 className={styles.embeddedHeading}>Evidence Pack</h2>

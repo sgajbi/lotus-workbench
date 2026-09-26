@@ -191,7 +191,11 @@ try {
   ) {
     throw "Valid evidence did not perform exactly one version, queue, and detail read."
   }
-  foreach ($lifecycleStatus in @("reviewed_by_advisor", "approved")) {
+  foreach ($lifecycleStatus in @(
+      "reviewed_by_advisor",
+      "approved",
+      "converted_to_proposal"
+    )) {
     $participatingPath = Join-Path $fixtureRoot "$lifecycleStatus.json"
     New-CandidateEvidence `
       -AccessScope $validScope `
@@ -234,6 +238,17 @@ try {
     -PortfolioId $portfolioId `
     -ExpectedCandidateId $candidateId `
     -ExpectedLifecycleStatus "approved" `
+    -ExpectedSourceCutPosture "coherent" `
+    -EvaluatedAtUtc $queueEvaluatedAtUtc `
+    -AccessScope ([pscustomobject]$validScope) `
+    -QueueReader $approvedAbsentQueueReader `
+    -DetailReader $detailReader
+  $script:detailLifecycleStatus = "converted_to_proposal"
+  Assert-IdeaQueueSeed `
+    -GatewayBaseUrl "http://gateway.dev.lotus" `
+    -PortfolioId $portfolioId `
+    -ExpectedCandidateId $candidateId `
+    -ExpectedLifecycleStatus "converted_to_proposal" `
     -ExpectedSourceCutPosture "coherent" `
     -EvaluatedAtUtc $queueEvaluatedAtUtc `
     -AccessScope ([pscustomobject]$validScope) `

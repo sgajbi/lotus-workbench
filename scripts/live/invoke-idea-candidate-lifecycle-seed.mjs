@@ -23,6 +23,7 @@ const LIFECYCLE_RANK = new Map([
   ["ready_for_review", 4],
   ["reviewed_by_advisor", 5],
   ["approved", 6],
+  ["converted_to_proposal", 7],
 ]);
 
 function readOptions() {

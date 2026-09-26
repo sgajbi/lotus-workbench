@@ -65,7 +65,8 @@ function Read-IdeaCandidateSeedEvidence {
     [string]$evidence.lifecycleStatus -notin @(
       "ready_for_review",
       "reviewed_by_advisor",
-      "approved"
+      "approved",
+      "converted_to_proposal"
     )
   ) {
     throw "Canonical Lotus Idea candidate seed evidence has no demo-participating lifecycle."

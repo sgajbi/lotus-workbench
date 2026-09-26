@@ -1103,7 +1103,7 @@ describe("canonical live validation script", () => {
       "$preparedQueueItems.Count -notin $expectedQueueMatches",
     );
     expect(startScript).toContain(
-      '$preparedLifecycleStatus -notin @("ready_for_review", "reviewed_by_advisor", "approved")',
+      '"converted_to_proposal"',
     );
     expect(validationScript).toContain('"--idea-candidate-lifecycle"');
     expect(browserValidator).toContain(
@@ -1369,7 +1369,7 @@ describe("canonical live validation script", () => {
       "$followUpValidationCommand = if ($ValidationProfile -eq 'client-demo') {",
     );
     expect(startScript).toContain(
-      "'npm run live:validate -- -ValidationProfile client-demo'",
+      "'npm run live:validate:client-demo'",
     );
     expect(startScript).toContain("'npm run live:stack:up:validate'");
     expect(startScript).toContain(
