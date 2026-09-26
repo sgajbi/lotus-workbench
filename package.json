@@ -37,7 +37,7 @@
     "quality:dependency-risk": "node scripts/quality/check-dependency-risk-inventory.mjs",
     "quality:unused-code": "node scripts/quality/check-unused-code.mjs",
     "quality:font-assets": "node scripts/quality/check-font-asset-governance.mjs",
-    "quality:product-copy": "node scripts/quality/check-product-copy-governance.mjs --max=226 --max-unresolved=1692 --unresolved-digest=421c3897e6ddea9e95db740112853fddae572c8a0c8e7322c62b6afab37b400f",
+    "quality:product-copy": "node scripts/quality/check-product-copy-governance.mjs --max=226 --max-unresolved=1692 --unresolved-digest=ec75c5e736a0a5cddebe06277738b5d3b7aac5a92b5a34d00e5af9bf93c09f3e",
     "quality:e2e-scenarios": "node scripts/quality/check-e2e-scenario-governance.mjs",
     "quality:portfolio-record-bundles": "node scripts/quality/check-portfolio-record-bundles.mjs",
     "scale:proof": "node scripts/scale/run-workbench-scale-proof.mjs",

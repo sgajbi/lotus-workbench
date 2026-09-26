@@ -210,6 +210,7 @@ function ReportOrderingWorkspaceSession({
   const requestHistory = (
     <ReportRequestHistory
       rows={workflow.historyRows}
+      currentReportJobId={workflow.submittedHandle?.report_job_id ?? null}
       state={workflow.historyState}
       error={workflow.historyError}
       onRefresh={() => void workflow.refreshHistory()}

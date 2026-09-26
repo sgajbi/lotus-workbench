@@ -124,11 +124,15 @@ controls and do not occur on this screen.
   another request. Workbench publishes the addressed outcomes only when the source batch identity,
   selected portfolio, review date, and any published reporting currency agree with the active
   review context; a mismatch fails closed.
-- Presents recent request history as a comparison table when the module owns at least 54rem of
+- Presents recent request history as a comparison table when the module owns at least 48rem of
   content width, then as compact operational records below that capacity. This follows the module,
-  not the browser viewport, so three-rail advisor layouts do not force a clipped table. Both presentations use the same
-  source-backed row: report identity, report date, requested time, lifecycle, lifecycle explanation,
-  and support reference are never removed for compact screens.
+  not the browser viewport, so three-rail advisor layouts do not force a clipped table.
+- Keeps the compact default bounded to three decision-relevant requests. A source-observed current
+  accepted request appears first; an explicit native disclosure states how many earlier retained
+  requests remain and makes every one reachable without deleting or relabelling history.
+- Derives both presentations from the same source-backed row: report identity, report date,
+  requested time, lifecycle, lifecycle explanation, and support reference are never removed for
+  compact screens.
 - Keeps the compact support reference behind a native keyboard and touch disclosure with a
   44-pixel target. The linear record avoids a nested horizontal hunt while the workstation table
   retains column comparison where there is sufficient width.

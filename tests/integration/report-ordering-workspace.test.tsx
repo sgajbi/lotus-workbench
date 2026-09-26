@@ -557,6 +557,23 @@ describe("ReportOrderingWorkspace", () => {
   });
 
   it("requires an explicit review before idempotent submission", async () => {
+    const acceptedHistory = buildReportJobListResponse();
+    acceptedHistory.count = 2;
+    acceptedHistory.items.unshift({
+      ...acceptedHistory.items[0],
+      reportJobId: "rjob_2",
+      reportRequestId: "rrq_2",
+      status: "queued",
+      currentStep: "queued",
+      idempotencyKey: "accepted_intent",
+      correlationId: "corr_2",
+      createdAt: "2026-04-22T09:02:00Z",
+      updatedAt: "2026-04-22T09:02:00Z",
+    });
+    historyMock
+      .mockResolvedValueOnce(buildReportJobListResponse())
+      .mockResolvedValue(acceptedHistory);
+
     render(<ReportOrderingWorkspace portfolio={portfolio} />);
     await screen.findByRole("heading", { name: "Approved report" });
 
@@ -591,13 +608,20 @@ describe("ReportOrderingWorkspace", () => {
     expect(
       screen.getByRole("table", { name: "Recent portfolio report requests" }),
     ).toBeInTheDocument();
+    const recentRequests = screen.getByRole("table", {
+      name: "Recent portfolio report requests",
+    });
+    const currentRequestRow = within(recentRequests)
+      .getByText("Current request")
+      .closest("tr");
+    expect(currentRequestRow).not.toBeNull();
+    expect(within(currentRequestRow as HTMLElement).getByText("rjob_2")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Submit Report Request" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Create another report" }),
     ).toBeEnabled();
-    expect(screen.getByText("rjob_2")).toBeInTheDocument();
     expect(submitMock).toHaveBeenCalledWith(
       expect.objectContaining({
         portfolioId: "PB_SG_GLOBAL_BAL_001",

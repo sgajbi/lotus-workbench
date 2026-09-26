@@ -13,6 +13,7 @@ const RECOVERY_PORTFOLIO_ID = "PB_REPORT_RECOVERY_001";
 
 export const REPORT_CENTRE_FIXTURE_PORTFOLIOS = {
   ready: "PB_REPORT_READY_001",
+  retainedHistory: "PB_REPORT_RETAINED_HISTORY_001",
   recovery: RECOVERY_PORTFOLIO_ID,
   restricted: "PB_REPORT_RESTRICTED_001",
   empty: "PB_REPORT_EMPTY_001",
@@ -115,10 +116,32 @@ export async function startReportCentreFixtureGateway({
         return;
       }
       const history = buildReportJobListResponse();
+      const items =
+        portfolioId === REPORT_CENTRE_FIXTURE_PORTFOLIOS.retainedHistory
+          ? Array.from({ length: 10 }, (_, index) => ({
+              ...history.items[0],
+              reportJobId: `rjob_retained_${index + 1}`,
+              reportRequestId: `rrq_retained_${index + 1}`,
+              portfolioScope: { portfolio_ids: [portfolioId] },
+              status: index === 0 ? "queued" : "failed",
+              currentStep: index === 0 ? "queued" : "failed",
+              failureCategory: index === 0 ? null : "source_unavailable",
+              retryEligible: index > 0,
+              idempotencyKey: `retained_intent_${index + 1}`,
+              correlationId: `corr_retained_${index + 1}`,
+              createdAt: new Date(
+                Date.UTC(2026, 3, 22, 9 - index, 0, 0),
+              ).toISOString(),
+              updatedAt: new Date(
+                Date.UTC(2026, 3, 22, 9 - index, 1, 0),
+              ).toISOString(),
+            }))
+          : history.items;
       sendJson(response, {
         ...history,
+        count: items.length,
         appliedFilters: { ...history.appliedFilters, portfolioId },
-        items: history.items.map((item) => {
+        items: items.map((item) => {
           if (portfolioId === REPORT_CENTRE_FIXTURE_PORTFOLIOS.unknownLifecycle) {
             return { ...item, status: "future_lifecycle", currentStep: "future_step" };
           }

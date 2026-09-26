@@ -105,7 +105,7 @@ describe("E2E fixture scenario registry", () => {
       portfolio: 15,
       performance: 27,
       manage: 9,
-      reports: 20,
+      reports: 21,
     });
   });
 });
