@@ -36,13 +36,7 @@ import {
   SectionHeader,
   SemanticBadge,
   SourceRefreshAction,
-  WorkspaceGrid,
   WorkspaceHeader,
-  WorkspaceLayout,
-  WorkspaceMain,
-  WorkspaceRail,
-  WorkspaceRailLink,
-  WorkspaceSide,
   WorkspaceMenuNav,
   WorkbenchDeferredSection,
   WorkbenchChoiceGroup,
@@ -309,31 +303,6 @@ describe("design-system components", () => {
       "panel-shell-surface-secondary",
       "panel-shell-density-compact"
     );
-  });
-
-  it("renders shared workspace layout primitives with structural classes", () => {
-    render(
-      <WorkspaceLayout compact>
-        <WorkspaceRail>
-          <Panel>Rail</Panel>
-        </WorkspaceRail>
-        <WorkspaceMain>
-          <WorkspaceGrid>
-            <Panel>Main</Panel>
-          </WorkspaceGrid>
-        </WorkspaceMain>
-        <WorkspaceSide>
-          <Panel>Side</Panel>
-        </WorkspaceSide>
-      </WorkspaceLayout>
-    );
-
-    expect(screen.getByText("Rail").closest("section, aside, div")).toBeTruthy();
-    expect(document.querySelector(".workspace-layout-compact")).toBeTruthy();
-    expect(document.querySelector(".workspace-rail")).toBeTruthy();
-    expect(document.querySelector(".workspace-main")).toBeTruthy();
-    expect(document.querySelector(".workspace-grid")).toBeTruthy();
-    expect(document.querySelector(".workspace-side")).toBeTruthy();
   });
 
   it("renders the shared workstation shell with explicit slot structure", () => {
@@ -762,25 +731,16 @@ describe("design-system components", () => {
     expect(screen.getByRole("heading", { name: "Portfolio Context" })).toBeInTheDocument();
   });
 
-  it("renders degraded state and rail link primitives", () => {
+  it("renders degraded state actions", () => {
     render(
-      <>
-        <DegradedStatePanel
-          label="Workspace"
-          title="Portfolio unavailable"
-          status="Core feed unavailable"
-          actions={[{ href: "/performance", label: "Open Performance" }]}
-        >
-          <p>Upstream services are unavailable.</p>
-        </DegradedStatePanel>
-        <WorkspaceRailLink
-          href="/portfolio?portfolioId=PORT_1"
-          title="Global Balanced"
-          meta="PORT_1"
-          detail="USD · SG"
-          active
-        />
-      </>
+      <DegradedStatePanel
+        label="Workspace"
+        title="Portfolio unavailable"
+        status="Core feed unavailable"
+        actions={[{ href: "/performance", label: "Open Performance" }]}
+      >
+        <p>Upstream services are unavailable.</p>
+      </DegradedStatePanel>
     );
 
     expect(screen.getByText("Portfolio unavailable")).toBeInTheDocument();
@@ -788,9 +748,6 @@ describe("design-system components", () => {
     expect(screen.getByRole("link", { name: "Open Performance" })).toHaveAttribute(
       "href",
       "/performance"
-    );
-    expect(screen.getByRole("link", { name: /Global Balanced/i })).toHaveClass(
-      "portfolio-rail-item-active"
     );
   });
 

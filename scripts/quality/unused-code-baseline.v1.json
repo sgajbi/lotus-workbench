@@ -8,6 +8,6 @@
     "tests/** are executable proof and are not production reachability roots",
     "eslint.react-compiler.config.mjs and playwright.live.config.ts are alternate tool entry points"
   ],
-  "findingCount": 614,
-  "identityDigest": "615b78d58c527da459a5249786c22b04a8f0f7574cec9c6dad8f826310311e15"
+  "findingCount": 604,
+  "identityDigest": "65fdeabba7548d5eee234b624cd6a396c9b44092302dc0c542264e33d04d360d"
 }
