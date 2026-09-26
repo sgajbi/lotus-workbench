@@ -2108,6 +2108,9 @@ async function run() {
           "Workbench BFF report catalogue, portfolio-review request, and request history proof",
         outputFormat: reportCentreProof.outputFormat,
         pdfOutputState: reportCentreProof.pdfOutputState,
+        reportJobId: reportCentreProof.reportJobId,
+        reportRequestId: reportCentreProof.reportRequestId,
+        terminalStatus: reportCentreProof.terminalStatus,
         reason: reportCentreProof.reason,
       },
     );

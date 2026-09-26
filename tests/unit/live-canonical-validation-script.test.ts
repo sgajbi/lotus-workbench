@@ -1830,6 +1830,8 @@ ConvertTo-Json @($results) -Compress`;
     expect(script).not.toContain("assertRegionHasButtons");
     expect(runbook).toContain("RFC-0077");
     expect(runbook).toContain("panel registry");
+    expect(runbook).toContain("waits for a successful output-specific terminal state");
+    expect(runbook).toContain("before screenshot publication");
   });
 
   it("fails when governed panel ownership or supportability drifts from the registry", () => {
@@ -1941,6 +1943,9 @@ ConvertTo-Json @($results) -Compress`;
     expect(script).toContain(
       "pdfOutputState: reportCentreProof.pdfOutputState",
     );
+    expect(script).toContain("reportJobId: reportCentreProof.reportJobId");
+    expect(script).toContain("reportRequestId: reportCentreProof.reportRequestId");
+    expect(script).toContain("terminalStatus: reportCentreProof.terminalStatus");
     expect(script).toContain("reason: reportCentreProof.reason");
     expect(
       script.slice(reportClassificationIndex, finalAlignmentIndex),

@@ -1858,6 +1858,179 @@ export function buildReportCentreProofPosture(pdfOutputReady) {
   };
 }
 
+const REPORT_JOB_LIFECYCLE_VALUES = new Set([
+  "accepted",
+  "queued",
+  "collecting_data",
+  "data_ready",
+  "rendering",
+  "completed",
+  "archiving",
+  "archived",
+  "completed_with_warnings",
+  "failed",
+  "cancelled",
+]);
+
+function requireCanonicalReportJobReceipt(receipt) {
+  const reportJobId = receipt?.report_job_id;
+  const reportRequestId = receipt?.report_request_id;
+  const statusUrl = receipt?.status_url;
+  if (
+    typeof reportJobId !== "string" ||
+    !reportJobId ||
+    typeof reportRequestId !== "string" ||
+    !reportRequestId ||
+    typeof statusUrl !== "string" ||
+    !statusUrl
+  ) {
+    throw new Error("Report Centre submission returned an incomplete report-job receipt.");
+  }
+  const expectedStatusUrl = `/api/v1/report-jobs/${encodeURIComponent(reportJobId)}`;
+  if (statusUrl !== expectedStatusUrl) {
+    throw new Error(
+      `Report Centre submission status reference ${statusUrl} does not identify ${reportJobId}.`,
+    );
+  }
+  return { reportJobId, reportRequestId, statusUrl };
+}
+
+function normalizeCanonicalReportJobLifecycle(value) {
+  const normalized = typeof value === "string" ? value.toLowerCase() : null;
+  return normalized && REPORT_JOB_LIFECYCLE_VALUES.has(normalized)
+    ? normalized
+    : null;
+}
+
+export async function waitForReportJobTerminalProof({
+  receipt,
+  outputFormat,
+  portfolioId,
+  timeoutMs,
+  readHistory,
+  pollIntervalMs = 1_000,
+  now = () => Date.now(),
+  wait = (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+}) {
+  const { reportJobId, reportRequestId, statusUrl } =
+    requireCanonicalReportJobReceipt(receipt);
+  if (outputFormat !== "pdf" && outputFormat !== "json") {
+    throw new Error(`Report Centre proof cannot certify output format ${outputFormat}.`);
+  }
+  if (typeof portfolioId !== "string" || !portfolioId) {
+    throw new Error("Report Centre proof requires an admitted portfolio identity.");
+  }
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new Error("Report Centre terminal proof requires a positive timeout.");
+  }
+
+  const deadline = now() + timeoutMs;
+  let latestStatus = receipt?.status ?? "not_observed";
+  while (now() <= deadline) {
+    const history = await readHistory();
+    if (!history || !Array.isArray(history.items)) {
+      throw new Error("Report Centre history returned no report-job collection.");
+    }
+    const matches = history.items.filter(
+      (item) => item?.reportJobId === reportJobId,
+    );
+    if (matches.length > 1) {
+      throw new Error(
+        `Report Centre history returned ${matches.length} rows for ${reportJobId}; expected one.`,
+      );
+    }
+    if (matches.length === 1) {
+      const job = matches[0];
+      if (job.reportRequestId !== reportRequestId) {
+        throw new Error(
+          `Report Centre history bound ${reportJobId} to request ${job.reportRequestId}; expected ${reportRequestId}.`,
+        );
+      }
+      const scopedPortfolioIds = job.portfolioScope?.portfolio_ids;
+      if (
+        !Array.isArray(scopedPortfolioIds) ||
+        scopedPortfolioIds.length !== 1 ||
+        scopedPortfolioIds[0] !== portfolioId
+      ) {
+        throw new Error(
+          `Report Centre history returned ${reportJobId} outside admitted portfolio ${portfolioId}.`,
+        );
+      }
+
+      const status = normalizeCanonicalReportJobLifecycle(job.status);
+      const currentStep = normalizeCanonicalReportJobLifecycle(job.currentStep);
+      if (!status || !currentStep) {
+        throw new Error(
+          `Report Centre history returned an unsupported lifecycle for ${reportJobId}: status=${job.status ?? "missing"}, currentStep=${job.currentStep ?? "missing"}.`,
+        );
+      }
+      latestStatus = status;
+      if (status === "failed" || status === "cancelled") {
+        throw new Error(
+          `Report Centre job ${reportJobId} reached ${status}: ${job.failureCategory ?? "no failure category"}.`,
+        );
+      }
+      if (status === "completed_with_warnings") {
+        throw new Error(
+          `Report Centre job ${reportJobId} completed with attention items and is not demo-ready.`,
+        );
+      }
+      const successfulTerminal =
+        status === "archived" ||
+        (outputFormat === "json" && status === "completed");
+      if (successfulTerminal) {
+        if (job.failureCategory) {
+          throw new Error(
+            `Report Centre job ${reportJobId} reached ${status} with failure category ${job.failureCategory}.`,
+          );
+        }
+        return {
+          reportJobId,
+          reportRequestId,
+          statusUrl,
+          terminalStatus: status,
+        };
+      }
+    }
+    await wait(pollIntervalMs);
+  }
+
+  throw new Error(
+    `Report Centre job ${reportJobId} did not reach a successful terminal state within ${timeoutMs}ms; latest status was ${latestStatus}.`,
+  );
+}
+
+async function readReportJobHistoryThroughWorkbench(page, portfolioId) {
+  const query = new URLSearchParams({
+    portfolioId,
+    reportType: "portfolio_review",
+    limit: "10",
+  });
+  const result = await page.evaluate(async (pathWithQuery) => {
+    const response = await fetch(pathWithQuery, {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" },
+    });
+    const body = await response.text();
+    return {
+      ok: response.ok,
+      status: response.status,
+      body,
+    };
+  }, `/api/bff/api/v1/report-jobs?${query.toString()}`);
+  if (!result.ok) {
+    throw new Error(
+      `Report Centre history request failed through Workbench BFF with HTTP ${result.status}.`,
+    );
+  }
+  try {
+    return JSON.parse(result.body);
+  } catch {
+    throw new Error("Report Centre history returned a non-JSON response through Workbench BFF.");
+  }
+}
+
 export async function validateReportCentrePanel(
   page,
   {
@@ -1915,7 +2088,24 @@ export async function validateReportCentrePanel(
     name: "Submit Report Request",
   });
   await expect(submitButton).toBeEnabled({ timeout: timeoutMs });
+  const submissionResponsePromise = page.waitForResponse(
+    (response) => {
+      const url = new URL(response.url());
+      return (
+        response.request().method() === "POST" &&
+        url.pathname.endsWith("/api/bff/api/v1/reports/portfolio-reviews")
+      );
+    },
+    { timeout: timeoutMs },
+  );
   await submitButton.click({ timeout: timeoutMs });
+  const submissionResponse = await submissionResponsePromise;
+  if (!submissionResponse.ok()) {
+    throw new Error(
+      `Report Centre submission failed through Workbench BFF with HTTP ${submissionResponse.status()}.`,
+    );
+  }
+  const receipt = await submissionResponse.json();
   const requestReadiness = page.getByRole("region", {
     name: "Report request readiness",
   });
@@ -1950,7 +2140,31 @@ export async function validateReportCentrePanel(
       "Recent portfolio report request details",
     );
   }
-  return reportCentreProof;
+  const terminalProof = await waitForReportJobTerminalProof({
+    receipt,
+    outputFormat: reportCentreProof.outputFormat,
+    portfolioId,
+    timeoutMs,
+    readHistory: () => readReportJobHistoryThroughWorkbench(page, portfolioId),
+  });
+  const refreshHistoryButton = page.getByRole("button", {
+    name: "Refresh",
+    exact: true,
+  });
+  await expect(refreshHistoryButton).toHaveCount(1);
+  await expect(refreshHistoryButton).toBeEnabled({ timeout: timeoutMs });
+  await refreshHistoryButton.click({ timeout: timeoutMs });
+  const currentRequestRow = requestHistoryTable.getByRole("row").filter({
+    has: requestHistoryTable.getByText("Current request", { exact: true }),
+  });
+  await expect(currentRequestRow).toHaveCount(1, { timeout: timeoutMs });
+  await expect(currentRequestRow).toContainText(
+    terminalProof.terminalStatus === "archived"
+      ? "Archived"
+      : "Report data complete",
+    { timeout: timeoutMs },
+  );
+  return { ...reportCentreProof, ...terminalProof };
 }
 
 export async function validateAdvisorBookPanel(
