@@ -1677,6 +1677,30 @@ describe("live validation browser workflow helpers", () => {
         }),
       ).rejects.toThrow("does not identify rjob_1");
     });
+
+    it.each([
+      ["rjob/foo", "/api/v1/report-jobs/rjob%2ffoo"],
+      ["rjob!ready", "/api/v1/report-jobs/rjob%21ready"],
+    ])(
+      "accepts equivalent encoded status identity %s",
+      async (reportJobId, statusUrl) => {
+        await expect(
+          waitForReportJobTerminalProof({
+            receipt: {
+              ...receipt,
+              report_job_id: reportJobId,
+              status_url: statusUrl,
+            },
+            outputFormat: "json",
+            portfolioId: "PB_SG_GLOBAL_BAL_001",
+            timeoutMs: 100,
+            readHistory: async () => ({
+              items: [historyItem("completed", { reportJobId })],
+            }),
+          }),
+        ).resolves.toMatchObject({ reportJobId, statusUrl });
+      },
+    );
   });
 
   it("observes the rendered PDF readiness control before exercising Report Centre", () => {

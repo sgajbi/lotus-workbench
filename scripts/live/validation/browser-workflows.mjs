@@ -1871,6 +1871,25 @@ const REPORT_JOB_LIFECYCLE_VALUES = new Set([
   "failed",
   "cancelled",
 ]);
+const REPORT_JOB_STATUS_PATH = "/api/v1/report-jobs/";
+
+function statusPathNamesReportJob(statusUrl, reportJobId) {
+  if (!statusUrl.startsWith(REPORT_JOB_STATUS_PATH)) return false;
+  const encodedJobId = statusUrl.slice(REPORT_JOB_STATUS_PATH.length);
+  if (
+    !encodedJobId ||
+    encodedJobId.includes("/") ||
+    encodedJobId.includes("?") ||
+    encodedJobId.includes("#")
+  ) {
+    return false;
+  }
+  try {
+    return decodeURIComponent(encodedJobId) === reportJobId;
+  } catch {
+    return false;
+  }
+}
 
 function requireCanonicalReportJobReceipt(receipt) {
   const reportJobId = receipt?.report_job_id;
@@ -1886,8 +1905,7 @@ function requireCanonicalReportJobReceipt(receipt) {
   ) {
     throw new Error("Report Centre submission returned an incomplete report-job receipt.");
   }
-  const expectedStatusUrl = `/api/v1/report-jobs/${encodeURIComponent(reportJobId)}`;
-  if (statusUrl !== expectedStatusUrl) {
+  if (!statusPathNamesReportJob(statusUrl, reportJobId)) {
     throw new Error(
       `Report Centre submission status reference ${statusUrl} does not identify ${reportJobId}.`,
     );
