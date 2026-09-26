@@ -6,6 +6,7 @@ import {
   type ReportCentreFixtureGateway,
 } from "./report-centre-fixture-gateway";
 import { resolveReportCentreFixtureScenario } from "./report-centre-fixture-scenario";
+import { buildReportJobListResponse } from "../fixtures/report-ordering-fixtures";
 
 test.describe.configure({ mode: "default" });
 
@@ -302,6 +303,41 @@ test("orders a reviewed portfolio bundle and renders source-owned outcomes", asy
 test("tracks an accepted request and deliberately starts a second at constrained width", async ({
   page,
 }) => {
+  let exposeAcceptedRequestInHistory = false;
+  await page.route("**/api/bff/api/v1/report-jobs?*", async (route) => {
+    if (!exposeAcceptedRequestInHistory) {
+      await route.continue();
+      return;
+    }
+    const history = buildReportJobListResponse();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...history,
+        count: 2,
+        appliedFilters: {
+          ...history.appliedFilters,
+          portfolioId: REPORT_CENTRE_FIXTURE_PORTFOLIOS.ready,
+        },
+        items: [
+          {
+            ...history.items[0],
+            reportJobId: "rjob_e2e_1",
+            reportRequestId: "rrq_e2e_1",
+            portfolioScope: {
+              portfolio_ids: [REPORT_CENTRE_FIXTURE_PORTFOLIOS.ready],
+            },
+            status: "queued",
+            currentStep: "queued",
+            idempotencyKey: "e2e_current_request",
+            correlationId: "corr_e2e_current_request",
+          },
+          ...history.items,
+        ],
+      }),
+    });
+  });
   await page.setViewportSize({ width: 720, height: 1000 });
   await page.goto(`/reports?portfolioId=${REPORT_CENTRE_FIXTURE_PORTFOLIOS.ready}`, {
     waitUntil: "domcontentloaded",
@@ -326,6 +362,25 @@ test("tracks an accepted request and deliberately starts a second at constrained
   const readinessRegion = page.getByRole("region", { name: "Report request readiness" });
   await readinessRegion.getByText("Support reference", { exact: true }).click();
   await expect(readinessRegion.getByText("rjob_e2e_1", { exact: true })).toBeVisible();
+
+  exposeAcceptedRequestInHistory = true;
+  const refreshedHistory = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      url.pathname === "/api/bff/api/v1/report-jobs"
+    );
+  });
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await refreshedHistory;
+  await page.setViewportSize({ width: 1024, height: 1000 });
+  const currentRequestRow = page
+    .getByRole("table", { name: "Recent portfolio report requests" })
+    .getByRole("row")
+    .filter({ hasText: "Current request" });
+  await expect(currentRequestRow).toHaveCount(1);
+  await expect(currentRequestRow).toContainText("Queued");
+  await page.setViewportSize({ width: 720, height: 1000 });
 
   await page.getByRole("button", { name: "Create another report" }).click();
   const configuration = page.getByLabel("Report configuration");

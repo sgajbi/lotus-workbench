@@ -306,6 +306,9 @@
             "advisor-commentary": [
               "uses the exact source-reviewed Advisor Brief without manual authority"
             ],
+            "current-request": [
+              "tracks an accepted request and deliberately starts a second at constrained width"
+            ],
             "retained-history": [
               "keeps retained request history decision-first and bounded at every content width"
             ]

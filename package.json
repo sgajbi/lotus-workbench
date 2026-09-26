@@ -86,6 +86,7 @@
     "test:e2e:manage:outcome-reviews": "node scripts/testing/run-manage-smoke-scenario.mjs outcome-reviews",
     "test:e2e:manage:proof-copilot": "node scripts/testing/run-manage-smoke-scenario.mjs proof-copilot",
     "test:e2e:intake:readiness": "playwright test tests/e2e/intake-first-action-readiness.spec.ts",
+    "test:e2e:reports:current-request": "node scripts/testing/run-report-centre-smoke-scenario.mjs --focus current-request",
     "test:e2e:reports:states": "node scripts/testing/run-report-centre-smoke-scenario.mjs",
     "live:stack:down": "node scripts/live/run-canonical-powershell.mjs scripts/live/Stop-LotusFrontOfficeCanonical.ps1",
     "live:stack:preflight": "node scripts/live/run-canonical-powershell.mjs scripts/live/Start-LotusFrontOfficeCanonical.ps1 -PortOwnershipPreflightOnly",
