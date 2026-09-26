@@ -94,6 +94,11 @@ export interface ValidationSummary {
 }
 
 export interface BrowserValidationPage {
+  waitForFunction(
+    predicate: (selector: string) => boolean,
+    selector: string,
+    options: { timeout: number },
+  ): Promise<unknown>;
   mouse?: {
     move(x: number, y: number): Promise<void>;
   };

@@ -302,6 +302,9 @@ CODEOWNERS when a second accepted reviewer exists.
   panel counts, required and observed supportability states, owning services, non-ready panel
   evidence, and missing-panel checks; review this matrix before accepting screenshots as
   demo-ready evidence
+- governed screenshot capture also waits for the shared **Workspace Navigation** shell to replace
+  **Checking availability**; a never-settled shell fails before the image or its `demo_ready`
+  summary record is written
 - `live-validation-summary.json` also includes `rfc3643FeatureCoverage`, which maps implemented
   RFC-0036 through RFC-0043 front-office features to live API, workflow-pack, seeded entity, and
   panel evidence. Adjacent proposal evidence, including RFC-0024 proposal memo/evidence-pack

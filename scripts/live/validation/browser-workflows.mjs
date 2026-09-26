@@ -81,6 +81,18 @@ export async function waitForClientInteractivity(page, selector, timeoutMs) {
   );
 }
 
+export async function waitForWorkspaceNavigationSettlement(page, timeoutMs) {
+  await page.waitForFunction(
+    (navigationSelector) =>
+      globalThis.document.querySelector(navigationSelector) !== null &&
+      globalThis.document.querySelector(
+        '[aria-label="Checking workspace availability"]',
+      ) === null,
+    '[aria-label="Workspace Navigation"]',
+    { timeout: timeoutMs },
+  );
+}
+
 export async function navigateForInteractiveBusinessProof(
   page,
   route,
@@ -324,6 +336,7 @@ export function createBrowserValidationHelpers({
 
   async function screenshot(page, name, metadata) {
     const target = path.join(outputDir, name);
+    await waitForWorkspaceNavigationSettlement(page, timeoutMs);
     await page.mouse?.move(1, 1);
     await page.keyboard?.press("Escape");
     await page.screenshot({ path: target, fullPage: true });
