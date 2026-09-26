@@ -26,6 +26,7 @@ const {
   hasAcceptedAdvisorBriefReviewPosture,
   hasRecordedAdvisorBriefAcceptProof,
   readAdvisorBriefReviewEvidence,
+  readReportJobHistoryThroughWorkbench,
   resolveCanonicalIdeaRestartPlan,
   waitForAdvisorBriefReviewConfirmation,
   waitForClientInteractivity,
@@ -171,7 +172,7 @@ const {
     outputFormat: "json" | "pdf";
     portfolioId: string;
     timeoutMs: number;
-    readHistory: () => Promise<unknown>;
+    readHistory: (requestTimeoutMs: number) => Promise<unknown>;
     pollIntervalMs?: number;
     now?: () => number;
     wait?: (delayMs: number) => Promise<void>;
@@ -181,6 +182,19 @@ const {
     statusUrl: string;
     terminalStatus: "completed" | "archived";
   }>;
+  readReportJobHistoryThroughWorkbench: (
+    page: {
+      evaluate: <T>(
+        callback: (input: {
+          pathWithQuery: string;
+          requestTimeoutMs: number;
+        }) => Promise<T>,
+        input: { pathWithQuery: string; requestTimeoutMs: number },
+      ) => Promise<T>;
+    },
+    portfolioId: string,
+    requestTimeoutMs: number,
+  ) => Promise<unknown>;
   waitForClientInteractivity: (
     page: {
       waitForFunction: (
@@ -1496,6 +1510,7 @@ describe("live validation browser workflow helpers", () => {
         { items: [historyItem("queued")] },
         { items: [historyItem("archived")] },
       ];
+      const requestBudgets: number[] = [];
       const fakeClock = clock();
 
       await expect(
@@ -1505,7 +1520,10 @@ describe("live validation browser workflow helpers", () => {
           portfolioId: "PB_SG_GLOBAL_BAL_001",
           timeoutMs: 100,
           pollIntervalMs: 10,
-          readHistory: async () => responses.shift() ?? { items: [] },
+          readHistory: async (requestTimeoutMs) => {
+            requestBudgets.push(requestTimeoutMs);
+            return responses.shift() ?? { items: [] };
+          },
           ...fakeClock,
         }),
       ).resolves.toEqual({
@@ -1514,6 +1532,7 @@ describe("live validation browser workflow helpers", () => {
         statusUrl: "/api/v1/report-jobs/rjob_1",
         terminalStatus: "archived",
       });
+      expect(requestBudgets).toEqual([100, 90, 80]);
     });
 
     it("accepts completed structured data without requiring archive delivery", async () => {
@@ -1580,6 +1599,51 @@ describe("live validation browser workflow helpers", () => {
           },
         }),
       ).rejects.toThrow("Workbench BFF with HTTP 503");
+    });
+
+    it("aborts a stalled Workbench history response within its remaining deadline", async () => {
+      const originalFetch = globalThis.fetch;
+      const observation: { path?: string; signal?: AbortSignal } = {};
+      globalThis.fetch = ((_input: RequestInfo | URL, init?: RequestInit) => {
+        observation.path = String(_input);
+        observation.signal = init?.signal ?? undefined;
+        return new Promise<Response>((_resolve, reject) => {
+          observation.signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("The operation was aborted.", "AbortError")),
+            { once: true },
+          );
+        });
+      }) as typeof fetch;
+
+      try {
+        await expect(
+          readReportJobHistoryThroughWorkbench(
+            {
+              async evaluate<T>(
+                callback: (input: {
+                  pathWithQuery: string;
+                  requestTimeoutMs: number;
+                }) => Promise<T>,
+                input: { pathWithQuery: string; requestTimeoutMs: number },
+              ): Promise<T> {
+                return callback(input);
+              },
+            },
+            "PB_SG_GLOBAL_BAL_001",
+            20,
+          ),
+        ).rejects.toThrow(
+          "Report Centre history request exceeded 20ms through Workbench BFF.",
+        );
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+
+      expect(observation.path).toContain(
+        "portfolioId=PB_SG_GLOBAL_BAL_001&reportType=portfolio_review&limit=10",
+      );
+      expect(observation.signal?.aborted).toBe(true);
     });
 
     it("fails boundedly when the exact job remains active", async () => {
