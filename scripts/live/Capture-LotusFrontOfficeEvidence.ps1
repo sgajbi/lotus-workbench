@@ -33,40 +33,109 @@ function Assert-CanonicalDemoReadyValidationSummary {
   }
   $summaryBytes = [System.IO.File]::ReadAllBytes($SummaryPath)
   $summary = [System.Text.Encoding]::UTF8.GetString($summaryBytes) | ConvertFrom-Json
-  if ($summary.validationProfile -cne 'full') {
+  if ($summary.validationProfile -isnot [string] -or $summary.validationProfile -cne 'full') {
     throw 'Observability evidence requires a full-profile canonical validation summary.'
   }
-  if (@($summary.excludedProofs).Count -ne 0) {
+  if (
+    $summary.excludedProofs -isnot [System.Object[]] -or
+    $summary.excludedProofs.Count -ne 0
+  ) {
     throw 'Observability evidence refuses a validation summary with excluded proofs.'
   }
-  if ($summary.portfolioId -cne $ExpectedPortfolioId -or $summary.benchmarkCode -cne $ExpectedBenchmarkCode) {
+  if (
+    $summary.portfolioId -isnot [string] -or
+    $summary.portfolioId -cne $ExpectedPortfolioId -or
+    $summary.benchmarkCode -isnot [string] -or
+    $summary.benchmarkCode -cne $ExpectedBenchmarkCode
+  ) {
     throw 'Canonical validation summary does not match the requested portfolio and benchmark.'
   }
-  if ([string]$summary.canonicalContract.canonicalAsOfDate -cne $ExpectedAsOfDate) {
+  if (
+    $summary.canonicalContract.canonicalAsOfDate -isnot [string] -or
+    $summary.canonicalContract.canonicalAsOfDate -cne $ExpectedAsOfDate
+  ) {
     throw 'Canonical validation summary does not match the requested as-of date.'
   }
   $probe = $summary.ideaCapacityProbe
+  if ($null -eq $probe) {
+    throw 'Canonical validation summary does not contain Idea integration evidence.'
+  }
+  $freshProof = (
+    $probe.resourcePosture -is [string] -and
+    $probe.resourcePosture -ceq 'fresh_authorized_submission' -and
+    $probe.capacityWorkloadAccepted -is [bool] -and
+    $probe.capacityWorkloadAccepted -eq $true -and
+    $probe.retainedAcceptedSubmissionVerified -is [bool] -and
+    $probe.retainedAcceptedSubmissionVerified -eq $false -and
+    $probe.PSObject.Properties.Name -notcontains 'ownerSourceAuthority' -and
+    $probe.PSObject.Properties.Name -notcontains 'ownerSourceEventVersion' -and
+    $probe.workloadFileName -is [string] -and
+    -not [string]::IsNullOrWhiteSpace($probe.workloadFileName) -and
+    $probe.workloadSha256 -is [string] -and
+    $probe.workloadSha256 -cmatch '^[a-f0-9]{64}$'
+  )
+  $ownerSourceEventVersionIsInteger = (
+    $null -ne $probe.ownerSourceEventVersion -and
+    @(
+      [sbyte], [byte], [int16], [uint16], [int32], [uint32], [int64], [uint64]
+    ) -contains $probe.ownerSourceEventVersion.GetType()
+  )
+  $retainedProof = (
+    $probe.resourcePosture -is [string] -and
+    $probe.resourcePosture -ceq 'retained_accepted_submission' -and
+    $probe.capacityWorkloadAccepted -is [bool] -and
+    $probe.capacityWorkloadAccepted -eq $false -and
+    $probe.retainedAcceptedSubmissionVerified -is [bool] -and
+    $probe.retainedAcceptedSubmissionVerified -eq $true -and
+    $probe.ownerSourceAuthority -is [string] -and
+    $probe.ownerSourceAuthority -ceq 'lotus-advise' -and
+    $ownerSourceEventVersionIsInteger -and
+    $probe.ownerSourceEventVersion -gt 0 -and
+    $probe.ownerSourceEventVersion -le 9007199254740991 -and
+    $probe.PSObject.Properties.Name -notcontains 'workloadFileName' -and
+    $probe.PSObject.Properties.Name -notcontains 'workloadSha256'
+  )
   if (
-    $null -eq $probe -or
+    $probe.schemaVersion -isnot [string] -or
+    $probe.schemaVersion -cne 'lotus-workbench.idea-capacity-probe-evidence.v2' -or
+    $probe.repository -isnot [string] -or
+    $probe.repository -cne 'lotus-idea' -or
+    $probe.proofScope -isnot [string] -or
+    $probe.proofScope -cne 'governed_downstream_resource_state' -or
+    $probe.claimPosture -isnot [string] -or
+    $probe.claimPosture -cne 'selected_resource_state_not_capacity_evidence' -or
+    $probe.syntheticResource -isnot [bool] -or
+    $probe.syntheticResource -ne $false -or
+    $probe.resourceFileName -isnot [string] -or
+    [string]::IsNullOrWhiteSpace($probe.resourceFileName) -or
+    $probe.posture -isnot [string] -or
     $probe.posture -cne 'accepted_non_certifying' -or
+    $probe.presentationBackedResource -isnot [bool] -or
     $probe.presentationBackedResource -ne $true -or
-    $probe.capacityWorkloadAccepted -ne $true -or
+    $probe.integrationProofAccepted -isnot [bool] -or
+    $probe.integrationProofAccepted -ne $true -or
+    $probe.productionCapacityCertified -isnot [bool] -or
     $probe.productionCapacityCertified -ne $false -or
+    $probe.supportedFeaturePromoted -isnot [bool] -or
     $probe.supportedFeaturePromoted -ne $false -or
-    [string]$probe.resourceSha256 -cnotmatch '^[a-f0-9]{64}$' -or
-    [string]$probe.workloadSha256 -cnotmatch '^[a-f0-9]{64}$'
+    $probe.resourceSha256 -isnot [string] -or
+    $probe.resourceSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+    -not ($freshProof -xor $retainedProof)
   ) {
-    throw 'Canonical validation summary does not contain accepted presentation-backed Idea capacity evidence.'
+    throw 'Canonical validation summary does not contain accepted presentation-backed Idea integration evidence.'
   }
   $runtimeProvenance = @{
-    commitSha = [string]$CurrentIdeaVersion.build.gitCommitSha
-    branch = [string]$CurrentIdeaVersion.build.gitBranch
-    runId = [string]$CurrentIdeaVersion.build.ciRunId
+    commitSha = $CurrentIdeaVersion.build.gitCommitSha
+    branch = $CurrentIdeaVersion.build.gitBranch
+    runId = $CurrentIdeaVersion.build.ciRunId
   }
   foreach ($field in @('commitSha', 'branch', 'runId')) {
+    $probeValue = $probe.$field
     if (
+      $runtimeProvenance[$field] -isnot [string] -or
       [string]::IsNullOrWhiteSpace($runtimeProvenance[$field]) -or
-      [string]$probe.$field -cne $runtimeProvenance[$field]
+      $probeValue -isnot [string] -or
+      $probeValue -cne $runtimeProvenance[$field]
     ) {
       throw "Canonical validation summary does not match current Idea runtime $field."
     }

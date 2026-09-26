@@ -20,7 +20,7 @@ while integrated product support requires canonical runtime evidence and green r
 | Demo evidence | Passing canonical validation plus same-run evidence pack | Diagnostic captures stay separate |
 
 The single [canonical runner](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md)
-defaults to `full`: Idea's presentation-backed downstream-capacity probe and its evidence are
+defaults to `full`: Idea's presentation-backed downstream integration proof and its evidence are
 required. The
 explicit `client-demo` profile is a bounded standalone diagnostic recheck. It records the excluded
 probe and still requires Idea readiness, a current-run candidate/queue, real API/calculation and
@@ -388,15 +388,17 @@ CODEOWNERS when a second accepted reviewer exists.
   isolated Workbench mainline checkout to the same preflight. The override must still identify a
   `lotus-workbench` Git origin, be clean, and point exactly at `origin/main`; a clean checkout of
   another Lotus repository is rejected instead of being labeled as Workbench proof.
-- Lotus Idea capacity integration proof runs only after the real Workbench browser journey has
+- Lotus Idea downstream integration proof runs only after the real Workbench browser journey has
   persisted a presentation receipt, exact review, and Advise conversion intent for the canonical
-  candidate. The Idea-owned selector rejects stale evidence, older intents, scope drift, missing
-  receipt authority, or a mismatched source cut; it never fabricates a candidate, approval, or
-  conversion intent. The workload accepts exactly one report-only downstream-submission probe.
+  candidate. The Idea-owned selector rejects future evidence, unrelated history, scope drift,
+  missing receipt authority, or a mismatched source cut; it never fabricates a candidate, approval,
+  or conversion intent. A fresh authorized intent receives exactly one report-only downstream
+  submission. An already accepted intent is verified from its durable Advise owner receipt without
+  exposing a mutation path or running another workload.
   Published Workbench evidence retains source digests and provenance but excludes candidate and
   intent identifiers, downstream paths, and credentials. Canonical startup binds one per-run local
   trusted-caller marker to the Idea runtime and post-browser selector while preserving exact tenant,
-  book, portfolio, and client scope. The workload receives those same four admitted identifiers
+  book, portfolio, and client scope. A fresh workload receives those same four admitted identifiers
   explicitly and fails before transport if any is missing; it never invents a default tenant or
   entitlement. This is local/dev proof wiring only; it is not a production identity provider,
   endpoint-policy bypass, load, soak, production capacity, or feature-support certification.

@@ -1278,7 +1278,7 @@ describe("canonical live validation script", () => {
     expect(script).not.toContain("fetchOptionalJson");
   });
 
-  it("runs the bounded Idea capacity probe only after browser review", () => {
+  it("verifies fresh or retained Idea downstream state only after browser review", () => {
     const script = readFileSync(
       join(process.cwd(), "scripts", "live", "Invoke-IdeaCapacityProbe.ps1"),
       "utf8",
@@ -1297,6 +1297,13 @@ describe("canonical live validation script", () => {
     expect(script).toContain("runtime provenance does not match");
     expect(script).toContain("select_downstream_capacity_resource.py");
     expect(script).toContain("run_service_capacity_workload.py");
+    expect(script).toContain("$resource.resourcePosture");
+    expect(script).toContain("Resolve-IdeaCapacityResourcePosture");
+    expect(script).toContain("$ResourcePosture -ceq 'fresh_authorized_submission'");
+    expect(script).toContain("$ResourcePosture -ceq 'retained_accepted_submission'");
+    expect(script).toContain("'fresh_authorized_submission'");
+    expect(script).toContain("'retained_accepted_submission'");
+    expect(script).toContain("$validatorArguments +=");
     expect(script).toContain("CandidateEvidencePath");
     expect(script).toContain("ExpectedCandidateId");
     expect(script).toContain(
@@ -1431,6 +1438,53 @@ describe("canonical live validation script", () => {
     expect(stagingIndex).toBeGreaterThanOrEqual(0);
     expect(stagingIndex).toBeLessThan(nodeIndex);
     expect(publishIndex).toBeGreaterThan(capacityProbeIndex);
+  });
+
+  it("refuses non-exact Idea resource postures before workload routing", () => {
+    const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+    const script = String.raw`
+$ErrorActionPreference = 'Stop'
+$ast = [Management.Automation.Language.Parser]::ParseFile(
+  (Join-Path (Get-Location) 'scripts/live/Invoke-IdeaCapacityProbe.ps1'),
+  [ref]$null, [ref]$null
+)
+$definition = $ast.Find({ param($node)
+  $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+  $node.Name -eq 'Resolve-IdeaCapacityResourcePosture'
+}, $true)
+if (-not $definition) { throw 'Shipped resource-posture resolver is missing' }
+. ([scriptblock]::Create($definition.Extent.Text))
+$values = [Console]::In.ReadToEnd() | ConvertFrom-Json
+$results = foreach ($value in $values) {
+  try {
+    Resolve-IdeaCapacityResourcePosture -ResourcePosture $value
+  } catch {
+    'refused'
+  }
+}
+ConvertTo-Json @($results) -Compress`;
+    const result = spawnSync(
+      powershell,
+      ["-NoProfile", "-NonInteractive", "-Command", script],
+      {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        input: JSON.stringify([
+          "fresh_authorized_submission",
+          "retained_accepted_submission",
+          "FRESH_AUTHORIZED_SUBMISSION",
+          "unknown",
+        ]),
+      },
+    );
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual([
+      "fresh_authorized_submission",
+      "retained_accepted_submission",
+      "refused",
+      "refused",
+    ]);
   });
 
   it("asserts canonical performance and risk calculation sanity", () => {

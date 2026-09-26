@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -14,10 +14,10 @@ import {
 } from "../../scripts/live/validation/idea-capacity-probe-evidence.mjs";
 
 const resource = {
-  schemaVersion: "lotus-idea.downstream-capacity-resource.v1",
+  schemaVersion: "lotus-idea.downstream-capacity-resource.v2",
   repository: "lotus-idea",
-  proofScope: "current_authoritative_downstream_resource",
-  claimPosture: "selected_conversion_intent_not_capacity_evidence",
+  proofScope: "governed_downstream_resource_state",
+  claimPosture: "selected_resource_state_not_capacity_evidence",
   generatedAtUtc: "2026-07-11T08:00:00Z",
   commitSha: "a".repeat(40),
   branch: "main",
@@ -28,8 +28,31 @@ const resource = {
   conversionIntentAcceptedAtUtc: "2026-07-11T08:00:00Z",
   downstreamSubmissionPath:
     "/api/v1/conversion-intents/conversion-intent-0123456789abcdef/downstream-submissions",
+  resourcePosture: "fresh_authorized_submission",
+  retainedAcceptedSubmissionVerified: false,
   productionCapacityCertified: false,
   supportedFeaturePromoted: false,
+} as const;
+
+const retainedResource = {
+  schemaVersion: resource.schemaVersion,
+  repository: resource.repository,
+  proofScope: resource.proofScope,
+  claimPosture: resource.claimPosture,
+  generatedAtUtc: resource.generatedAtUtc,
+  commitSha: resource.commitSha,
+  branch: resource.branch,
+  runId: resource.runId,
+  syntheticResource: resource.syntheticResource,
+  candidateId: resource.candidateId,
+  conversionIntentId: resource.conversionIntentId,
+  conversionIntentAcceptedAtUtc: resource.conversionIntentAcceptedAtUtc,
+  resourcePosture: "retained_accepted_submission",
+  retainedAcceptedSubmissionVerified: true,
+  ownerSourceAuthority: "lotus-advise",
+  ownerSourceEventVersion: 1,
+  productionCapacityCertified: resource.productionCapacityCertified,
+  supportedFeaturePromoted: resource.supportedFeaturePromoted,
 } as const;
 
 const expected = {
@@ -39,6 +62,14 @@ const expected = {
   candidateId: resource.candidateId,
 };
 const serializedResource = `${JSON.stringify(resource)}\n`;
+const temporaryDirectories = new Set<string>();
+
+async function createTemporaryDirectory(prefix: string): Promise<string> {
+  const directory = await mkdtemp(path.join(tmpdir(), prefix));
+  temporaryDirectories.add(directory);
+  return directory;
+}
+
 const workload = {
   schemaVersion: "lotus-idea.service-capacity-baseline.v1",
   repository: "lotus-idea",
@@ -66,6 +97,15 @@ const workload = {
 };
 
 describe("Idea capacity probe evidence", () => {
+  afterEach(async () => {
+    await Promise.all(
+      [...temporaryDirectories].map((directory) =>
+        rm(directory, { recursive: true, force: true }),
+      ),
+    );
+    temporaryDirectories.clear();
+  });
+
   it("retains provenance and hashes without copying resource identity", () => {
     validateIdeaCapacityResource(resource, expected);
     const evidence = buildIdeaCapacityProbeEvidence({
@@ -82,12 +122,36 @@ describe("Idea capacity probe evidence", () => {
       branch: "main",
       syntheticResource: false,
       presentationBackedResource: true,
+      integrationProofAccepted: true,
+      resourcePosture: "fresh_authorized_submission",
       capacityWorkloadAccepted: true,
+      retainedAcceptedSubmissionVerified: false,
       productionCapacityCertified: false,
       supportedFeaturePromoted: false,
     });
     expect(JSON.stringify(evidence)).not.toContain("conversionIntentId");
     expect(JSON.stringify(evidence)).not.toContain("downstreamSubmissionPath");
+    expect(() => validateIdeaCapacityProbeEvidence(evidence)).not.toThrow();
+  });
+
+  it("accepts retained owner evidence without creating a workload claim", () => {
+    validateIdeaCapacityResource(retainedResource, expected);
+    const evidence = buildIdeaCapacityProbeEvidence({
+      resourceBytes: Buffer.from(JSON.stringify(retainedResource)),
+      resourceFileName: "idea-capacity-resource.json",
+      payload: retainedResource,
+    });
+
+    expect(evidence).toMatchObject({
+      resourcePosture: "retained_accepted_submission",
+      integrationProofAccepted: true,
+      capacityWorkloadAccepted: false,
+      retainedAcceptedSubmissionVerified: true,
+      ownerSourceAuthority: "lotus-advise",
+      ownerSourceEventVersion: 1,
+    });
+    expect(evidence).not.toHaveProperty("workloadFileName");
+    expect(evidence).not.toHaveProperty("workloadSha256");
     expect(() => validateIdeaCapacityProbeEvidence(evidence)).not.toThrow();
   });
 
@@ -144,14 +208,90 @@ describe("Idea capacity probe evidence", () => {
     ["feature inflation", { supportedFeaturePromoted: true }],
     ["synthetic resource", { syntheticResource: true }],
     ["unapproved path", { downstreamSubmissionPath: "/api/v1/clients/1" }],
+    ["retained flag on fresh resource", { retainedAcceptedSubmissionVerified: true }],
+    ["retained owner on fresh resource", { ownerSourceAuthority: "lotus-advise" }],
+    ["retained owner version on fresh resource", { ownerSourceEventVersion: 1 }],
     ["missing candidate", { candidateId: "" }],
     ["different browser candidate", { candidateId: "idea_low_income_0123456789abcdef" }],
   ])("rejects %s", (_name, mutation) => {
     expect(() => validateIdeaCapacityResource({ ...resource, ...mutation }, expected)).toThrow();
   });
 
+  it.each([
+    ["missing conversion intent identity", { conversionIntentId: "" }],
+    ["non-string conversion intent identity", { conversionIntentId: 123 }],
+    ["missing acceptance timestamp", { conversionIntentAcceptedAtUtc: "" }],
+    [
+      "non-UTC acceptance timestamp",
+      { conversionIntentAcceptedAtUtc: "2026-07-11T16:00:00+08:00" },
+    ],
+    ["invalid acceptance timestamp", { conversionIntentAcceptedAtUtc: "2026-13-40T08:00:00Z" }],
+    ["impossible calendar date", { conversionIntentAcceptedAtUtc: "2026-02-30T08:00:00Z" }],
+    ["missing resource generation timestamp", { generatedAtUtc: "" }],
+    ["acceptance after resource generation", { generatedAtUtc: "2026-07-11T07:59:59Z" }],
+    [
+      "sub-millisecond acceptance after resource generation",
+      {
+        conversionIntentAcceptedAtUtc: "2026-07-11T08:00:00.000999Z",
+        generatedAtUtc: "2026-07-11T08:00:00.000001Z",
+      },
+    ],
+  ])("rejects retained state with %s", (_name, mutation) => {
+    expect(() =>
+      validateIdeaCapacityResource({ ...retainedResource, ...mutation }, expected),
+    ).toThrow(/identity or acceptance chronology/);
+  });
+
+  it.each([
+    ["mutation path", { downstreamSubmissionPath: resource.downstreamSubmissionPath }],
+    ["missing retained verification", { retainedAcceptedSubmissionVerified: false }],
+    ["wrong owner", { ownerSourceAuthority: "lotus-report" }],
+    ["invalid owner version", { ownerSourceEventVersion: 0 }],
+    ["unsafe owner version", { ownerSourceEventVersion: Number.MAX_SAFE_INTEGER + 1 }],
+  ])("rejects retained state with %s", (_name, mutation) => {
+    expect(() =>
+      validateIdeaCapacityResource({ ...retainedResource, ...mutation }, expected),
+    ).toThrow(/owner evidence/);
+  });
+
+  it("writes retained evidence without a workload file", async () => {
+    const directory = await createTemporaryDirectory("idea-retained-capacity-probe-");
+    const resourcePath = path.join(directory, "resource.json");
+    const evidencePath = path.join(directory, "evidence.json");
+    await writeFile(resourcePath, `${JSON.stringify(retainedResource)}\n`, "utf8");
+
+    await validateAndWriteIdeaCapacityProbeEvidence({
+      resourcePath,
+      evidencePath,
+      ...expected,
+    });
+
+    const evidence = JSON.parse(await readFile(evidencePath, "utf8"));
+    expect(evidence.resourcePosture).toBe("retained_accepted_submission");
+    expect(evidence.capacityWorkloadAccepted).toBe(false);
+    expect(evidence).not.toHaveProperty("workloadSha256");
+  });
+
+  it("refuses workload evidence for retained accepted state", async () => {
+    const directory = await createTemporaryDirectory("idea-retained-with-workload-");
+    const resourcePath = path.join(directory, "resource.json");
+    const evidencePath = path.join(directory, "evidence.json");
+    const workloadPath = path.join(directory, "workload.json");
+    await writeFile(resourcePath, `${JSON.stringify(retainedResource)}\n`, "utf8");
+    await writeFile(workloadPath, `${JSON.stringify(workload)}\n`, "utf8");
+
+    await expect(
+      validateAndWriteIdeaCapacityProbeEvidence({
+        resourcePath,
+        workloadPath,
+        evidencePath,
+        ...expected,
+      }),
+    ).rejects.toThrow(/forbids workload evidence/);
+  });
+
   it("writes deterministic source-safe evidence atomically", async () => {
-    const directory = await mkdtemp(path.join(tmpdir(), "idea-capacity-probe-"));
+    const directory = await createTemporaryDirectory("idea-capacity-probe-");
     const resourcePath = path.join(directory, "resource.json");
     const evidencePath = path.join(directory, "evidence.json");
     const workloadPath = path.join(directory, "workload.json");
@@ -172,7 +312,7 @@ describe("Idea capacity probe evidence", () => {
   });
 
   it("rejects workload evidence produced from another selected resource", async () => {
-    const directory = await mkdtemp(path.join(tmpdir(), "idea-capacity-probe-mismatch-"));
+    const directory = await createTemporaryDirectory("idea-capacity-probe-mismatch-");
     const resourcePath = path.join(directory, "resource.json");
     const evidencePath = path.join(directory, "evidence.json");
     const workloadPath = path.join(directory, "workload.json");
@@ -206,12 +346,37 @@ describe("Idea capacity probe evidence", () => {
         ...evidence,
         capacityWorkloadAccepted: false,
       }),
-    ).toThrow(/capacityWorkloadAccepted/);
+    ).toThrow(/workload proof/);
     expect(() =>
       validateIdeaCapacityProbeEvidence({
         ...evidence,
         conversionIntentId: resource.conversionIntentId,
       }),
     ).toThrow(/forbidden/);
+    expect(() =>
+      validateIdeaCapacityProbeEvidence({
+        ...evidence,
+        ownerSourceAuthority: "lotus-advise",
+        ownerSourceEventVersion: 1,
+      }),
+    ).toThrow(/workload proof/);
+
+    const retainedEvidence = buildIdeaCapacityProbeEvidence({
+      resourceBytes: Buffer.from(JSON.stringify(retainedResource)),
+      resourceFileName: "retained-resource.json",
+      payload: retainedResource,
+    });
+    expect(() =>
+      validateIdeaCapacityProbeEvidence({
+        ...retainedEvidence,
+        workloadSha256: "b".repeat(64),
+      }),
+    ).toThrow(/owner proof/);
+    expect(() =>
+      validateIdeaCapacityProbeEvidence({
+        ...retainedEvidence,
+        ownerSourceEventVersion: Number.MAX_SAFE_INTEGER + 1,
+      }),
+    ).toThrow(/owner proof/);
   });
 });

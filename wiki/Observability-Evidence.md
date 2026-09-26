@@ -51,7 +51,8 @@ The output directory is intentionally local evidence and should not be committed
 - `README.md`: human-readable artifact index
 - `validation`: manifest section linking the pack to the latest
   `output/playwright/live-canonical/live-validation-summary.json`, its SHA-256, and accepted
-  full-profile Idea capacity posture; diagnostic or pending summaries are refused
+  full-profile Idea downstream integration posture; fresh-workload and retained-owner-receipt
+  evidence are accepted, while diagnostic or pending summaries are refused
 - `dns.json`: canonical hostname resolution evidence
 - `docker-ps.txt` and `docker-ps.json`: live container inventory and health status
 - `api/`: readiness, capability, and representative Gateway API outputs
