@@ -110,7 +110,32 @@ export function createBrowserValidationHelpers(args: {
 export function validateReportCentrePanel(
   page: unknown,
   options: Record<string, unknown>,
-): Promise<void>;
+): Promise<{
+  panelState: "partial";
+  outputFormat: "json" | "pdf";
+  pdfOutputState: "ready" | "unavailable";
+  reason: string;
+  reportJobId: string;
+  reportRequestId: string;
+  statusUrl: string;
+  terminalStatus: "completed" | "archived";
+}>;
+
+export function waitForReportJobTerminalProof(options: {
+  receipt: Record<string, unknown>;
+  outputFormat: "json" | "pdf";
+  portfolioId: string;
+  timeoutMs: number;
+  readHistory: () => Promise<unknown>;
+  pollIntervalMs?: number;
+  now?: () => number;
+  wait?: (delayMs: number) => Promise<void>;
+}): Promise<{
+  reportJobId: string;
+  reportRequestId: string;
+  statusUrl: string;
+  terminalStatus: "completed" | "archived";
+}>;
 
 export function validateAdvisorBookPanel(
   page: unknown,

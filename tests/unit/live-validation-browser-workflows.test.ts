@@ -34,6 +34,7 @@ const {
   navigateForBusinessProof,
   resolveLowIncomeIdeaCandidateId,
   requireLowIncomeIdeaCandidateId,
+  waitForReportJobTerminalProof,
   validateAdvisorBriefPanel,
   validateAdvisoryJourneyScreens,
   validateConstructionAlternativesPanel,
@@ -165,6 +166,21 @@ const {
       wait?: (delayMs: number) => Promise<void>;
     },
   ) => Promise<void>;
+  waitForReportJobTerminalProof: (options: {
+    receipt: Record<string, unknown>;
+    outputFormat: "json" | "pdf";
+    portfolioId: string;
+    timeoutMs: number;
+    readHistory: () => Promise<unknown>;
+    pollIntervalMs?: number;
+    now?: () => number;
+    wait?: (delayMs: number) => Promise<void>;
+  }) => Promise<{
+    reportJobId: string;
+    reportRequestId: string;
+    statusUrl: string;
+    terminalStatus: "completed" | "archived";
+  }>;
   waitForClientInteractivity: (
     page: {
       waitForFunction: (
@@ -1444,6 +1460,161 @@ describe("live validation browser workflow helpers", () => {
     },
   );
 
+  describe("Report Centre terminal lifecycle proof", () => {
+    const receipt = {
+      report_request_id: "rrq_1",
+      report_job_id: "rjob_1",
+      status: "accepted",
+      status_url: "/api/v1/report-jobs/rjob_1",
+      idempotency_key: "portfolio-review-1",
+    };
+    const historyItem = (
+      status: string,
+      overrides: Record<string, unknown> = {},
+    ) => ({
+      reportJobId: "rjob_1",
+      reportRequestId: "rrq_1",
+      portfolioScope: { portfolio_ids: ["PB_SG_GLOBAL_BAL_001"] },
+      status,
+      currentStep: status,
+      failureCategory: null,
+      ...overrides,
+    });
+    const clock = () => {
+      let current = 0;
+      return {
+        now: () => current,
+        wait: async (delayMs: number) => {
+          current += delayMs;
+        },
+      };
+    };
+
+    it("waits through delayed history and proves the exact archived PDF job", async () => {
+      const responses = [
+        { items: [] },
+        { items: [historyItem("queued")] },
+        { items: [historyItem("archived")] },
+      ];
+      const fakeClock = clock();
+
+      await expect(
+        waitForReportJobTerminalProof({
+          receipt,
+          outputFormat: "pdf",
+          portfolioId: "PB_SG_GLOBAL_BAL_001",
+          timeoutMs: 100,
+          pollIntervalMs: 10,
+          readHistory: async () => responses.shift() ?? { items: [] },
+          ...fakeClock,
+        }),
+      ).resolves.toEqual({
+        reportJobId: "rjob_1",
+        reportRequestId: "rrq_1",
+        statusUrl: "/api/v1/report-jobs/rjob_1",
+        terminalStatus: "archived",
+      });
+    });
+
+    it("accepts completed structured data without requiring archive delivery", async () => {
+      await expect(
+        waitForReportJobTerminalProof({
+          receipt,
+          outputFormat: "json",
+          portfolioId: "PB_SG_GLOBAL_BAL_001",
+          timeoutMs: 100,
+          readHistory: async () => ({ items: [historyItem("completed")] }),
+        }),
+      ).resolves.toMatchObject({ terminalStatus: "completed" });
+    });
+
+    it.each([
+      ["failed", "upstream_data_failed", /reached failed: upstream_data_failed/],
+      ["cancelled", null, /reached cancelled/],
+      ["completed_with_warnings", null, /not demo-ready/],
+    ])("rejects terminal %s lifecycle", async (status, failureCategory, message) => {
+      await expect(
+        waitForReportJobTerminalProof({
+          receipt,
+          outputFormat: "pdf",
+          portfolioId: "PB_SG_GLOBAL_BAL_001",
+          timeoutMs: 100,
+          readHistory: async () => ({
+            items: [historyItem(status, { failureCategory })],
+          }),
+        }),
+      ).rejects.toThrow(message);
+    });
+
+    it.each([
+      [{ reportRequestId: "rrq_other" }, /bound rjob_1 to request rrq_other/],
+      [
+        { portfolioScope: { portfolio_ids: ["PB_OTHER"] } },
+        /outside admitted portfolio PB_SG_GLOBAL_BAL_001/,
+      ],
+    ])("rejects identity or authority drift", async (override, message) => {
+      await expect(
+        waitForReportJobTerminalProof({
+          receipt,
+          outputFormat: "pdf",
+          portfolioId: "PB_SG_GLOBAL_BAL_001",
+          timeoutMs: 100,
+          readHistory: async () => ({
+            items: [historyItem("archived", override)],
+          }),
+        }),
+      ).rejects.toThrow(message);
+    });
+
+    it("propagates a scoped Workbench history transport failure", async () => {
+      await expect(
+        waitForReportJobTerminalProof({
+          receipt,
+          outputFormat: "pdf",
+          portfolioId: "PB_SG_GLOBAL_BAL_001",
+          timeoutMs: 100,
+          readHistory: async () => {
+            throw new Error(
+              "Report Centre history request failed through Workbench BFF with HTTP 503.",
+            );
+          },
+        }),
+      ).rejects.toThrow("Workbench BFF with HTTP 503");
+    });
+
+    it("fails boundedly when the exact job remains active", async () => {
+      const fakeClock = clock();
+      await expect(
+        waitForReportJobTerminalProof({
+          receipt,
+          outputFormat: "pdf",
+          portfolioId: "PB_SG_GLOBAL_BAL_001",
+          timeoutMs: 20,
+          pollIntervalMs: 10,
+          readHistory: async () => ({ items: [historyItem("rendering")] }),
+          ...fakeClock,
+        }),
+      ).rejects.toThrow(
+        "did not reach a successful terminal state within 20ms; latest status was rendering",
+      );
+    });
+
+    it("rejects a receipt whose status reference names another job", async () => {
+      await expect(
+        waitForReportJobTerminalProof({
+          receipt: {
+            ...receipt,
+            status_url: "/api/v1/report-jobs/rjob_other",
+          },
+          outputFormat: "pdf",
+          portfolioId: "PB_SG_GLOBAL_BAL_001",
+          timeoutMs: 100,
+          readHistory: async () => ({ items: [] }),
+        }),
+      ).rejects.toThrow("does not identify rjob_1");
+    });
+  });
+
   it("observes the rendered PDF readiness control before exercising Report Centre", () => {
     const source = browserWorkflowModule.validateReportCentrePanel.toString();
 
@@ -1453,13 +1624,17 @@ describe("live validation browser workflow helpers", () => {
     expect(source).toContain("governedPdfRadio.check");
     expect(source).toContain("Governed document creation is available.");
     expect(source).toContain("PDF creation is temporarily unavailable");
-    expect(source).toContain("return reportCentreProof");
+    expect(source).toContain("return { ...reportCentreProof, ...terminalProof }");
     expect(source).toContain('name: "Report request readiness"');
     expect(source).toContain('"Reporting recorded the request."');
     expect(source).toContain("requestHistoryTable.isVisible()");
     expect(source).toContain('name: "Recent portfolio report request details"');
     expect(source).toContain("assertListHasItems");
     expect(source).toContain("assertTableHasRows");
+    expect(source).toContain("submissionResponsePromise");
+    expect(source).toContain("waitForReportJobTerminalProof");
+    expect(source).toContain('name: "Refresh"');
+    expect(source).toContain('getByText("Current request"');
     expect(source).not.toContain('"Report request recorded"');
     expect(source).not.toContain("screenshotRegisteredPanel");
   });

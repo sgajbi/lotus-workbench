@@ -59,6 +59,10 @@ facts; it must not invent reassuring defaults, thresholds, authority, or success
   grant resolver exists; local fixtures remain non-certifying.
 - Active routes, modes, source owners, screen guides, and evidence expectations are registered in
   `docs/documentation/workbench-screen-registry.v1.json` and enforced by `quality:screen-docs`.
+- Canonical Report Centre proof captures the exact accepted request/job receipt, polls the existing
+  admitted portfolio-scoped history through the BFF, and requires output-specific terminal success
+  before classification or screenshot publication. It does not widen authority with an unscoped
+  job-status route, treat acceptance as completion, or hide terminal warnings/failures.
 - Repo-local `wiki/` is the authored business and operator source; the GitHub wiki is its published
   copy.
 - Supported, bounded, and unavailable product capabilities are stated in

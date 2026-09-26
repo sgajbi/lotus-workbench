@@ -663,8 +663,12 @@ Report Centre checks prove the Gateway-owned catalogue renders for the canonical
 observe each output's source-owned readiness. When governed PDF creation is unavailable, structured
 report data remains selected and PDF stays disabled. When governed PDF creation is ready, the
 validator selects it and proves the reviewed request can be submitted. Both paths prove advisor
-review gates submission, one request is accepted, recent report-data history is populated, and
-archive retention and client delivery remain separate controls. The governed panel identifier is
+review gates submission. The validator binds the exact accepted request and job identities to the
+admitted portfolio-scoped history, waits for a successful output-specific terminal state
+(`archived` for governed PDF or `completed` for structured data), and refreshes the rendered
+current row before screenshot publication. Terminal failure, attention-only completion, identity
+drift, history failure, or timeout fails the canonical run. Archive retention and client delivery
+remain separate controls. The governed panel identifier is
 `reporting.report_centre`; central platform registration is tracked in `lotus-platform#582`.
 Every governed screenshot waits for both the panel proof and the shared **Workspace Navigation**
 shell to replace its availability-loading state. A shell that remains on **Checking availability**
