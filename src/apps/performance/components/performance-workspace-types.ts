@@ -92,18 +92,6 @@ export type PerformanceControlNormalizationHandler = (
   >
 ) => void;
 
-export type PerformanceSummaryHeaderSectionProps = Pick<
-  PerformanceSummaryModeProps,
-  | "workspace"
-  | "detailBasis"
-  | "capabilities"
-  | "selectedBenchmarkCode"
-  | "selectedBenchmarkLabel"
-  | "selectedPerformance"
-  | "hasMoneyWeightedReturn"
-  | "suspiciousMoneyWeightedReturn"
->;
-
 export type PerformanceSummaryContributorsSectionProps = Pick<
   PerformanceSummaryModeProps,
   | "workspace"

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const repositoryRoot = join(__dirname, "..", "..");
 const governedLintCommand =
-  "npm run quality:branch-protection && npm run quality:runtime-support && npm run quality:runtime-state && npm run quality:bff-header-boundary && npm run quality:feature-transport && npm run quality:source-authority && npm run quality:dependency-risk && npm run quality:font-assets && npm run quality:product-copy && npm run quality:e2e-scenarios && npm run lint:css-global && npm run lint:risk-architecture && npm run quality:screen-docs && npm run lint:react-compiler && npm run lint:eslint";
+  "npm run quality:branch-protection && npm run quality:runtime-support && npm run quality:runtime-state && npm run quality:bff-header-boundary && npm run quality:feature-transport && npm run quality:source-authority && npm run quality:dependency-risk && npm run quality:unused-code && npm run quality:font-assets && npm run quality:product-copy && npm run quality:e2e-scenarios && npm run lint:css-global && npm run lint:risk-architecture && npm run quality:screen-docs && npm run lint:react-compiler && npm run lint:eslint";
 const governedTimeoutsByJob = new Map([
   [
     "e2e-smoke",
@@ -92,6 +92,9 @@ describe("dependency security governance", () => {
     expect(packageJson.scripts?.lint).toBe(governedLintCommand);
     expect(packageJson.scripts?.["quality:font-assets"]).toBe(
       "node scripts/quality/check-font-asset-governance.mjs",
+    );
+    expect(packageJson.scripts?.["quality:unused-code"]).toBe(
+      "node scripts/quality/check-unused-code.mjs",
     );
     expect(packageJson.scripts?.["lint:eslint"]).toBe("eslint . --max-warnings=0");
     expect(packageJson.devDependencies?.["eslint-plugin-react-hooks"]).toBe(

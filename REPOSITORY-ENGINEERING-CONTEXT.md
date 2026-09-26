@@ -270,7 +270,7 @@ the documented sibling-checkout layout without relying on the scripts' personal 
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Install                                   | `npm ci --no-audit --no-fund`                                                                                                                    |
 | Develop                                   | `npm run dev` (the governed launcher supplies `LOTUS_ENVIRONMENT=dev` only when absent)                                                          |
-| Lint and architecture gates               | `npm run lint`                                                                                                                                   |
+| Lint and architecture gates               | `npm run lint` (includes `quality:unused-code`, the exact production-reachability ratchet)                                                      |
 | Type safety                               | `npm run typecheck`                                                                                                                              |
 | Unit tests                                | `npm test`                                                                                                                                       |
 | Coverage gate                             | `npm run test:coverage`                                                                                                                          |
@@ -309,7 +309,8 @@ the business behavior, source boundary, degraded state, and applicable interacti
    parity, and reconcile branches/worktrees without code loss.
 
 Blocking gates cover BFF and feature transport, source-to-render authority, runtime-state and
-dependency inventories, CSS and Risk architecture, product copy, screen documentation, E2E
+dependency inventories, the exact Knip production-reachability baseline, CSS and Risk architecture,
+product copy, screen documentation, E2E
 scenarios, ESLint, React Compiler rules, TypeScript, meaningful coverage, build, security,
 container parity, browser smoke, and fixture scenarios.
 
@@ -362,6 +363,10 @@ policy; it is not the default first read for a bounded Workbench change.
   the Platform #604/#727 repository-resolution contract; closed duplicate #913 is historical only.
 - Verify dynamic imports, route registries, exports, tests, saved recovery work, and supported
   consumers before declaring code dead. Remove proven dead code only within the bounded issue.
+- `quality:unused-code` runs pinned Knip analysis over the production source graph and requires an
+  exact count and identity digest. Scripts and tests are executable entry points outside that graph;
+  a reviewed cleanup must ratchet both baseline fields in the same change, while any new dead file,
+  export, or exported type fails `npm run lint`.
 - Active work, blockers, PRs, SHAs, and execution chronology belong in GitHub, not this file.
 
 ## Context Maintenance Rule

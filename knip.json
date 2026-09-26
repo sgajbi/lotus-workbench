@@ -1,0 +1,9 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignore": [
+    "scripts/**",
+    "tests/**",
+    "eslint.react-compiler.config.mjs",
+    "playwright.live.config.ts"
+  ]
+}

@@ -84,7 +84,9 @@
     ]
   },
   "retiredSelectorPrefixes": [
-    "dpm-wave-command-center-"
+    "dpm-wave-command-center-",
+    "portfolio-performance-sparkline",
+    "portfolio-top-holdings-"
   ],
   "forbiddenSelectorPrefixes": [
     "dpm-copilot-",
@@ -198,8 +200,8 @@
     {
       "path": "src/styles/global/legacy-global.css",
       "owner": "legacy global feature selectors pending migration beside owning components",
-      "maxLines": 10987,
-      "maxBytes": 240346
+      "maxLines": 10880,
+      "maxBytes": 238293
     }
   ]
 }

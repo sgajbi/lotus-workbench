@@ -192,14 +192,6 @@
   gap: 0.25rem;
 }
 
-.portfolio-top-holdings-body {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.portfolio-top-holdings-list-card {
-  min-width: 0;
-}
-
 .portfolio-horizontal-bar-chart {
   display: grid;
   gap: 0.625rem;
@@ -1548,10 +1540,6 @@
   background: #131b2e;
 }
 
-.portfolio-top-holdings-summary {
-  grid-row: span 2;
-}
-
 .portfolio-summary-table {
   width: 100%;
   border-collapse: collapse;
@@ -2586,81 +2574,6 @@
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--text-muted);
-}
-
-.portfolio-performance-sparkline {
-  display: grid;
-  gap: var(--space-1);
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: var(--border-subtle);
-  border-radius: 10px;
-  background: var(--surface-subtle);
-}
-
-.portfolio-performance-sparkline svg {
-  width: 100%;
-  max-width: 180px;
-  height: 52px;
-}
-
-.portfolio-performance-sparkline-baseline {
-  stroke: rgba(38, 50, 56, 0.12);
-  stroke-width: 1;
-  stroke-dasharray: 2 3;
-}
-
-.portfolio-performance-sparkline-line {
-  fill: none;
-  stroke: #315d8a;
-  stroke-width: 2.25;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.portfolio-performance-sparkline-line-benchmark {
-  stroke: #6b7280;
-}
-
-.portfolio-performance-sparkline-line-active {
-  stroke: #8a5b18;
-}
-
-.portfolio-performance-sparkline-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  align-items: center;
-}
-
-.portfolio-performance-sparkline-legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: var(--text-muted);
-}
-
-.portfolio-performance-sparkline-swatch {
-  width: 12px;
-  height: 2px;
-  border-radius: 999px;
-  background: #315d8a;
-}
-
-.portfolio-performance-sparkline-swatch-benchmark {
-  background: #6b7280;
-}
-
-.portfolio-performance-sparkline-swatch-active {
-  background: #8a5b18;
-}
-
-.portfolio-performance-sparkline-copy {
-  font-size: 12px;
-  line-height: 1.4;
   color: var(--text-muted);
 }
 
@@ -4194,26 +4107,6 @@
     text-align: right;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
-  }
-
-  .portfolio-top-holdings-list-card {
-    border-color: rgba(226, 232, 240, 0.75);
-    background: #fcfdff;
-  }
-
-  .portfolio-top-holdings-body {
-    gap: var(--space-3);
-  }
-
-  .portfolio-top-holdings-empty {
-    display: grid;
-    gap: var(--space-2);
-    min-height: 12rem;
-    align-content: center;
-    padding: var(--space-4);
-    border: 1px dashed rgba(148, 163, 184, 0.45);
-    border-radius: 12px;
-    background: var(--surface);
   }
 
   .portfolio-horizontal-bar-row {
