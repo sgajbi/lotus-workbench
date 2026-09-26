@@ -95,8 +95,10 @@ npm run live:stack:down
 ```
 
 The default `full` profile completes the real browser presentation, review, and conversion journey
-before Idea selects that current resource for one report-only downstream-capacity probe. Use the
-one-command entry point so its per-run trusted caller marker stays in memory and is never persisted.
+before Idea selects the governed downstream state. A fresh authorized intent receives one
+report-only submission; an already accepted intent is verified from its durable Advise owner receipt
+without a duplicate mutation. Use the one-command entry point so its per-run trusted caller marker
+stays in memory and is never persisted.
 For a bounded diagnostic recheck of an already-running stack, use
 `npm run live:validate:client-demo`. It records the excluded capacity probe
 and is not demo, full-profile, or release evidence; rerun the combined full command before claims.

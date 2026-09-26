@@ -332,25 +332,27 @@ reservation; a ready hostname alone does not prove the proposal workflow. After 
 contract or startup source, tear down the old reservation scope and rebuild under a fresh one
 before asserting live proposal acceptance.
 
-### Lotus Idea capacity evidence
+### Lotus Idea downstream integration evidence
 
 The default `full` profile requires this evidence. The explicit `client-demo` profile is a bounded
 diagnostic recheck of an already-running stack: it records the excluded post-browser probe and
 cannot certify a demo, downstream capacity, or the complete `full` profile.
 
 In `full`, Workbench first completes the governed browser presentation, review, and conversion
-journey. It then delegates resource selection and workload execution to `lotus-idea`. Workbench
-only coordinates the order and verifies source-owned evidence. The flow:
+journey. It then delegates downstream-state selection to `lotus-idea`. Workbench only coordinates
+the order and verifies source-owned evidence. The flow:
 
 1. rebuilds only the Idea Compose project with the checked-out commit, branch, and fresh canonical
    run identity; unrelated services continue to use the normal reusable-image posture,
 2. prepares the authoritative Core-backed candidate and validates the real Workbench browser flow,
    including its durable presentation receipt, exact review, and Advise conversion intent,
 3. verifies Idea `/version` commit, branch, and run metadata against the requested identity,
-4. invokes the Idea-owned selector, which requires one current authoritative conversion intent
-   bound to the current evidence version, Workbench receipt, exact review policy, tenant scope, and
-   source cut,
-5. accepts exactly one successful `downstream_submission` probe in the `test` profile, and
+4. invokes the Idea-owned selector, which requires either one fresh authoritative conversion intent
+   or its exactly linked durable accepted submission, bound to the current material state,
+   Workbench receipt, exact review policy, tenant scope, and source cut,
+5. submits exactly once only for `fresh_authorized_submission`; for
+   `retained_accepted_submission`, verifies the durable Advise owner receipt read-only and refuses a
+   workload mutation, and
 6. records source artifact paths, SHA-256 digests, and provenance in
    `output/canonical-front-office/idea-capacity-probe-evidence.json`.
 
@@ -361,10 +363,11 @@ or credentials. This is deterministic integration-readiness proof only; it is no
 evidence, production capacity certification, or supported-feature promotion.
 
 Resource selection is exercised through Lotus Idea's public candidate-detail policy after browser
-acceptance. Exact current material/evidence versions, presentation receipt, review policy, and
-source-cut authority distinguish an admissible intent from superseded history. This also makes an
-unchanged approved journey replayable without inventing a later review. Controlled load/soak
-dispatch can add an explicit accepted-at lower bound when fresh-intent evidence is required. Canonical
+acceptance. Exact current material state, bounded evidence chronology, presentation receipt, review
+policy, source-cut authority, and a complete Advise owner receipt distinguish admissible retained
+state from unrelated history. This makes an unchanged approved journey replayable without inventing
+a later review or issuing a duplicate downstream request. Controlled load/soak dispatch can add an
+explicit accepted-at lower bound when fresh-intent evidence is required. Canonical
 startup creates one per-run local trusted-caller marker, passes it to the Idea runtime as
 `LOTUS_IDEA_TRUSTED_CALLER_CONTEXT_TOKEN`, and scopes the post-browser selector with the same marker
 as `LOTUS_IDEA_CAPACITY_TRUSTED_CALLER_CONTEXT`. The selector forwards the exact tenant, book,
@@ -513,7 +516,7 @@ is live. The npm entrypoint passes `-BuildImages` so one-command validation prov
 checked-out Docker-backed service sources rather than a previously built Gateway, Advise, Manage,
 or Workbench image.
 
-One runner has two explicit proof profiles. `full` is the default and fails if its Idea capacity
+One runner has two explicit proof profiles. `full` is the default and fails if its Idea integration
 artifact is absent. Run `full` through the one-command startup-and-validation entry point so its
 per-run trusted caller marker remains scoped in memory across browser validation and the final
 probe. For a bounded diagnostic recheck, use standalone `client-demo`; it still validates Idea's
@@ -636,7 +639,7 @@ and demo readiness state. The validator also writes `SHOT-INDEX.md` in the scree
 demo reviewers can quickly identify the captured product surfaces.
 
 For `full`, browser artifacts remain under a `diagnostic-*-pending-*` directory until the Idea
-capacity probe succeeds. Any earlier published directory is preserved with a
+downstream integration proof succeeds. Any earlier published directory is preserved with a
 `diagnostic-*-superseded-*` name. Only the completed same-run pack is moved to the requested
 canonical directory, so a failed probe cannot leave demo-ready filenames behind.
 

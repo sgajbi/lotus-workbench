@@ -119,7 +119,7 @@ describe("canonical observability evidence capture", () => {
     expect(screenshotScript).toContain("workbench-performance-evidence");
   });
 
-  it("accepts only a completed full-profile summary with capacity evidence", () => {
+  it("accepts only a completed full-profile summary with Idea integration evidence", () => {
     const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
     const root = mkdtempSync(join(tmpdir(), "lotus-capture-summary-"));
     const summaryPath = join(root, "summary.json");
@@ -130,20 +130,122 @@ describe("canonical observability evidence capture", () => {
       benchmarkCode: "BMK_PB_GLOBAL_BALANCED_60_40",
       canonicalContract: { canonicalAsOfDate: "2026-04-10" },
       ideaCapacityProbe: {
+        schemaVersion: "lotus-workbench.idea-capacity-probe-evidence.v2",
         posture: "accepted_non_certifying",
+        resourceFileName: "idea-capacity-resource.json",
+        repository: "lotus-idea",
         commitSha: "a".repeat(40),
         branch: "main",
         runId: "canonical-run-001",
+        proofScope: "governed_downstream_resource_state",
+        claimPosture: "selected_resource_state_not_capacity_evidence",
+        syntheticResource: false,
         presentationBackedResource: true,
+        integrationProofAccepted: true,
+        resourcePosture: "fresh_authorized_submission",
         capacityWorkloadAccepted: true,
+        retainedAcceptedSubmissionVerified: false,
         productionCapacityCertified: false,
         supportedFeaturePromoted: false,
         resourceSha256: "a".repeat(64),
+        workloadFileName: "idea-capacity-probe-workload.json",
         workloadSha256: "b".repeat(64),
       },
     };
     const summaries = [
       baseSummary,
+      {
+        ...baseSummary,
+        ideaCapacityProbe: {
+          ...baseSummary.ideaCapacityProbe,
+          ownerSourceAuthority: "lotus-advise",
+          ownerSourceEventVersion: 1,
+        },
+      },
+      {
+        ...baseSummary,
+        ideaCapacityProbe: {
+          ...baseSummary.ideaCapacityProbe,
+          resourcePosture: "retained_accepted_submission",
+          capacityWorkloadAccepted: false,
+          retainedAcceptedSubmissionVerified: true,
+          ownerSourceAuthority: "lotus-advise",
+          ownerSourceEventVersion: 1,
+          workloadFileName: undefined,
+          workloadSha256: undefined,
+        },
+      },
+      {
+        ...baseSummary,
+        ideaCapacityProbe: {
+          ...baseSummary.ideaCapacityProbe,
+          resourcePosture: "retained_accepted_submission",
+          capacityWorkloadAccepted: false,
+          retainedAcceptedSubmissionVerified: true,
+          ownerSourceAuthority: "lotus-advise",
+          ownerSourceEventVersion: 1,
+          workloadFileName: "stale-workload.json",
+          workloadSha256: "",
+        },
+      },
+      ...[true, "1", 1.5, Number.MAX_SAFE_INTEGER + 1].map((ownerSourceEventVersion) => ({
+        ...baseSummary,
+        ideaCapacityProbe: {
+          ...baseSummary.ideaCapacityProbe,
+          resourcePosture: "retained_accepted_submission",
+          capacityWorkloadAccepted: false,
+          retainedAcceptedSubmissionVerified: true,
+          ownerSourceAuthority: "lotus-advise",
+          ownerSourceEventVersion,
+          workloadFileName: undefined,
+          workloadSha256: undefined,
+        },
+      })),
+      ...[
+        { ownerSourceAuthority: ["lotus-advise"] },
+        { retainedAcceptedSubmissionVerified: [true] },
+        { resourcePosture: ["retained_accepted_submission"] },
+        { presentationBackedResource: [true] },
+        { schemaVersion: "lotus-workbench.idea-capacity-probe-evidence.v1" },
+        { repository: "lotus-report" },
+        { proofScope: "report_only_baseline" },
+        { claimPosture: "capacity_certified" },
+        { syntheticResource: true },
+        { resourceFileName: "" },
+      ].map((malformedFields) => ({
+        ...baseSummary,
+        ideaCapacityProbe: {
+          ...baseSummary.ideaCapacityProbe,
+          resourcePosture: "retained_accepted_submission",
+          capacityWorkloadAccepted: false,
+          retainedAcceptedSubmissionVerified: true,
+          ownerSourceAuthority: "lotus-advise",
+          ownerSourceEventVersion: 1,
+          workloadFileName: undefined,
+          workloadSha256: undefined,
+          ...malformedFields,
+        },
+      })),
+      { ...baseSummary, validationProfile: ["full"] },
+      { ...baseSummary, excludedProofs: null },
+      { ...baseSummary, portfolioId: ["PB_SG_GLOBAL_BAL_001"] },
+      {
+        ...baseSummary,
+        canonicalContract: { canonicalAsOfDate: ["2026-04-10"] },
+      },
+      {
+        ...baseSummary,
+        ideaCapacityProbe: {
+          ...baseSummary.ideaCapacityProbe,
+          resourcePosture: "retained_accepted_submission",
+          capacityWorkloadAccepted: false,
+          retainedAcceptedSubmissionVerified: true,
+          ownerSourceAuthority: "lotus-advise",
+          ownerSourceEventVersion: 1,
+          workloadFileName: undefined,
+          workloadSha256: "",
+        },
+      },
       {
         ...baseSummary,
         ideaCapacityProbe: {
@@ -215,6 +317,28 @@ ConvertTo-Json @($results) -Compress`;
       expect(result.status, result.stderr).toBe(0);
       expect(JSON.parse(result.stdout)).toEqual([
         "accepted",
+        "refused",
+        "accepted",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
+        "refused",
         "refused",
         "refused",
         "refused",

@@ -16,7 +16,6 @@ const { values } = parseArgs({
 
 for (const name of [
   "resource",
-  "workload",
   "output",
   "commit-sha",
   "branch",

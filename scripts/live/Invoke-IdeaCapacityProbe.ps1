@@ -11,6 +11,22 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+function Resolve-IdeaCapacityResourcePosture {
+  param([Parameter(Mandatory)][object]$ResourcePosture)
+
+  if ($ResourcePosture -isnot [string]) {
+    throw 'Lotus Idea capacity resource posture must be a string.'
+  }
+  if ($ResourcePosture -ceq 'fresh_authorized_submission') {
+    return 'fresh_authorized_submission'
+  }
+  if ($ResourcePosture -ceq 'retained_accepted_submission') {
+    return 'retained_accepted_submission'
+  }
+  throw "Lotus Idea capacity resource returned unsupported posture '$ResourcePosture'."
+}
+
 $selectedWorkbench = (Resolve-Path (Join-Path $PSScriptRoot '../..')).ProviderPath
 Import-Module (Join-Path $PSScriptRoot 'CanonicalWorkspace.psm1') -Force
 $ProjectsRoot = Resolve-CanonicalWorkspaceRoot -ProjectsRoot $ProjectsRoot -WorkbenchRepoPath $selectedWorkbench
@@ -85,38 +101,48 @@ try {
     throw "Lotus Idea capacity resource selection failed with exit code $LASTEXITCODE."
   }
 
-  $workloadArguments = @(
-    $workloadScript,
-    "--base-url", $IdeaBaseUrl,
-    "--environment-profile", "test",
-    "--scenario", "downstream_submission",
-    "--request-count", "1",
-    "--concurrency", "1",
-    "--allow-mutating-workflows",
-    "--commit-sha", $commitSha,
-    "--branch", $branch,
-    "--run-id", $RunId,
-    "--downstream-capacity-resource", $resourcePath,
-    "--caller-tenant-id", [string]$scope.tenantId,
-    "--caller-book-id", [string]$scope.bookId,
-    "--caller-portfolio-id", [string]$scope.portfolioId,
-    "--caller-client-id", [string]$scope.clientId,
-    "--output", $workloadPath
-  )
-  & $python @workloadArguments
-  if ($LASTEXITCODE -ne 0) {
-    throw "Lotus Idea capacity probe was not accepted; workload exited $LASTEXITCODE."
+  $resource = Get-Content -LiteralPath $resourcePath -Raw | ConvertFrom-Json
+  $resourcePosture = Resolve-IdeaCapacityResourcePosture -ResourcePosture $resource.resourcePosture
+  $requiresWorkload = $resourcePosture -ceq 'fresh_authorized_submission'
+  if ($requiresWorkload) {
+    $workloadArguments = @(
+      $workloadScript,
+      "--base-url", $IdeaBaseUrl,
+      "--environment-profile", "test",
+      "--scenario", "downstream_submission",
+      "--request-count", "1",
+      "--concurrency", "1",
+      "--allow-mutating-workflows",
+      "--commit-sha", $commitSha,
+      "--branch", $branch,
+      "--run-id", $RunId,
+      "--downstream-capacity-resource", $resourcePath,
+      "--caller-tenant-id", [string]$scope.tenantId,
+      "--caller-book-id", [string]$scope.bookId,
+      "--caller-portfolio-id", [string]$scope.portfolioId,
+      "--caller-client-id", [string]$scope.clientId,
+      "--output", $workloadPath
+    )
+    & $python @workloadArguments
+    if ($LASTEXITCODE -ne 0) {
+      throw "Lotus Idea capacity probe was not accepted; workload exited $LASTEXITCODE."
+    }
   }
 
   $validator = Join-Path $workbenchRepo "scripts\live\Validate-IdeaCapacityProbeEvidence.mjs"
-  & node $validator `
-    --resource $resourcePath `
-    --workload $workloadPath `
-    --output $evidencePath `
-    --commit-sha $commitSha `
-    --branch $branch `
-    --run-id $RunId `
-    --candidate-id $ExpectedCandidateId
+  $validatorArguments = @(
+    $validator,
+    "--resource", $resourcePath,
+    "--output", $evidencePath,
+    "--commit-sha", $commitSha,
+    "--branch", $branch,
+    "--run-id", $RunId,
+    "--candidate-id", $ExpectedCandidateId
+  )
+  if ($requiresWorkload) {
+    $validatorArguments += @("--workload", $workloadPath)
+  }
+  & node @validatorArguments
   if ($LASTEXITCODE -ne 0) {
     throw "Workbench Idea capacity probe evidence validation failed with exit code $LASTEXITCODE."
   }
@@ -124,4 +150,4 @@ try {
   Remove-Item -LiteralPath $rawArtifactDirectory -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Validated presentation-backed Lotus Idea capacity probe evidence: $evidencePath"
+Write-Host "Validated presentation-backed Lotus Idea integration evidence: $evidencePath"

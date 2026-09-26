@@ -1,21 +1,3 @@
-export interface IdeaCapacityResource {
-  schemaVersion: "lotus-idea.downstream-capacity-resource.v1";
-  repository: "lotus-idea";
-  proofScope: "current_authoritative_downstream_resource";
-  claimPosture: "selected_conversion_intent_not_capacity_evidence";
-  generatedAtUtc: string;
-  commitSha: string;
-  branch: string;
-  runId: string;
-  syntheticResource: false;
-  candidateId: string;
-  conversionIntentId: string;
-  conversionIntentAcceptedAtUtc: string;
-  downstreamSubmissionPath: string;
-  productionCapacityCertified: false;
-  supportedFeaturePromoted: false;
-}
-
 export interface IdeaCapacityProbeExpectedProvenance {
   commitSha: string;
   branch: string;
@@ -27,37 +9,83 @@ export interface IdeaCapacityResourceExpectation
   candidateId: string;
 }
 
-export interface IdeaCapacityProbeEvidence {
-  schemaVersion: "lotus-workbench.idea-capacity-probe-evidence.v1";
-  posture: "accepted_non_certifying";
-  resourceFileName: string;
-  resourceSha256: string;
-  workloadFileName: string;
-  workloadSha256: string;
+interface IdeaCapacityResourceBase extends IdeaCapacityProbeExpectedProvenance {
+  schemaVersion: "lotus-idea.downstream-capacity-resource.v2";
   repository: "lotus-idea";
-  commitSha: string;
-  branch: string;
-  runId: string;
-  proofScope: "current_authoritative_downstream_resource";
-  claimPosture: "selected_conversion_intent_not_capacity_evidence";
+  proofScope: "governed_downstream_resource_state";
+  claimPosture: "selected_resource_state_not_capacity_evidence";
+  generatedAtUtc: string;
   syntheticResource: false;
-  presentationBackedResource: true;
-  capacityWorkloadAccepted: true;
+  candidateId: string;
+  conversionIntentId: string;
+  conversionIntentAcceptedAtUtc: string;
   productionCapacityCertified: false;
   supportedFeaturePromoted: false;
 }
 
+export interface FreshIdeaCapacityResource extends IdeaCapacityResourceBase {
+  resourcePosture: "fresh_authorized_submission";
+  downstreamSubmissionPath: string;
+  retainedAcceptedSubmissionVerified: false;
+}
+
+export interface RetainedIdeaCapacityResource extends IdeaCapacityResourceBase {
+  resourcePosture: "retained_accepted_submission";
+  retainedAcceptedSubmissionVerified: true;
+  ownerSourceAuthority: "lotus-advise";
+  ownerSourceEventVersion: number;
+}
+
+export type IdeaCapacityResource =
+  | FreshIdeaCapacityResource
+  | RetainedIdeaCapacityResource;
+
+interface IdeaCapacityProbeEvidenceBase extends IdeaCapacityProbeExpectedProvenance {
+  schemaVersion: "lotus-workbench.idea-capacity-probe-evidence.v2";
+  posture: "accepted_non_certifying";
+  resourceFileName: string;
+  resourceSha256: string;
+  repository: "lotus-idea";
+  proofScope: "governed_downstream_resource_state";
+  claimPosture: "selected_resource_state_not_capacity_evidence";
+  syntheticResource: false;
+  presentationBackedResource: true;
+  integrationProofAccepted: true;
+  productionCapacityCertified: false;
+  supportedFeaturePromoted: false;
+}
+
+export interface FreshIdeaCapacityProbeEvidence extends IdeaCapacityProbeEvidenceBase {
+  resourcePosture: "fresh_authorized_submission";
+  workloadFileName: string;
+  workloadSha256: string;
+  capacityWorkloadAccepted: true;
+  retainedAcceptedSubmissionVerified: false;
+}
+
+export interface RetainedIdeaCapacityProbeEvidence extends IdeaCapacityProbeEvidenceBase {
+  resourcePosture: "retained_accepted_submission";
+  capacityWorkloadAccepted: false;
+  retainedAcceptedSubmissionVerified: true;
+  ownerSourceAuthority: "lotus-advise";
+  ownerSourceEventVersion: number;
+}
+
+export type IdeaCapacityProbeEvidence =
+  | FreshIdeaCapacityProbeEvidence
+  | RetainedIdeaCapacityProbeEvidence;
+
 export function validateIdeaCapacityResource(
   payload: unknown,
   expected: IdeaCapacityResourceExpectation,
-): asserts payload is IdeaCapacityResource;
+): "fresh_authorized_submission" | "retained_accepted_submission";
 
 export function buildIdeaCapacityProbeEvidence(input: {
   resourceBytes: Uint8Array;
   resourceFileName: string;
   payload: IdeaCapacityResource;
-  workloadBytes: Uint8Array;
-  workloadFileName: string;
+  workloadBytes?: Uint8Array;
+  workloadFileName?: string;
 }): IdeaCapacityProbeEvidence;
 
 export function validateIdeaCapacityWorkload(
@@ -82,7 +110,7 @@ export function loadIdeaCapacityProbeEvidence(
 export function validateAndWriteIdeaCapacityProbeEvidence(
   input: {
     resourcePath: string;
-    workloadPath: string;
+    workloadPath?: string;
     evidencePath: string;
   } & IdeaCapacityResourceExpectation,
 ): Promise<IdeaCapacityProbeEvidence>;
