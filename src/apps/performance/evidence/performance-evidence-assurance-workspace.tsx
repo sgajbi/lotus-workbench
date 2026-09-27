@@ -120,7 +120,7 @@ export default function PerformanceEvidenceAssuranceWorkspace({
                     <span className={`${styles.exceptionMarker} ${styles[exception.tone]}`} aria-hidden="true" />
                     <div className={styles.exceptionBody}>
                       <div className={styles.exceptionTitleRow}>
-                        <Text variant="label" as="strong">{exception.title}</Text>
+                        <Text variant="dataLabel" as="strong">{exception.title}</Text>
                         <SemanticBadge tone={exception.tone}>
                           {exception.tone === "danger" ? "Resolve" : "Review"}
                         </SemanticBadge>
@@ -137,7 +137,7 @@ export default function PerformanceEvidenceAssuranceWorkspace({
               <div className={styles.allClear}>
                 <span className={styles.allClearMark} aria-hidden="true">✓</span>
                 <div>
-                  <Text variant="label" as="strong">No source-reported evidence exceptions</Text>
+                  <Text variant="dataLabel" as="strong">No source-reported evidence exceptions</Text>
                   <Text variant="bodySmall">
                     Calculation and supporting evidence are confirmed for this internal review scope.
                   </Text>
@@ -161,7 +161,7 @@ export default function PerformanceEvidenceAssuranceWorkspace({
                 {view.calculations.map((calculation) => (
                   <article key={calculation.key} className={styles.calculation} role="listitem">
                     <div className={styles.calculationIdentity}>
-                      <Text variant="label" as="h5">{calculation.title}</Text>
+                      <Text variant="dataLabel" as="h5">{calculation.title}</Text>
                       <Text variant="bodySmall">{calculation.purpose}</Text>
                     </div>
                     <dl className={styles.calculationStates}>
@@ -208,7 +208,7 @@ export default function PerformanceEvidenceAssuranceWorkspace({
               </div>
             ) : (
               <div className={styles.noCalculations}>
-                <Text variant="label" as="strong">No calculation evidence reported</Text>
+                <Text variant="dataLabel" as="strong">No calculation evidence reported</Text>
                 <Text variant="bodySmall">
                   The result cannot be treated as assured until the source publishes calculation-level evidence.
                 </Text>

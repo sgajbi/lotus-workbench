@@ -67,7 +67,7 @@ export function PerformanceWorkspaceContextBar({
     <div className="performance-workspace-context-grid" aria-label={ariaLabel}>
       {items.map((item) => (
         <div key={item.label} className="performance-workspace-context-item">
-          <Text variant="label">{item.label}</Text>
+          <Text variant="dataLabel">{item.label}</Text>
           <Text variant="cardTitle">{item.value}</Text>
         </div>
       ))}

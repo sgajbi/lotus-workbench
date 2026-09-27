@@ -162,7 +162,7 @@
 
 .supportFacts dd {
   margin: 0;
-  color: var(--portfolio-ui-ink, #0f172a);
+  color: var(--text);
   font-family: var(--font-mono);
   font-size: var(--type-body-small-size);
   line-height: var(--type-body-small-line-height);

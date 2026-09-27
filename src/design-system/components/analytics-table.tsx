@@ -114,8 +114,9 @@ export default function AnalyticsTable({
         ...(scrollRegionLabel
           ? {
               "&:focus-visible": {
-                outline: "2px solid rgba(49, 93, 138, 0.78)",
+                outline: "2px solid transparent",
                 outlineOffset: "2px",
+                boxShadow: lotusThemeTokens.focus.ring,
               },
             }
           : {}),
@@ -210,9 +211,9 @@ export default function AnalyticsTable({
                     ? {
                         cursor: "pointer",
                         "&:focus-visible": {
-                          outline: "2px solid",
-                          outlineColor: "rgba(49, 93, 138, 0.7)",
-                          outlineOffset: "-2px",
+                          outline: "2px solid transparent",
+                          outlineOffset: "2px",
+                          boxShadow: `inset ${lotusThemeTokens.focus.ring}`,
                         },
                       }
                     : {}),
@@ -293,7 +294,10 @@ function getColumnCellStyle(
       ? {
           position: "sticky",
           left: column.stickyOffset,
-          zIndex: section === "header" ? 3 : 2,
+          zIndex:
+            section === "header"
+              ? lotusThemeTokens.zIndex.pinnedHeader
+              : lotusThemeTokens.zIndex.pinnedCell,
           backgroundColor:
             section === "body"
               ? `var(--analytics-table-pinned-background, ${lotusThemeTokens.color.surface.panel})`
@@ -317,7 +321,7 @@ function getHeaderCellSx(density: AnalyticsTableDensity) {
   return {
     position: "sticky",
     top: 0,
-    zIndex: 1,
+    zIndex: lotusThemeTokens.zIndex.content,
     py: densityPaddingY[density],
     px: lotusThemeTokens.table.cellPadding.x,
     fontSize: headerFontSize[density],
@@ -325,7 +329,7 @@ function getHeaderCellSx(density: AnalyticsTableDensity) {
     letterSpacing: lotusThemeTokens.typography.variant.tableHeader.tracking,
     textTransform: "uppercase",
     color: lotusThemeTokens.color.text.muted,
-    bgcolor: "rgba(247, 249, 251, 0.98)",
+    bgcolor: lotusThemeTokens.color.surface.panelAlt,
     borderBottomColor: lotusThemeTokens.color.border.default,
     whiteSpace: "nowrap",
   } as const;
@@ -339,7 +343,7 @@ function getBodyCellSx(density: AnalyticsTableDensity) {
     py: densityPaddingY[density],
     px: lotusThemeTokens.table.cellPadding.x,
     color: lotusThemeTokens.color.text.primary,
-    borderBottomColor: "rgba(221, 226, 232, 0.65)",
+    borderBottomColor: lotusThemeTokens.color.border.default,
     whiteSpace: "nowrap",
   } as const;
 }
@@ -354,7 +358,7 @@ function getFooterCellSx(density: AnalyticsTableDensity) {
     color: lotusThemeTokens.color.text.primary,
     borderTop: "1px solid",
     borderTopColor: lotusThemeTokens.color.border.default,
-    bgcolor: "rgba(247, 249, 251, 0.98)",
+    bgcolor: lotusThemeTokens.color.surface.panelAlt,
     whiteSpace: "nowrap",
   } as const;
 }

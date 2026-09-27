@@ -15,7 +15,7 @@
 .shell-topbar {
   position: sticky;
   top: 0;
-  z-index: 20;
+  z-index: var(--z-index-shell-header);
   border-bottom: 1px solid var(--border);
   background: var(--surface-topbar);
   backdrop-filter: blur(12px);
@@ -869,6 +869,14 @@
 }
 
 :focus-visible {
-  outline: 2px solid var(--brand-highlight);
+  outline: 2px solid transparent;
   outline-offset: 2px;
+  box-shadow: var(--focus-ring);
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+    box-shadow: none;
+  }
 }

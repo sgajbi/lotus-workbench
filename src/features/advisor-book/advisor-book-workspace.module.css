@@ -9,9 +9,9 @@
   align-items: center;
   gap: 10px 18px;
   padding: 12px 16px;
-  border: 1px solid var(--lotus-border-subtle, #dde2e8);
-  border-radius: 10px;
-  background: var(--lotus-surface-panel, #fff);
+  border: var(--border-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-primary);
 }
 
 .contextItem {
@@ -21,7 +21,7 @@
 
 .contextItem span,
 .supportReference {
-  color: var(--lotus-text-muted, #66717f);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
@@ -40,7 +40,7 @@
   gap: 12px;
   align-items: end;
   padding-block: 4px 16px;
-  border-bottom: 1px solid var(--lotus-border-subtle, #dde2e8);
+  border-bottom: var(--border-subtle);
 }
 
 .field {
@@ -52,10 +52,10 @@
 .field select {
   min-height: 44px;
   width: 100%;
-  border: 1px solid var(--lotus-border-default, #cbd2da);
-  border-radius: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   padding: 7px 10px;
-  background: #fff;
+  background: var(--surface-primary);
   color: inherit;
   font: inherit;
 }
@@ -90,13 +90,13 @@
 }
 
 .resultSummary strong {
-  color: var(--lotus-text-strong, #152231);
+  color: var(--text);
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
 }
 
 .resultSummary span {
-  color: var(--lotus-text-muted, #66717f);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
@@ -121,7 +121,7 @@
 }
 
 .portfolioCell a {
-  color: var(--lotus-color-action, #285b86);
+  color: var(--brand);
   font-weight: 650;
   text-decoration: none;
 }
@@ -132,12 +132,12 @@
 
 .portfolioCell small,
 .cellDetail {
-  color: var(--lotus-text-muted, #66717f);
+  color: var(--text-muted);
   font-size: 0.75rem;
 }
 
 .referenceValue {
-  color: var(--lotus-text-default, #303d4c);
+  color: var(--text);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
@@ -151,7 +151,7 @@
 }
 
 .pagination span {
-  color: var(--lotus-text-muted, #66717f);
+  color: var(--text-muted);
   font-size: 0.8125rem;
 }
 
@@ -181,7 +181,7 @@
   color: var(--brand-highlight);
   font-size: 1.25rem;
   line-height: 1;
-  transition: transform 140ms ease;
+  transition: transform var(--motion-duration-fast) var(--motion-easing-standard);
 }
 
 .supportDisclosure[open] summary::before {
@@ -239,12 +239,12 @@
   display: grid;
   gap: 3px;
   padding-left: 12px;
-  border-left: 3px solid #d39a32;
+  border-left: 3px solid var(--warn-border);
 }
 
 .limitations p {
   margin: 0;
-  color: var(--lotus-text-muted, #66717f);
+  color: var(--text-muted);
   font-size: 0.8125rem;
 }
 

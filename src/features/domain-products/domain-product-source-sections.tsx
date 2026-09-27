@@ -124,7 +124,7 @@ function TrustEvidence({
       {data.issues.map((issue) => (
         <div key={`${issue.productId}:${issue.code}:${issue.detail}`} className={styles.issueRow}>
           <div>
-            <Text variant="label">{formatStateLabel(issue.code)}</Text>
+            <Text variant="dataLabel">{formatStateLabel(issue.code)}</Text>
             <Text variant="secondary">{formatIdentifier(issue.productId)}</Text>
           </div>
           <Text variant="secondary">{issue.detail}</Text>

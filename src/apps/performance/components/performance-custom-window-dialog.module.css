@@ -3,7 +3,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   background: var(--panel);
-  box-shadow: var(--shadow-elevated);
+  box-shadow: var(--elevation-soft);
 }
 
 .title {

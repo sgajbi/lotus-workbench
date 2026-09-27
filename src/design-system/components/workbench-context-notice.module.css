@@ -2,11 +2,11 @@
   display: grid;
   gap: var(--space-1, 0.25rem);
   padding: var(--space-3, 0.75rem) var(--space-4, 1rem);
-  border: 1px solid color-mix(in srgb, var(--color-info, #2563eb) 28%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand-highlight) 28%, transparent);
   border-inline-start-width: 3px;
   border-radius: var(--radius-md, 0.5rem);
-  background: color-mix(in srgb, var(--color-info, #2563eb) 6%, var(--surface-1, #fff));
-  color: var(--text-primary, #172033);
+  background: color-mix(in srgb, var(--brand-highlight) 6%, var(--surface-primary));
+  color: var(--text);
 }
 
 .eyebrow,
@@ -16,7 +16,7 @@
 }
 
 .eyebrow {
-  color: var(--text-secondary, #526077);
+  color: var(--text-muted);
   font-size: 0.6875rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -30,7 +30,7 @@
 }
 
 .body {
-  color: var(--text-secondary, #526077);
+  color: var(--text-muted);
   font-size: 0.8125rem;
   line-height: 1.5;
 }

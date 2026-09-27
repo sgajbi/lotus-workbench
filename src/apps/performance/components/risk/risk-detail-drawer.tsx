@@ -72,7 +72,7 @@ export default function RiskDetailDrawer({
           <div className="performance-risk-detail-drawer-context" aria-label={`${title} detail context`}>
             {contextItems.map((item) => (
               <div key={item.label} className="performance-risk-detail-drawer-context-item">
-                <Text variant="label">{item.label}</Text>
+                <Text variant="dataLabel">{item.label}</Text>
                 <Text variant="cardTitle">{item.value}</Text>
               </div>
             ))}

@@ -453,6 +453,89 @@ describe("advisor cockpit live proof", () => {
     expectNoLegacyAuthorityQuery(fetchMock);
   });
 
+  it("reads later action pages when accumulated canonical history fills the first page", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        actionListResponse({
+          totalCount: 2,
+          nextCursor: "aci_policy_review_001",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            items: [
+              actionItem({
+                actionItemId: "aci_house_view_impact_review_001",
+                ownerRole: "DPM_OWNER",
+                family: "HOUSE_VIEW_IMPACT_REVIEW",
+                priority: "MEDIUM",
+                reasonCodes: ["TACTICAL_HOUSE_VIEW_PORTFOLIO_AFFECTED"],
+              }),
+            ],
+            total_count: 2,
+            next_cursor: null,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(actionDetailResponse())
+      .mockResolvedValueOnce(
+        actionListResponse({ totalCount: 2, nextCursor: "aci_policy_review_001" }),
+      )
+      .mockResolvedValueOnce(
+        actionListResponse({
+          actionItemId: "aci_house_view_impact_review_001",
+          totalCount: 2,
+        }),
+      )
+      .mockResolvedValueOnce(actionListResponse({ ownerRole: "COMPLIANCE_REVIEWER" }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            items: [
+              actionItem({
+                actionItemId: "aci_house_view_impact_review_001",
+                ownerRole: "DPM_OWNER",
+                family: "HOUSE_VIEW_IMPACT_REVIEW",
+                reasonCodes: ["TACTICAL_HOUSE_VIEW_PORTFOLIO_AFFECTED"],
+              }),
+            ],
+            total_count: 1,
+          },
+        }),
+      )
+      .mockResolvedValueOnce(invalidCursorResponse())
+      .mockResolvedValueOnce(snapshotResponse())
+      .mockResolvedValueOnce(preparationPacketsResponse())
+      .mockResolvedValueOnce(supportabilityResponse())
+      .mockResolvedValueOnce(acknowledgementResponse());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const proof = await validateCanonicalAdvisorCockpit({
+      summary: { apiChecks: [], workflowPackChecks: [] },
+      scenario: {
+        expectedClientReadyPublication: "BLOCKED",
+        expectedActionFamilies: [
+          "POLICY_REVIEW_REQUIRED",
+          "HOUSE_VIEW_IMPACT_REVIEW",
+        ],
+      },
+      gatewayBaseUrl: "http://gateway.dev.lotus",
+      portfolioId: PORTFOLIO_ID,
+      proposalId: "proposal_001",
+      proposalVersionId: "version_001",
+      timeoutMs: 1000,
+    });
+
+    expect(proof.actionCount).toBe(2);
+    expect(fetchCallUrl(fetchMock, 0)).toContain("limit=100");
+    expect(fetchCallUrl(fetchMock, 1)).toContain(
+      "cursor=aci_policy_review_001",
+    );
+    expectNoLegacyAuthorityQuery(fetchMock);
+  });
+
   it("rejects missing expected cockpit action families", async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(actionListResponse());
     vi.stubGlobal("fetch", fetchMock);

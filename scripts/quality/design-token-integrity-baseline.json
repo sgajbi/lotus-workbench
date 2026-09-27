@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "sourceRoot": "src",
+  "rawColorExemptPaths": [
+    "src/design-system/theme/tokens.ts",
+    "src/styles/global/tokens.css"
+  ],
+  "runtimeDefinedCustomProperties": [
+    "--analytics-table-pinned-background",
+    "--font-lotus-display-face",
+    "--font-lotus-mono-face",
+    "--font-lotus-ui-face"
+  ],
+  "rawColorLiterals": {
+    "count": 1727,
+    "fileCount": 62,
+    "digest": "sha256:f762589e09a127bafdfd9c9267f647d48800dfaa2a5b230f8ba5582cde177812"
+  },
+  "variableFallbacks": {
+    "count": 93,
+    "digest": "sha256:78ad7b6b070f4dd8ae87c91bd649c004601a940efe14ac0bb2f1cd60a9fdd5a4",
+    "contextDigest": "sha256:ab2b528d304ba20e8718d33ab3b4e1e25a98db4561a55ad2a51a2498ef3f6b14"
+  }
+}

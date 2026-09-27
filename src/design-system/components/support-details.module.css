@@ -19,7 +19,7 @@
 }
 
 .summary:focus-visible {
-  outline: 2px solid var(--focus, var(--accent));
+  outline: 2px solid var(--brand-highlight);
   outline-offset: 3px;
 }
 

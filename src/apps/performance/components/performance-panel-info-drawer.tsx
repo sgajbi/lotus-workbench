@@ -77,7 +77,7 @@ export default function PerformancePanelInfoDrawer({
               {rows.map((row) => (
                 <div key={row.key} className="performance-risk-context-item performance-panel-info-row">
                   <div className="performance-risk-context-item-copy performance-panel-info-row-copy">
-                    <Text variant="label">{row.label}</Text>
+                    <Text variant="dataLabel">{row.label}</Text>
                     <Text variant="metadata">{row.support}</Text>
                   </div>
                   <Text

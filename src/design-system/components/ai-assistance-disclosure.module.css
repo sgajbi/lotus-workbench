@@ -19,7 +19,7 @@
 }
 
 .summary:focus-visible {
-  outline: 2px solid var(--focus, var(--accent));
+  outline: 2px solid var(--brand-highlight);
   outline-offset: 3px;
 }
 
@@ -86,7 +86,7 @@
 }
 
 .limitations {
-  border-left: 3px solid var(--warning, #b7791f);
+  border-left: 3px solid var(--warn-border);
   color: var(--text-muted);
   font-size: 0.78rem;
   line-height: 1.45;

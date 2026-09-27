@@ -157,7 +157,7 @@
 .tableScroll {
   max-width: 100%;
   overflow-x: auto;
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .tableScroll:focus-visible {
@@ -203,7 +203,7 @@
 
 .observationButton:focus-visible {
   box-shadow: 0 0 0 3px rgba(114, 91, 38, 0.28);
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .reviewDetail {
@@ -292,7 +292,7 @@
 
 .technicalEvidence summary:focus-visible {
   box-shadow: 0 0 0 3px rgba(114, 91, 38, 0.28);
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .technicalEvidence dl {

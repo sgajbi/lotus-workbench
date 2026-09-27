@@ -167,7 +167,7 @@ export function ProposalEvidenceControlsPanel({
       />
       <div className={detailStyles.versionControls}>
         <label>
-          <Text variant="label">Version number</Text>
+          <Text variant="dataLabel">Version number</Text>
           <input
             className="input"
             type="number"

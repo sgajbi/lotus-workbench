@@ -29,17 +29,17 @@ type Props = {
 };
 
 const ATTRIBUTION_TREND_COLORS = {
-  allocation: "#4d96d9",
-  selection: "#4caf50",
-  interaction: "#da1e28",
-  total: "#2d3748",
+  allocation: lotusThemeTokens.color.chart.categorical.allocation,
+  selection: lotusThemeTokens.color.chart.categorical.selection,
+  interaction: lotusThemeTokens.color.chart.categorical.interaction,
+  total: lotusThemeTokens.color.chart.categorical.total,
 };
 
 const ATTRIBUTION_CHART_TEXT = {
   legendSize: Number.parseFloat(lotusThemeTokens.typography.size.textSm),
   axisSize: Number.parseFloat(lotusThemeTokens.typography.size.textXs),
   legendWeight: lotusThemeTokens.typography.variant.cardTitle.weight,
-  axisWeight: lotusThemeTokens.typography.variant.label.weight,
+  axisWeight: lotusThemeTokens.typography.variant.dataLabel.weight,
   tooltipPadding: [Number.parseInt(lotusThemeTokens.spacing.step3, 10), Number.parseInt(lotusThemeTokens.spacing.step4, 10)] as [number, number],
 };
 
@@ -104,7 +104,7 @@ export default function PerformanceAttributionTrendPanel({
         itemHeight: 8,
         itemGap: 16,
         textStyle: {
-          color: "#485668",
+          color: lotusThemeTokens.color.chart.chrome.axis,
           fontSize: ATTRIBUTION_CHART_TEXT.legendSize,
           fontWeight: ATTRIBUTION_CHART_TEXT.legendWeight,
         },
@@ -112,11 +112,11 @@ export default function PerformanceAttributionTrendPanel({
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "cross" },
-        borderColor: "rgba(36, 50, 70, 0.14)",
-        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: lotusThemeTokens.color.chart.chrome.tooltipBorder,
+        backgroundColor: lotusThemeTokens.color.chart.chrome.tooltipBackground,
         padding: ATTRIBUTION_CHART_TEXT.tooltipPadding,
         textStyle: {
-          color: "#172033",
+          color: lotusThemeTokens.color.text.primary,
           fontSize: ATTRIBUTION_CHART_TEXT.legendSize,
           fontWeight: ATTRIBUTION_CHART_TEXT.legendWeight,
         },
@@ -125,10 +125,10 @@ export default function PerformanceAttributionTrendPanel({
       xAxis: {
         type: "category",
         data: rows.map((row) => row.period_label),
-        axisLine: { lineStyle: { color: "rgba(52, 70, 95, 0.18)" } },
+        axisLine: { lineStyle: { color: lotusThemeTokens.color.chart.chrome.grid } },
         axisTick: { show: false },
         axisLabel: {
-          color: "#5f6c7f",
+          color: lotusThemeTokens.color.chart.chrome.axis,
           fontSize: ATTRIBUTION_CHART_TEXT.axisSize,
           fontWeight: ATTRIBUTION_CHART_TEXT.axisWeight,
         },
@@ -137,12 +137,12 @@ export default function PerformanceAttributionTrendPanel({
         {
           type: "value",
           axisLabel: {
-            color: "#5a6476",
+            color: lotusThemeTokens.color.chart.chrome.axis,
             formatter: (value: number) => `${value}%`,
           },
           splitLine: {
             lineStyle: {
-              color: "rgba(126, 140, 158, 0.16)",
+              color: lotusThemeTokens.color.chart.chrome.grid,
             },
           },
         },
@@ -155,7 +155,7 @@ export default function PerformanceAttributionTrendPanel({
           data: rows.map((row) => row.allocation_pct),
           barWidth: 14,
           itemStyle: {
-            borderColor: "rgba(54, 95, 139, 0.5)",
+            borderColor: lotusThemeTokens.color.chart.categorical.allocation,
             borderWidth: 1,
           },
         },
@@ -166,7 +166,7 @@ export default function PerformanceAttributionTrendPanel({
           data: rows.map((row) => row.selection_pct),
           barWidth: 14,
           itemStyle: {
-            borderColor: "rgba(37, 110, 70, 0.5)",
+            borderColor: lotusThemeTokens.color.chart.categorical.selection,
             borderWidth: 1,
           },
         },
@@ -177,7 +177,7 @@ export default function PerformanceAttributionTrendPanel({
           data: rows.map((row) => row.interaction_pct),
           barWidth: 14,
           itemStyle: {
-            borderColor: "rgba(169, 26, 41, 0.48)",
+            borderColor: lotusThemeTokens.color.chart.categorical.interaction,
             borderWidth: 1,
           },
         },

@@ -117,7 +117,7 @@
   padding: var(--space-3);
   border-left: 3px solid var(--brand);
   background: var(--surface-secondary);
-  color: var(--text-default);
+  color: var(--text);
   font-size: var(--type-helper-text-size);
   line-height: var(--type-helper-text-line-height);
 }

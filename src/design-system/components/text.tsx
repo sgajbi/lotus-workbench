@@ -1,36 +1,9 @@
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from "react";
 
+import type { lotusThemeTokens } from "../theme/tokens";
 import { cx } from "../utils/cx";
 
-type TextVariant =
-  | "workspaceTitle"
-  | "pageTitle"
-  | "sectionTitle"
-  | "panelTitle"
-  | "subsectionTitle"
-  | "metricValueXL"
-  | "metricValueL"
-  | "metricValueM"
-  | "bodySmall"
-  | "helperText"
-  | "dataLabel"
-  | "microLabel"
-  | "tableHeader"
-  | "tableCell"
-  | "buttonLabel"
-  | "badgeLabel"
-  | "tooltipTitle"
-  | "tooltipBody"
-  | "cardTitle"
-  | "body"
-  | "secondary"
-  | "label"
-  | "eyebrow"
-  | "metadata"
-  | "metricValue"
-  | "metricValueCompact"
-  | "badge"
-  | "button";
+type TextVariant = keyof typeof lotusThemeTokens.typography.variant;
 
 const DEFAULT_TAG_BY_VARIANT: Record<TextVariant, ElementType> = {
   workspaceTitle: "h1",
@@ -54,7 +27,6 @@ const DEFAULT_TAG_BY_VARIANT: Record<TextVariant, ElementType> = {
   cardTitle: "h3",
   body: "p",
   secondary: "p",
-  label: "span",
   eyebrow: "span",
   metadata: "span",
   metricValue: "strong",
@@ -74,7 +46,7 @@ const CLASS_BY_VARIANT: Record<TextVariant, string> = {
   metricValueM: "ui-text-metric-value-m",
   bodySmall: "ui-text-body-small",
   helperText: "ui-text-helper-text",
-  dataLabel: "ui-text-data-label",
+  dataLabel: "ui-text-data-label ui-text-label",
   microLabel: "ui-text-micro-label",
   tableHeader: "ui-text-table-header",
   tableCell: "ui-text-table-cell",
@@ -85,7 +57,6 @@ const CLASS_BY_VARIANT: Record<TextVariant, string> = {
   cardTitle: "ui-text-panel-title ui-text-card-title",
   body: "ui-text-body",
   secondary: "ui-text-body-small ui-text-secondary",
-  label: "ui-text-data-label ui-text-label",
   eyebrow: "ui-text-micro-label ui-text-eyebrow",
   metadata: "ui-text-metadata",
   metricValue: "ui-text-metric-value-l ui-text-metric-value",
