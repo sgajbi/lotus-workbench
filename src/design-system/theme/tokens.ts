@@ -40,6 +40,7 @@ export const lotusThemeTokens = {
     semantic: {
       success: "#256247",
       warning: "#7d5714",
+      warningBorder: "#c89b45",
       danger: "#a43e35",
       analyticPositive: "#2f6587",
       analyticPositiveSoft: "#66869a",

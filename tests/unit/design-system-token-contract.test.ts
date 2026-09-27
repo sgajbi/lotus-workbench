@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { lotusThemeTokens } from "@/design-system/theme/tokens";
 
 const governedPaletteDeclarationPattern =
-  /--(?:bg(?:-[a-z0-9-]+)?|panel(?:-[a-z0-9-]+)?|surface-[a-z0-9-]+|text(?:-[a-z0-9-]+)?|border(?:-[a-z0-9-]+)?|brand(?:-[a-z0-9-]+)?|analytic-(?:positive|negative)(?:-soft)?|warn-(?:bg|border|text)|success|danger|status-(?:success|warn|danger)-bg)\s*:/i;
+  /--(?:bg(?:-[a-z0-9-]+)?|panel(?:-[a-z0-9-]+)?|surface-[a-z0-9-]+|text(?:-[a-z0-9-]+)?|border(?:-[a-z0-9-]+)?|brand(?:-[a-z0-9-]+)?|analytic-(?:positive|negative)(?:-soft)?|warn-(?:bg|border|text)|success|danger|status-(?:success|warn|danger|neutral)-bg)\s*:/i;
 
 function relativeLuminance(hex: string): number {
   const normalized = hex.replace("#", "");
@@ -48,6 +48,20 @@ function readRootCssVariables(): Record<string, string> {
   }
 
   return variables;
+}
+
+function readImportedGlobalLayers(): Array<{ fileName: string; css: string }> {
+  const globalsPath = path.resolve(__dirname, "../../src/app/globals.css");
+  const globalsCss = fs.readFileSync(globalsPath, "utf8");
+  const importPattern = /@import\s+["']([^"']+)["'];/g;
+
+  return [...globalsCss.matchAll(importPattern)].map((match) => {
+    const importedPath = path.resolve(path.dirname(globalsPath), match[1]);
+    return {
+      fileName: path.basename(importedPath),
+      css: fs.readFileSync(importedPath, "utf8"),
+    };
+  });
 }
 
 describe("design-system token contract", () => {
@@ -121,6 +135,7 @@ describe("design-system token contract", () => {
     expect(cssVariables["--border-interactive"]).toBe(lotusThemeTokens.color.border.interactive);
     expect(cssVariables["--brand"]).toBe(lotusThemeTokens.color.brand.base);
     expect(cssVariables["--brand-strong"]).toBe(lotusThemeTokens.color.brand.strong);
+    expect(cssVariables["--brand-soft"]).toBe(lotusThemeTokens.color.brand.soft);
     expect(cssVariables["--brand-accent"]).toBe(lotusThemeTokens.color.brand.accent);
     expect(cssVariables["--brand-highlight"]).toBe(lotusThemeTokens.color.brand.highlight);
     expect(cssVariables["--brand-hover"]).toBe(lotusThemeTokens.color.brand.hover);
@@ -128,6 +143,20 @@ describe("design-system token contract", () => {
     expect(cssVariables["--brand-attention-text"]).toBe(
       lotusThemeTokens.color.brand.attentionText
     );
+    expect(cssVariables["--analytic-positive"]).toBe(
+      lotusThemeTokens.color.semantic.analyticPositive
+    );
+    expect(cssVariables["--analytic-positive-soft"]).toBe(
+      lotusThemeTokens.color.semantic.analyticPositiveSoft
+    );
+    expect(cssVariables["--analytic-negative"]).toBe(
+      lotusThemeTokens.color.semantic.analyticNegative
+    );
+    expect(cssVariables["--analytic-negative-soft"]).toBe(
+      lotusThemeTokens.color.semantic.analyticNegativeSoft
+    );
+    expect(cssVariables["--warn-bg"]).toBe(lotusThemeTokens.color.statusBackground.warning);
+    expect(cssVariables["--warn-border"]).toBe(lotusThemeTokens.color.semantic.warningBorder);
     expect(cssVariables["--success"]).toBe(lotusThemeTokens.color.semantic.success);
     expect(cssVariables["--warn-text"]).toBe(lotusThemeTokens.color.semantic.warning);
     expect(cssVariables["--danger"]).toBe(lotusThemeTokens.color.semantic.danger);
@@ -139,6 +168,9 @@ describe("design-system token contract", () => {
     );
     expect(cssVariables["--status-danger-bg"]).toBe(
       lotusThemeTokens.color.statusBackground.danger
+    );
+    expect(cssVariables["--status-neutral-bg"]).toBe(
+      lotusThemeTokens.color.statusBackground.neutral
     );
     expect(cssVariables["--space-4"]).toBe(lotusThemeTokens.spacing.step4);
     expect(cssVariables["--space-6"]).toBe(lotusThemeTokens.spacing.step6);
@@ -220,24 +252,27 @@ describe("design-system token contract", () => {
   });
 
   it("keeps global token definitions in the governed token layer", () => {
-    const legacyGlobalPath = path.resolve(
-      __dirname,
-      "../../src/styles/global/legacy-global.css"
-    );
-    const legacyGlobalCss = fs.readFileSync(legacyGlobalPath, "utf8");
+    const importedGlobalLayers = readImportedGlobalLayers();
+    expect(importedGlobalLayers.map(({ fileName }) => fileName)).toContain("tokens.css");
 
-    const legacyRootBlocks = [...legacyGlobalCss.matchAll(/:root\s*\{([^}]*)\}/g)];
-    for (const rootBlock of legacyRootBlocks) {
-      expect(rootBlock[1]).not.toMatch(governedPaletteDeclarationPattern);
+    for (const { fileName, css } of importedGlobalLayers) {
+      if (fileName === "tokens.css") {
+        continue;
+      }
+      expect(css, `${fileName} must consume, not redeclare, palette tokens`).not.toMatch(
+        governedPaletteDeclarationPattern
+      );
     }
 
     const representativeRejectedOverrides = [
       "--bg-page: #fff;",
+      ".panel { --bg-page: #fff; }",
       "--text-muted: #333;",
       "--brand-strong: #111;",
       "--border: #777;",
       "--analytic-positive-soft: #567;",
       "--status-danger-bg: #fee;",
+      "--status-neutral-bg: #eee;",
     ];
     for (const declaration of representativeRejectedOverrides) {
       expect(declaration).toMatch(governedPaletteDeclarationPattern);
