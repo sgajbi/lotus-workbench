@@ -5,6 +5,9 @@ import { describe, expect, it } from "vitest";
 
 import { lotusThemeTokens } from "@/design-system/theme/tokens";
 
+const governedPaletteDeclarationPattern =
+  /--(?:bg(?:-[a-z0-9-]+)?|panel(?:-[a-z0-9-]+)?|surface-[a-z0-9-]+|text(?:-[a-z0-9-]+)?|border(?:-[a-z0-9-]+)?|brand(?:-[a-z0-9-]+)?|analytic-(?:positive|negative)(?:-soft)?|warn-(?:bg|border|text)|success|danger|status-(?:success|warn|danger)-bg)\s*:/i;
+
 function relativeLuminance(hex: string): number {
   const normalized = hex.replace("#", "");
   if (!/^[0-9a-f]{6}$/i.test(normalized)) {
@@ -128,6 +131,15 @@ describe("design-system token contract", () => {
     expect(cssVariables["--success"]).toBe(lotusThemeTokens.color.semantic.success);
     expect(cssVariables["--warn-text"]).toBe(lotusThemeTokens.color.semantic.warning);
     expect(cssVariables["--danger"]).toBe(lotusThemeTokens.color.semantic.danger);
+    expect(cssVariables["--status-success-bg"]).toBe(
+      lotusThemeTokens.color.statusBackground.success
+    );
+    expect(cssVariables["--status-warn-bg"]).toBe(
+      lotusThemeTokens.color.statusBackground.warning
+    );
+    expect(cssVariables["--status-danger-bg"]).toBe(
+      lotusThemeTokens.color.statusBackground.danger
+    );
     expect(cssVariables["--space-4"]).toBe(lotusThemeTokens.spacing.step4);
     expect(cssVariables["--space-6"]).toBe(lotusThemeTokens.spacing.step6);
     expect(cssVariables["--space-7"]).toBe(lotusThemeTokens.spacing.step7);
@@ -216,7 +228,21 @@ describe("design-system token contract", () => {
 
     const legacyRootBlocks = [...legacyGlobalCss.matchAll(/:root\s*\{([^}]*)\}/g)];
     for (const rootBlock of legacyRootBlocks) {
-      expect(rootBlock[1]).not.toMatch(/--(?:bg|panel|surface-primary|text|brand):/);
+      expect(rootBlock[1]).not.toMatch(governedPaletteDeclarationPattern);
     }
+
+    const representativeRejectedOverrides = [
+      "--bg-page: #fff;",
+      "--text-muted: #333;",
+      "--brand-strong: #111;",
+      "--border: #777;",
+      "--analytic-positive-soft: #567;",
+      "--status-danger-bg: #fee;",
+    ];
+    for (const declaration of representativeRejectedOverrides) {
+      expect(declaration).toMatch(governedPaletteDeclarationPattern);
+    }
+
+    expect("--space-4: 16px;").not.toMatch(governedPaletteDeclarationPattern);
   });
 });
