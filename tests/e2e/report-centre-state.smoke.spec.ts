@@ -263,7 +263,11 @@ test("orders a reviewed portfolio bundle and renders source-owned outcomes", asy
   await expect(submitBundle).toBeDisabled();
   const disabledActionStyle = await submitBundle.evaluate((button) => {
     const computed = window.getComputedStyle(button);
-    return { background: computed.backgroundImage, color: computed.color, cursor: computed.cursor };
+    return {
+      backgroundColor: computed.backgroundColor,
+      color: computed.color,
+      cursor: computed.cursor,
+    };
   });
   expect(disabledActionStyle.cursor).toBe("not-allowed");
   await captureDiagnosticScreenshot(page, "portfolio-bundle-selection-1440");
@@ -275,10 +279,14 @@ test("orders a reviewed portfolio bundle and renders source-owned outcomes", asy
     .toBe("rgb(255, 255, 255)");
   const enabledActionStyle = await submitBundle.evaluate((button) => {
     const computed = window.getComputedStyle(button);
-    return { background: computed.backgroundImage, color: computed.color, cursor: computed.cursor };
+    return {
+      backgroundColor: computed.backgroundColor,
+      color: computed.color,
+      cursor: computed.cursor,
+    };
   });
   expect(enabledActionStyle.cursor).toBe("pointer");
-  expect(enabledActionStyle.background).not.toBe(disabledActionStyle.background);
+  expect(enabledActionStyle.backgroundColor).not.toBe(disabledActionStyle.backgroundColor);
   expect(enabledActionStyle.color).not.toBe(disabledActionStyle.color);
   await submitBundle.click();
 
