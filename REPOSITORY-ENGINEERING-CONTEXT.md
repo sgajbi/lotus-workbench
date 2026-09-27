@@ -232,6 +232,11 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 - Global CSS owns foundation, tokens, reset, shell, and genuinely shared primitives. Feature
   presentation belongs beside its component. Do not add `:global` escapes or duplicate selectors
   to bypass ownership.
+- `src/design-system/theme/tokens.ts` and `src/styles/global/tokens.css` are the paired colour and
+  presentation-token authority. Legacy global feature CSS must not redeclare the root palette.
+  Shared advisor-facing text, action, and semantic-state pairs retain WCAG AA contrast through the
+  blocking design-system token contract test; status meaning must remain explicit without relying
+  on colour alone.
 - Use `src/design-system/utils/financial-formatters.ts` for monetary, percentage, ratio, and date
   presentation. Preserve units, bases, effective dates, and unavailable states.
 - `docs/documentation/product-vocabulary.md` owns productive cross-domain language. Runtime terms

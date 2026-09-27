@@ -10,12 +10,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.7rem;
-  border: 1px solid rgba(87, 121, 157, 0.14);
-  border-radius: 7px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   padding: 0.38rem 0.52rem 0.38rem 0.7rem;
   font-family: var(--font-ui);
-  color: rgba(23, 32, 43, 0.84);
-  background: rgba(255, 255, 255, 0.64);
+  color: var(--text);
+  background: var(--surface-primary);
   box-shadow: none;
   cursor: pointer;
   transition:
@@ -33,7 +33,7 @@
 
 .trigger small,
 .label {
-  color: #60718a;
+  color: var(--text-muted);
   font-size: 0.62rem;
   font-style: normal;
   font-weight: 760;
@@ -52,7 +52,7 @@
 }
 
 .trigger em {
-  color: #8b6513;
+  color: var(--brand-accent);
   font-size: 0.68rem;
   font-style: normal;
   font-weight: 760;
@@ -60,8 +60,8 @@
 
 .trigger:hover,
 .trigger[aria-expanded="true"] {
-  border-color: rgba(87, 121, 157, 0.24);
-  background: rgba(255, 255, 255, 0.92);
+  border-color: var(--border-interactive);
+  background: var(--surface-interactive);
   color: var(--brand-strong);
 }
 
@@ -72,10 +72,10 @@
   z-index: 40;
   width: min(20rem, calc(100vw - 1.6rem));
   padding: 0.72rem;
-  border: 1px solid rgba(223, 193, 126, 0.36);
-  border-radius: 8px;
-  background: #111b2f;
-  box-shadow: 0 18px 36px rgba(12, 21, 38, 0.2);
+  border: 1px solid var(--brand);
+  border-radius: var(--radius-md);
+  background: var(--brand-strong);
+  box-shadow: 0 18px 36px rgba(16, 47, 64, 0.22);
 }
 
 .panel[hidden] {
@@ -85,13 +85,13 @@
 .label {
   display: block;
   padding: 0.18rem 0.28rem 0.48rem;
-  color: #9fb0c8;
+  color: var(--text-inverse-muted);
 }
 
 .list {
   display: grid;
   gap: 1px;
-  border-top: 1px solid rgba(159, 176, 200, 0.18);
+  border-top: 1px solid color-mix(in srgb, var(--text-inverse-muted) 24%, transparent);
 }
 
 .link {
@@ -102,30 +102,30 @@
   min-height: 2.75rem;
   padding: 0.55rem 0.58rem;
   border-left: 2px solid transparent;
-  color: #f7f9fc;
+  color: var(--text-inverse);
   font-size: 0.82rem;
   font-weight: 680;
 }
 
 .link small {
-  color: #9fb0c8;
+  color: var(--text-inverse-muted);
   font-size: 0.64rem;
   font-weight: 620;
 }
 
 .link:not(.linkDisabled):hover {
-  border-left-color: rgba(224, 186, 100, 0.64);
+  border-left-color: var(--brand-attention);
   background: rgba(255, 255, 255, 0.07);
 }
 
 .linkActive {
-  border-left-color: #e0ba64;
+  border-left-color: var(--brand-attention);
   background: rgba(255, 255, 255, 0.09);
-  color: #ffe29a;
+  color: var(--brand-attention-text);
 }
 
 .linkDisabled {
-  color: #a8b4c5;
+  color: var(--text-inverse-muted);
   cursor: not-allowed;
   opacity: 0.68;
 }

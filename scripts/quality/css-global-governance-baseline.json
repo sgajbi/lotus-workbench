@@ -180,8 +180,8 @@
     {
       "path": "src/styles/global/tokens.css",
       "owner": "design tokens and foundational custom properties",
-      "maxLines": 161,
-      "maxBytes": 5602
+      "maxLines": 175,
+      "maxBytes": 6007
     },
     {
       "path": "src/styles/global/legacy-feature-overrides.css",
@@ -199,13 +199,13 @@
       "path": "src/styles/global/workbench-shell.css",
       "owner": "shared Workbench shell, typography, panel, and navigation primitives",
       "maxLines": 874,
-      "maxBytes": 18544
+      "maxBytes": 18471
     },
     {
       "path": "src/styles/global/legacy-global.css",
       "owner": "legacy global feature selectors pending migration beside owning components",
-      "maxLines": 10828,
-      "maxBytes": 237224
+      "maxLines": 10772,
+      "maxBytes": 235845
     }
   ]
 }

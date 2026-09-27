@@ -16,12 +16,12 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  border-bottom: 1px solid rgba(87, 121, 157, 0.18);
-  background: linear-gradient(180deg, rgba(226, 234, 243, 0.98) 0%, rgba(236, 242, 248, 0.98) 100%);
-  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-topbar);
+  backdrop-filter: blur(12px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.82),
-    0 8px 18px rgba(17, 24, 39, 0.04);
+    inset 0 1px 0 var(--surface-primary),
+    0 6px 18px rgba(16, 47, 64, 0.05);
 }
 
 .shell-topbar-main {
@@ -45,8 +45,8 @@
 .shell-product-context {
   min-width: 0;
   padding-left: 0.72rem;
-  border-left: 1px solid rgba(87, 121, 157, 0.32);
-  color: #53657d;
+  border-left: 1px solid var(--border-strong);
+  color: var(--text-muted);
   font-size: 0.69rem;
   font-weight: 750;
   line-height: 1.25;
@@ -869,6 +869,6 @@
 }
 
 :focus-visible {
-  outline: 2px solid rgba(54, 95, 139, 0.72);
+  outline: 2px solid var(--brand-highlight);
   outline-offset: 2px;
 }

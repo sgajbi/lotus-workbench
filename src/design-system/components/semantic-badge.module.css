@@ -3,10 +3,10 @@
   align-items: center;
   min-height: 1.7rem;
   padding: 0 0.58rem;
-  border: 1px solid rgba(23, 32, 43, 0.08);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: rgba(247, 249, 251, 0.92);
-  color: #506073;
+  background: var(--status-neutral-bg);
+  color: var(--text-muted);
   font-family: var(--font-ui);
   font-size: var(--type-badge-size);
   font-variant-numeric: var(--type-financial-numeric);
@@ -17,19 +17,22 @@
 }
 
 .strong {
-  border-color: rgba(87, 121, 157, 0.18);
-  background: rgba(236, 242, 247, 0.95);
-  color: #203446;
+  border-color: var(--border-interactive);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
 }
 
 .success {
-  color: #45695a;
+  background: var(--status-success-bg);
+  color: var(--success);
 }
 
 .warn {
-  color: #8e6232;
+  background: var(--status-warn-bg);
+  color: var(--warn-text);
 }
 
 .danger {
-  color: #945760;
+  background: var(--status-danger-bg);
+  color: var(--danger);
 }

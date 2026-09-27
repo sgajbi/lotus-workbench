@@ -10115,62 +10115,6 @@
   border-left-color: var(--portfolio-ui-border);
 }
 
-/* Workbench-wide Stitch design system.
-   This is intentionally global to keep Portfolio, Positions, Transactions,
-   Cashflow, Performance, Risk, Manage, Proposal, and Advisory surfaces aligned. */
-:root {
-  --bg: #f7f9fb;
-  --bg-alt: #f2f4f6;
-  --bg-page: #f7f9fb;
-  --bg-foundation: #f7f9fb;
-  --panel: #ffffff;
-  --panel-alt: #f2f4f6;
-  --surface-primary: #ffffff;
-  --surface-secondary: #f2f4f6;
-  --surface-tertiary: #eceef0;
-  --text: #191c1e;
-  --text-muted: #45464d;
-  --border: #c6c6cd;
-  --border-strong: #76777d;
-  --brand: #131b2e;
-  --brand-strong: #191c1e;
-  --brand-soft: #dae2fd;
-  --brand-accent: #725b26;
-  --brand-highlight: #725b26;
-  --analytic-positive: #166534;
-  --analytic-negative: #991b1b;
-  --warn-bg: rgba(252, 220, 154, 0.28);
-  --warn-border: #725b26;
-  --warn-text: #594410;
-  --success: #166534;
-  --danger: #ba1a1a;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-control: 4px;
-  --radius-tile: 6px;
-  --radius-panel: 6px;
-  --workbench-section-gap: 12px;
-  --workbench-card-padding: 12px;
-  --workbench-card-padding-compact: 12px;
-  --panel-padding-default: 16px;
-  --panel-padding-compact: 12px;
-  --panel-padding-dense: 12px;
-  --panel-gap-major: 12px;
-  --panel-gap-default: 12px;
-  --panel-gap-dense: 8px;
-  --workbench-page-frame-gap: 12px;
-  --workbench-page-frame-header-padding: 0;
-  --workbench-summary-body-gap: 12px;
-  --workbench-metric-strip-gap: 8px;
-  --workbench-page-container-max: none;
-  --workstation-shell-gap: 12px;
-  --workstation-rail-width: 280px;
-  --workstation-side-width: 320px;
-  --focus-ring: 0 0 0 2px rgba(114, 91, 38, 0.22);
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -10185,8 +10129,8 @@
 
 .app-page-shell,
 .workstation-page {
-  background: #f7f9fb;
-  color: #191c1e;
+  background: var(--bg-page);
+  color: var(--text);
   font-family: var(--font-ui);
   font-size: 13px;
   line-height: 18px;
@@ -10217,7 +10161,7 @@
 .app-page-shell .performance-page-frame .workbench-page-header-title,
 .app-page-shell .portfolio-page-frame .workbench-page-header-title {
   max-width: none;
-  color: #191c1e;
+  color: var(--text);
   font-family: var(--font-ui);
   font-size: 24px;
   font-weight: 600;
@@ -10320,7 +10264,7 @@
 .app-page-shell .action-link,
 .app-page-shell .nav-link,
 .app-page-shell button {
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   font-family: var(--font-ui);
   font-size: 13px;
   font-weight: 600;
@@ -10330,16 +10274,16 @@
 }
 
 .app-page-shell .MuiButton-contained {
-  background: #131b2e;
-  color: #ffffff;
+  background: var(--brand-strong);
+  color: var(--text-inverse);
 }
 
 .app-page-shell .MuiOutlinedInput-root,
 .app-page-shell .MuiInputBase-root,
 .app-page-shell input,
 .app-page-shell select {
-  border-radius: 4px;
-  background: #ffffff;
+  border-radius: var(--radius-control);
+  background: var(--surface-primary);
   font-family: var(--font-ui);
   font-size: 13px;
 }
@@ -10348,7 +10292,7 @@
 .app-page-shell .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline,
 .app-page-shell input:focus,
 .app-page-shell select:focus {
-  border-color: #725b26;
+  border-color: var(--brand-highlight);
   box-shadow: var(--focus-ring);
 }
 
@@ -10364,9 +10308,9 @@
 .app-page-shell .analytics-table-frame,
 .app-page-shell .portfolio-analytics-table,
 .app-page-shell .performance-analysis-table {
-  border-color: #c6c6cd;
-  border-radius: 6px;
-  background: #ffffff;
+  border-color: var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-primary);
   box-shadow: none;
 }
 
@@ -10374,8 +10318,8 @@
 .app-page-shell .performance-analysis-table.analytics-table-frame .MuiTableHead-root .MuiTableCell-root,
 .app-page-shell .portfolio-summary-table th {
   height: 32px;
-  background: #f2f4f6;
-  color: #45464d;
+  background: var(--surface-secondary);
+  color: var(--text-muted);
   font-size: 11px;
   font-weight: 700;
   line-height: 16px;
@@ -10391,8 +10335,8 @@
   height: 32px;
   padding-top: 7px;
   padding-bottom: 7px;
-  border-bottom-color: #e0e3e5;
-  color: #191c1e;
+  border-bottom-color: var(--border);
+  color: var(--text);
   font-size: 13px;
   line-height: 18px;
   font-variant-numeric: tabular-nums;
@@ -10405,12 +10349,12 @@
   --ag-font-size: 13px;
   --ag-header-height: 32px;
   --ag-row-height: 32px;
-  --ag-wrapper-border-radius: 6px;
-  --ag-border-radius: 4px;
-  --ag-border-color: #c6c6cd;
-  --ag-header-background-color: #f2f4f6;
-  --ag-odd-row-background-color: #ffffff;
-  --ag-row-hover-color: #f7f9fb;
+  --ag-wrapper-border-radius: var(--radius-md);
+  --ag-border-radius: var(--radius-control);
+  --ag-border-color: var(--border);
+  --ag-header-background-color: var(--surface-secondary);
+  --ag-odd-row-background-color: var(--surface-primary);
+  --ag-row-hover-color: var(--surface-interactive);
 }
 
 @media (max-width: 560px) {
