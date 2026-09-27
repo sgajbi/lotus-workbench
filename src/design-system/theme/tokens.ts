@@ -23,7 +23,7 @@ export const lotusThemeTokens = {
     },
     border: {
       default: "#d5dde1",
-      strong: "#aab8c0",
+      strong: "#7b8b94",
       interactive: "#8fa5b1",
       subtle: "1px solid #d5dde1",
     },

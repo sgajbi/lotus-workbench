@@ -196,6 +196,17 @@ describe("design-system token contract", () => {
     }
   });
 
+  it("keeps interactive control boundaries at WCAG non-text contrast", () => {
+    const { color } = lotusThemeTokens;
+    const requiredPairs = [
+      [color.border.strong, color.surface.primary, "strong control border on panels"],
+    ] as const;
+
+    for (const [foreground, background, label] of requiredPairs) {
+      expect(contrastRatio(foreground, background), label).toBeGreaterThanOrEqual(3);
+    }
+  });
+
   it("keeps global token definitions in the governed token layer", () => {
     const legacyGlobalPath = path.resolve(
       __dirname,
