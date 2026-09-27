@@ -12,13 +12,13 @@
   align-content: center;
   min-height: 2.75rem;
   padding: 0.35rem 0.78rem;
-  border-left: 1px solid rgba(87, 121, 157, 0.28);
+  border-left: 1px solid var(--border);
   color: var(--brand-strong);
 }
 
 .bookLink small,
 .workspaceLoading small {
-  color: #60718a;
+  color: var(--text-muted);
   font-size: 0.62rem;
   font-style: normal;
   font-weight: 760;
@@ -33,7 +33,7 @@
 }
 
 .bookLink:hover {
-  color: #274d78;
+  color: var(--brand);
 }
 
 .workspaceLoading {
@@ -43,13 +43,13 @@
   align-content: center;
   gap: 0.08rem;
   padding: 0.38rem 0.7rem;
-  border: 1px solid rgba(87, 121, 157, 0.14);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.52);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-primary);
 }
 
 .workspaceLoading strong {
-  color: #53657d;
+  color: var(--brand-strong);
   font-size: 0.76rem;
   font-weight: 650;
 }

@@ -5,6 +5,30 @@ import { describe, expect, it } from "vitest";
 
 import { lotusThemeTokens } from "@/design-system/theme/tokens";
 
+function relativeLuminance(hex: string): number {
+  const normalized = hex.replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(normalized)) {
+    throw new Error(`Expected a six-digit hex colour, received ${hex}`);
+  }
+
+  const [red, green, blue] = [0, 2, 4]
+    .map((offset) => Number.parseInt(normalized.slice(offset, offset + 2), 16) / 255)
+    .map((channel) =>
+      channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+    );
+
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function contrastRatio(foreground: string, background: string): number {
+  const foregroundLuminance = relativeLuminance(foreground);
+  const backgroundLuminance = relativeLuminance(background);
+  const lightest = Math.max(foregroundLuminance, backgroundLuminance);
+  const darkest = Math.min(foregroundLuminance, backgroundLuminance);
+
+  return (lightest + 0.05) / (darkest + 0.05);
+}
+
 function readRootCssVariables(): Record<string, string> {
   const tokenPath = path.resolve(__dirname, "../../src/styles/global/tokens.css");
   const css = fs.readFileSync(tokenPath, "utf8");
@@ -52,6 +76,9 @@ describe("design-system token contract", () => {
       primary: expect.any(String),
       secondary: expect.any(String),
       tertiary: expect.any(String),
+      interactive: expect.any(String),
+      selected: expect.any(String),
+      topbar: expect.any(String),
     });
     expect(lotusThemeTokens.layout).toMatchObject({
       panelPaddingDefault: expect.any(String),
@@ -78,14 +105,26 @@ describe("design-system token contract", () => {
     expect(cssVariables["--surface-primary"]).toBe(lotusThemeTokens.color.surface.primary);
     expect(cssVariables["--surface-secondary"]).toBe(lotusThemeTokens.color.surface.secondary);
     expect(cssVariables["--surface-tertiary"]).toBe(lotusThemeTokens.color.surface.tertiary);
+    expect(cssVariables["--surface-interactive"]).toBe(lotusThemeTokens.color.surface.interactive);
+    expect(cssVariables["--surface-selected"]).toBe(lotusThemeTokens.color.surface.selected);
+    expect(cssVariables["--surface-topbar"]).toBe(lotusThemeTokens.color.surface.topbar);
     expect(cssVariables["--text"]).toBe(lotusThemeTokens.color.text.primary);
     expect(cssVariables["--text-muted"]).toBe(lotusThemeTokens.color.text.muted);
+    expect(cssVariables["--text-inverse"]).toBe(lotusThemeTokens.color.text.inverse);
+    expect(cssVariables["--text-inverse-muted"]).toBe(lotusThemeTokens.color.text.inverseMuted);
+    expect(cssVariables["--text-disabled"]).toBe(lotusThemeTokens.color.text.disabled);
     expect(cssVariables["--border"]).toBe(lotusThemeTokens.color.border.default);
     expect(cssVariables["--border-strong"]).toBe(lotusThemeTokens.color.border.strong);
+    expect(cssVariables["--border-interactive"]).toBe(lotusThemeTokens.color.border.interactive);
     expect(cssVariables["--brand"]).toBe(lotusThemeTokens.color.brand.base);
     expect(cssVariables["--brand-strong"]).toBe(lotusThemeTokens.color.brand.strong);
     expect(cssVariables["--brand-accent"]).toBe(lotusThemeTokens.color.brand.accent);
     expect(cssVariables["--brand-highlight"]).toBe(lotusThemeTokens.color.brand.highlight);
+    expect(cssVariables["--brand-hover"]).toBe(lotusThemeTokens.color.brand.hover);
+    expect(cssVariables["--brand-attention"]).toBe(lotusThemeTokens.color.brand.attention);
+    expect(cssVariables["--brand-attention-text"]).toBe(
+      lotusThemeTokens.color.brand.attentionText
+    );
     expect(cssVariables["--success"]).toBe(lotusThemeTokens.color.semantic.success);
     expect(cssVariables["--warn-text"]).toBe(lotusThemeTokens.color.semantic.warning);
     expect(cssVariables["--danger"]).toBe(lotusThemeTokens.color.semantic.danger);
@@ -136,5 +175,37 @@ describe("design-system token contract", () => {
     expect(cssVariables["--metric-tile-height-default"]).toBe(lotusThemeTokens.metricTile.height.default);
     expect(cssVariables["--metric-tile-height-compact"]).toBe(lotusThemeTokens.metricTile.height.compact);
     expect(cssVariables["--focus-ring"]).toBe(lotusThemeTokens.focus.ring);
+  });
+
+  it("keeps advisor-facing text and semantic states at WCAG AA contrast", () => {
+    const { color } = lotusThemeTokens;
+    const requiredPairs = [
+      [color.text.primary, color.surface.primary, "primary text on panels"],
+      [color.text.muted, color.surface.primary, "muted text on panels"],
+      [color.text.inverse, color.brand.strong, "inverse text on primary actions"],
+      [color.text.inverseMuted, color.brand.strong, "secondary text on dark navigation"],
+      [color.brand.attentionText, color.brand.strong, "selected navigation text"],
+      [color.brand.base, color.surface.primary, "brand links on panels"],
+      [color.semantic.success, color.statusBackground.success, "success state"],
+      [color.semantic.warning, color.statusBackground.warning, "warning state"],
+      [color.semantic.danger, color.statusBackground.danger, "danger state"],
+    ] as const;
+
+    for (const [foreground, background, label] of requiredPairs) {
+      expect(contrastRatio(foreground, background), label).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it("keeps global token definitions in the governed token layer", () => {
+    const legacyGlobalPath = path.resolve(
+      __dirname,
+      "../../src/styles/global/legacy-global.css"
+    );
+    const legacyGlobalCss = fs.readFileSync(legacyGlobalPath, "utf8");
+
+    const legacyRootBlocks = [...legacyGlobalCss.matchAll(/:root\s*\{([^}]*)\}/g)];
+    for (const rootBlock of legacyRootBlocks) {
+      expect(rootBlock[1]).not.toMatch(/--(?:bg|panel|surface-primary|text|brand):/);
+    }
   });
 });
