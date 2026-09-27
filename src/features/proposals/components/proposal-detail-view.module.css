@@ -1,7 +1,7 @@
 .page {
   display: grid;
   gap: 14px;
-  color: var(--portfolio-ui-ink, #0f172a);
+  color: var(--text);
 }
 
 .pageHeader {
@@ -38,7 +38,7 @@
   border: 1px solid var(--portfolio-ui-border, #d7dde7);
   border-radius: 6px;
   background: var(--portfolio-ui-surface-container-lowest, #fff);
-  color: var(--portfolio-ui-ink, #0f172a);
+  color: var(--text);
   font-size: 0.75rem;
   font-weight: 700;
   line-height: 1.1rem;
@@ -314,7 +314,7 @@
 }
 
 .hashList strong {
-  color: var(--portfolio-ui-ink, #0f172a);
+  color: var(--text);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
   font-size: 11px;
   font-weight: 650;

@@ -11,7 +11,7 @@ export default function RiskTermLabel({
 }) {
   return (
     <span className="performance-risk-term-label">
-      <Text variant="label" className="workbench-summary-metric-label">
+      <Text variant="dataLabel" className="workbench-summary-metric-label">
         {label}
       </Text>
       <Tooltip title={definition} arrow>

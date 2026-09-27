@@ -23,7 +23,7 @@ export default function ManageEvidenceRail({
     <div className={styles.rail}>
       <WorkbenchRailCard>
         <div className={styles.header}>
-          <Text variant="label">Review evidence</Text>
+          <Text variant="dataLabel">Review evidence</Text>
           <strong className={styles.headline}>{model.headline}</strong>
         </div>
         <DefinitionList

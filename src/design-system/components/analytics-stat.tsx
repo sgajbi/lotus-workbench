@@ -43,7 +43,8 @@ export default function AnalyticsStat({
         background: emphasize ? lotusThemeTokens.color.surface.panel : "transparent",
         textAlign: "left",
         cursor: onClick ? "pointer" : "default",
-        outline: "none",
+        outline: "2px solid transparent",
+        outlineOffset: "2px",
       }}
     >
       <Text variant="dataLabel" as="span">

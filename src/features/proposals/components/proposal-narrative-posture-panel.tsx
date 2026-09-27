@@ -445,7 +445,7 @@ function ProposalNarrativePosturePanelSession({
       </section>
 
       <label className={styles.rationaleField}>
-        <Text variant="label">Advisor review rationale</Text>
+        <Text variant="dataLabel">Advisor review rationale</Text>
         <textarea
           className="textarea"
           rows={3}
@@ -461,11 +461,11 @@ function ProposalNarrativePosturePanelSession({
       >
         <div className={styles.recordGrid}>
           <div className={styles.readOnlyRecord}>
-            <Text variant="label">Current proposal version</Text>
+            <Text variant="dataLabel">Current proposal version</Text>
             <Text variant="body">{versionNo ?? "Not available"}</Text>
           </div>
           <label className={styles.reviewerField}>
-            <Text variant="label">Reviewer reference</Text>
+            <Text variant="dataLabel">Reviewer reference</Text>
             <input
               className="input"
               value={reviewedBy}

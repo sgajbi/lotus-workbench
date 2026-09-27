@@ -38,7 +38,7 @@ export default function PortfolioRecordEvidenceRail({
       <WorkbenchRailCard className="portfolio-record-evidence-card">
         <div className="portfolio-record-evidence-header">
           <div>
-            <Text variant="label">Review Evidence</Text>
+            <Text variant="dataLabel">Review Evidence</Text>
             <Text variant="cardTitle">Data Readiness</Text>
           </div>
           <SemanticBadge tone={viewModel.status.tone}>
@@ -57,7 +57,7 @@ export default function PortfolioRecordEvidenceRail({
       </WorkbenchRailCard>
 
       <WorkbenchRailCard className="portfolio-record-evidence-card">
-        <Text variant="label">Source Coverage</Text>
+        <Text variant="dataLabel">Source Coverage</Text>
         <div className="portfolio-record-source-list">
           {viewModel.sourcePostureItems.map((item) => (
             <SourcePosture key={item.label} {...item} />
@@ -66,7 +66,7 @@ export default function PortfolioRecordEvidenceRail({
       </WorkbenchRailCard>
 
       <WorkbenchRailCard className="portfolio-record-evidence-card">
-        <Text variant="label">Adjacent Workflows</Text>
+        <Text variant="dataLabel">Adjacent Workflows</Text>
         <div className="portfolio-record-evidence-actions">
           {viewModel.adjacentWorkflows.map((workflow) => (
             <ActionLink key={workflow.href} href={workflow.href}>

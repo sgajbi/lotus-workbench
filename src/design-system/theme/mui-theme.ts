@@ -1,37 +1,66 @@
 import { createTheme } from "@mui/material";
 
 import { lotusThemeTokens } from "./tokens";
+import type { LotusColorScheme } from "./tokens";
 
-export function createLotusMuiTheme() {
+export function createLotusMuiTheme(colorScheme: LotusColorScheme = "light") {
+  const color = lotusThemeTokens.colorSchemes[colorScheme];
+
   return createTheme({
     palette: {
-      mode: "light",
+      mode: colorScheme,
       primary: {
-        main: lotusThemeTokens.color.brand.base,
-        dark: lotusThemeTokens.color.brand.strong,
-        light: lotusThemeTokens.color.brand.accent,
+        main: color.brand.base,
+        dark: color.brand.strong,
+        light: color.brand.accent,
       },
       secondary: {
-        main: lotusThemeTokens.color.brand.highlight,
+        main: color.brand.highlight,
       },
       background: {
-        default: lotusThemeTokens.color.surface.canvas,
-        paper: lotusThemeTokens.color.surface.panel,
+        default: color.surface.canvas,
+        paper: color.surface.panel,
       },
       text: {
-        primary: lotusThemeTokens.color.text.primary,
-        secondary: lotusThemeTokens.color.text.muted,
+        primary: color.text.primary,
+        secondary: color.text.muted,
       },
       success: {
-        main: lotusThemeTokens.color.semantic.success,
+        main: color.semantic.success,
       },
       warning: {
-        main: lotusThemeTokens.color.semantic.warning,
+        main: color.semantic.warning,
       },
       error: {
-        main: lotusThemeTokens.color.semantic.danger,
+        main: color.semantic.danger,
       },
-      divider: lotusThemeTokens.color.border.default,
+      divider: color.border.default,
+    },
+    breakpoints: {
+      values: {
+        xs: 0,
+        sm: lotusThemeTokens.breakpoint.compact,
+        md: lotusThemeTokens.breakpoint.tablet,
+        lg: lotusThemeTokens.breakpoint.desktop,
+        xl: lotusThemeTokens.breakpoint.wide,
+      },
+    },
+    transitions: {
+      duration: {
+        shortest: Number.parseInt(lotusThemeTokens.motion.duration.fast, 10),
+        shorter: Number.parseInt(lotusThemeTokens.motion.duration.fast, 10),
+        short: Number.parseInt(lotusThemeTokens.motion.duration.standard, 10),
+        standard: Number.parseInt(lotusThemeTokens.motion.duration.standard, 10),
+        complex: Number.parseInt(lotusThemeTokens.motion.duration.emphasized, 10),
+        enteringScreen: Number.parseInt(lotusThemeTokens.motion.duration.emphasized, 10),
+        leavingScreen: Number.parseInt(lotusThemeTokens.motion.duration.standard, 10),
+      },
+      easing: {
+        easeInOut: lotusThemeTokens.motion.easing.standard,
+        easeOut: lotusThemeTokens.motion.easing.enter,
+        easeIn: lotusThemeTokens.motion.easing.exit,
+        sharp: lotusThemeTokens.motion.easing.exit,
+      },
     },
     shape: {
       borderRadius: lotusThemeTokens.radius.control,
@@ -62,8 +91,8 @@ export function createLotusMuiTheme() {
       MuiCssBaseline: {
         styleOverrides: {
           body: {
-            color: lotusThemeTokens.color.text.primary,
-            backgroundColor: lotusThemeTokens.color.surface.canvas,
+            color: color.text.primary,
+            backgroundColor: color.surface.canvas,
           },
         },
       },
@@ -72,7 +101,7 @@ export function createLotusMuiTheme() {
           root: {
             backgroundImage: "none",
             borderRadius: lotusThemeTokens.radius.panel,
-            border: lotusThemeTokens.color.border.subtle,
+            border: color.border.subtle,
             boxShadow: lotusThemeTokens.elevation.subtle,
           },
         },

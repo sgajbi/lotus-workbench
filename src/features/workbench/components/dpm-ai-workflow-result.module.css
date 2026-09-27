@@ -33,7 +33,7 @@
   color: #191c1e;
   font-size: 17px;
   line-height: 23px;
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .copy h3:focus-visible {

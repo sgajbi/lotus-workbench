@@ -45,7 +45,7 @@
 }
 
 .success .value {
-  color: var(--success-text);
+  color: var(--success);
 }
 
 .warn .value {

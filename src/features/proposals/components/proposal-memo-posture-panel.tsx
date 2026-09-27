@@ -994,7 +994,7 @@ function ProposalMemoPosturePanelSession({
 
       {posture.nextActionKey === "review" ? (
         <label className={styles.rationaleField}>
-          <Text variant="label">Advisor review rationale</Text>
+          <Text variant="dataLabel">Advisor review rationale</Text>
           <textarea
             className="textarea"
             rows={3}
@@ -1016,11 +1016,11 @@ function ProposalMemoPosturePanelSession({
       >
         <div className={`${styles.recordGrid} ${styles.memoRecordGrid}`}>
           <div className={styles.readOnlyRecord}>
-            <Text variant="label">Current proposal version</Text>
+            <Text variant="dataLabel">Current proposal version</Text>
             <Text variant="body">{versionNo ?? "Not available"}</Text>
           </div>
           <label className={styles.reviewerField}>
-            <Text variant="label">Advisor or reviewer reference</Text>
+            <Text variant="dataLabel">Advisor or reviewer reference</Text>
             <input
               className="input"
                 value={actorReference}
@@ -1031,7 +1031,7 @@ function ProposalMemoPosturePanelSession({
             />
           </label>
           <label className={styles.reviewerField}>
-            <Text variant="label">Audience view</Text>
+            <Text variant="dataLabel">Audience view</Text>
             <select
               className="input"
               value={audience}

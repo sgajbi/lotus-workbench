@@ -35,7 +35,7 @@ function contrastRatio(foreground: string, background: string): number {
 function readRootCssVariables(): Record<string, string> {
   const tokenPath = path.resolve(__dirname, "../../src/styles/global/tokens.css");
   const css = fs.readFileSync(tokenPath, "utf8");
-  const rootBlockMatch = css.match(/:root\s*\{([\s\S]*?)\n\}/);
+  const rootBlockMatch = css.match(/:root(?:\s*,\s*\[data-color-scheme="light"\])?\s*\{([\s\S]*?)\n\}/);
   if (!rootBlockMatch) {
     throw new Error("Could not find :root CSS token block in src/styles/global/tokens.css");
   }
@@ -68,6 +68,7 @@ describe("design-system token contract", () => {
   it("exposes the required grouped token domains for RFC-0021 slice 1", () => {
     expect(lotusThemeTokens).toMatchObject({
       color: expect.any(Object),
+      colorSchemes: expect.any(Object),
       typography: expect.any(Object),
       spacing: expect.any(Object),
       radius: expect.any(Object),
@@ -77,6 +78,8 @@ describe("design-system token contract", () => {
       control: expect.any(Object),
       table: expect.any(Object),
       zIndex: expect.any(Object),
+      motion: expect.any(Object),
+      breakpoint: expect.any(Object),
     });
     expect(lotusThemeTokens.typography.variant).toMatchObject({
       workspaceTitle: expect.any(Object),
@@ -96,6 +99,27 @@ describe("design-system token contract", () => {
       interactive: expect.any(String),
       selected: expect.any(String),
       topbar: expect.any(String),
+    });
+    expect(lotusThemeTokens.color.chart).toMatchObject({
+      categorical: expect.any(Object),
+      sequential: expect.any(Object),
+      diverging: expect.any(Object),
+      chrome: expect.any(Object),
+    });
+    expect(lotusThemeTokens.colorSchemes.light).toBe(lotusThemeTokens.color);
+    expect(lotusThemeTokens.motion.duration.fast).toBe("120ms");
+    expect(lotusThemeTokens.breakpoint).toMatchObject({
+      compact: 420,
+      mobile: 640,
+      tablet: 768,
+      desktop: 1024,
+      wide: 1440,
+    });
+    expect(lotusThemeTokens.zIndex).toMatchObject({
+      content: 1,
+      pinnedCell: 2,
+      pinnedHeader: 3,
+      shellHeader: 20,
     });
     expect(lotusThemeTokens.layout).toMatchObject({
       panelPaddingDefault: expect.any(String),
@@ -155,6 +179,15 @@ describe("design-system token contract", () => {
     expect(cssVariables["--analytic-negative-soft"]).toBe(
       lotusThemeTokens.color.semantic.analyticNegativeSoft
     );
+    expect(cssVariables["--chart-categorical-allocation"]).toBe(
+      lotusThemeTokens.color.chart.categorical.allocation
+    );
+    expect(cssVariables["--chart-sequential-high"]).toBe(
+      lotusThemeTokens.color.chart.sequential.high
+    );
+    expect(cssVariables["--chart-diverging-negative"]).toBe(
+      lotusThemeTokens.color.chart.diverging.negative
+    );
     expect(cssVariables["--warn-bg"]).toBe(lotusThemeTokens.color.statusBackground.warning);
     expect(cssVariables["--warn-border"]).toBe(lotusThemeTokens.color.semantic.warningBorder);
     expect(cssVariables["--success"]).toBe(lotusThemeTokens.color.semantic.success);
@@ -182,10 +215,10 @@ describe("design-system token contract", () => {
     expect(cssVariables["--elevation-none"]).toBe(lotusThemeTokens.elevation.none);
     expect(cssVariables["--font-ui"]).toBe(lotusThemeTokens.typography.fontFamily.ui);
     expect(cssVariables["--type-label-size"]).toBe(
-      lotusThemeTokens.typography.variant.label.size
+      lotusThemeTokens.typography.variant.dataLabel.size
     );
     expect(Number(cssVariables["--type-label-weight"])).toBe(
-      lotusThemeTokens.typography.variant.label.weight
+      lotusThemeTokens.typography.variant.dataLabel.weight
     );
     expect(cssVariables["--type-body-size"]).toBe(
       lotusThemeTokens.typography.variant.body.size
@@ -219,6 +252,30 @@ describe("design-system token contract", () => {
     expect(cssVariables["--metric-tile-height-default"]).toBe(lotusThemeTokens.metricTile.height.default);
     expect(cssVariables["--metric-tile-height-compact"]).toBe(lotusThemeTokens.metricTile.height.compact);
     expect(cssVariables["--focus-ring"]).toBe(lotusThemeTokens.focus.ring);
+    expect(cssVariables["--motion-duration-fast"]).toBe(
+      lotusThemeTokens.motion.duration.fast
+    );
+    expect(cssVariables["--motion-easing-standard"]).toBe(
+      lotusThemeTokens.motion.easing.standard
+    );
+    expect(cssVariables["--breakpoint-desktop"]).toBe(
+      `${lotusThemeTokens.breakpoint.desktop}px`
+    );
+    expect(Number(cssVariables["--z-index-pinned-header"])).toBe(
+      lotusThemeTokens.zIndex.pinnedHeader
+    );
+  });
+
+  it("keeps compatibility typography names as identity aliases of canonical variants", () => {
+    const variants = lotusThemeTokens.typography.variant;
+
+    expect(variants.cardTitle).toBe(variants.panelTitle);
+    expect(variants.secondary).toBe(variants.bodySmall);
+    expect(variants.eyebrow).toBe(variants.microLabel);
+    expect(variants.metricValueL).toBe(variants.metricValue);
+    expect(variants.metricValueM).toBe(variants.metricValueCompact);
+    expect(variants.button).toBe(variants.buttonLabel);
+    expect(variants.badge).toBe(variants.badgeLabel);
   });
 
   it("keeps advisor-facing text and semantic states at WCAG AA contrast", () => {
@@ -279,5 +336,72 @@ describe("design-system token contract", () => {
     }
 
     expect("--space-4: 16px;").not.toMatch(governedPaletteDeclarationPattern);
+  });
+
+  it("keeps direct proposal routes on root-scoped text authority", () => {
+    const proposalStylePaths = [
+      "proposal-advisory-workspace.module.css",
+      "proposal-detail-view.module.css",
+      "proposal-review-panel.module.css",
+    ];
+
+    for (const fileName of proposalStylePaths) {
+      const css = fs.readFileSync(
+        path.resolve(
+          __dirname,
+          `../../src/features/proposals/components/${fileName}`,
+        ),
+        "utf8",
+      );
+      expect(css, `${fileName} must use the root-scoped text token`).toContain(
+        "var(--text)",
+      );
+      expect(
+        css,
+        `${fileName} must not depend on the portfolio-page scoped text token`,
+      ).not.toContain("--portfolio-ui-text");
+    }
+  });
+
+  it("keeps keyboard focus visible in Windows forced-colour mode", () => {
+    const css = fs.readFileSync(
+      path.resolve(__dirname, "../../src/styles/global/workbench-shell.css"),
+      "utf8",
+    );
+
+    expect(css).toMatch(
+      /:focus-visible\s*\{[^}]*outline:\s*2px solid transparent;[^}]*box-shadow:\s*var\(--focus-ring\);/s,
+    );
+    expect(css).toMatch(
+      /@media\s*\(forced-colors:\s*active\)\s*\{\s*:focus-visible\s*\{[^}]*outline-color:\s*Highlight;[^}]*box-shadow:\s*none;/s,
+    );
+    expect(css).not.toMatch(/:focus-visible\s*\{[^}]*outline:\s*none;/s);
+
+    for (const { fileName, css: globalCss } of readImportedGlobalLayers()) {
+      expect(globalCss, `${fileName} must preserve a forced-colours outline`).not.toMatch(
+        /outline:\s*none/,
+      );
+    }
+
+    const sourceRoot = path.resolve(__dirname, "../../src");
+    const pending = [sourceRoot];
+    while (pending.length > 0) {
+      const current = pending.pop();
+      if (!current) {
+        continue;
+      }
+      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+        const entryPath = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          pending.push(entryPath);
+        } else if (entry.name.endsWith(".module.css") || entry.name.endsWith(".tsx")) {
+          const source = fs.readFileSync(entryPath, "utf8");
+          expect(
+            source,
+            `${path.relative(sourceRoot, entryPath)} must preserve a forced-colours outline`,
+          ).not.toMatch(/outline\s*:\s*(?:["']none["']|none)/);
+        }
+      }
+    }
   });
 });

@@ -38,7 +38,7 @@ export default function RiskRollingWindowDetail({
         viewModel.rollingWindows.length > 1 ? (
           <div className="performance-risk-rolling-window-selector">
             <div className="performance-risk-rolling-window-selector-copy">
-              <Text variant="label">{riskRollingPanelCopy.reviewWindowLabel}</Text>
+              <Text variant="dataLabel">{riskRollingPanelCopy.reviewWindowLabel}</Text>
               <Text variant="metadata">{riskRollingPanelCopy.reviewWindowSupport}</Text>
             </div>
             <WorkbenchChoiceGroup

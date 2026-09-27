@@ -88,7 +88,7 @@ CODEOWNERS when a second accepted reviewer exists.
   an unreviewed dependency migration.
 - `make lint`
   validates the Workbench branch-protection policy document, then runs runtime-support and
-  direct-dependency-admission governance, CSS and architecture controls,
+  direct-dependency-admission governance, design-token integrity, CSS and architecture controls,
   screen-documentation governance, and then the maintained ESLint CLI over the repository root
   with the flat configuration. The CSS gate keeps `src/app/globals.css` as a small import-only
   entrypoint, preserves governed global layer order, and blocks global-style budget growth unless
@@ -98,6 +98,14 @@ CODEOWNERS when a second accepted reviewer exists.
   correctness rules; tests, live validators, scripts, and configuration files are scanned by the
   shared TypeScript/JavaScript policy. Deprecated `next lint` and `eslint-config-next` are not part
   of the governed gate.
+- `npm run quality:design-tokens`
+  resolves every productive `var(--...)` reference against a declared or explicitly runtime-owned
+  custom property, then compares out-of-layer raw colour literals and variable fallbacks with an
+  exact count-and-digest baseline. Undefined tokens, a missing source tree, an altered scanner
+  configuration, or unreviewed inventory drift fail before browser tests. Token-layer colour files
+  are the only raw-colour exemptions. Review an intentional migration with
+  `npm run quality:design-tokens -- --print-baseline`, then update the checked-in baseline in the
+  same issue-backed change; the command prints a candidate and never mutates the baseline.
 - `npm run quality:source-authority`
   is a blocking, contract-driven fitness function for critical Gateway-backed business facts. Risk
   mandate comparison and Advisor Book each declare source identity/state ownership, a domain-local

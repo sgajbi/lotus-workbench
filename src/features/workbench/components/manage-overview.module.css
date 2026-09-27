@@ -8,7 +8,7 @@
 
 .recheckFailure {
   margin: 0;
-  color: var(--status-warning-text);
+  color: var(--warn-text);
   font-size: var(--type-body-small-size);
   line-height: var(--type-body-small-line-height);
 }

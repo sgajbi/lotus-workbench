@@ -399,7 +399,7 @@
   font-weight: var(--type-subsection-title-weight);
   line-height: var(--type-subsection-title-line-height);
   letter-spacing: 0;
-  color: var(--text-default);
+  color: var(--text);
 }
 
 .analytics-table-state-body {
@@ -2047,7 +2047,7 @@
   grid-template-columns: minmax(0, 1fr);
   border: 1px solid rgba(226, 232, 240, 0.84);
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--surface-primary);
 }
 
 .portfolio-actions-card .portfolio-workflow-item-recommended {
@@ -2364,7 +2364,7 @@
 .portfolio-performance-snapshot-support {
   font-size: 12px;
   line-height: 1.45;
-  color: var(--text-subtle, #6b7280);
+  color: var(--text-muted);
   font-variant-numeric: tabular-nums;
 }
 
@@ -2625,7 +2625,7 @@
   padding: 0.75rem 0.875rem;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: var(--surface);
+  background: var(--surface-primary);
   text-align: left;
   cursor: pointer;
 }
@@ -2861,7 +2861,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #ffffff;
-  color: var(--accent);
+  color: var(--brand-highlight);
   font-size: 12px;
   font-weight: 600;
   padding: 8px 12px;
@@ -2869,7 +2869,7 @@
 
 .portfolio-data-grid {
   width: 100%;
-  --ag-font-family: var(--font-sans);
+  --ag-font-family: var(--font-ui);
   --ag-font-size: 13px;
   --ag-foreground-color: #171a1f;
   --ag-background-color: #ffffff;
@@ -2954,7 +2954,7 @@
 
 .portfolio-instrument-review:focus-visible {
   border-radius: 4px;
-  outline: none;
+  outline: 2px solid transparent;
   box-shadow: var(--focus-ring);
 }
 
@@ -3016,7 +3016,7 @@
   border: 1px solid var(--border);
   border-radius: 8px;
   background: #ffffff;
-  color: var(--accent);
+  color: var(--brand-highlight);
   text-decoration: none;
   font-size: 13px;
   font-weight: 600;
@@ -3184,7 +3184,7 @@
 
 .portfolio-grid-drawer-header p {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: var(--text-muted);
 }
 
 .portfolio-grid-detail-list {
@@ -3241,7 +3241,7 @@
   padding: 0.75rem 0.875rem;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
+  background: var(--surface-primary);
 }
 
 .portfolio-workspace-toolbar-row {
@@ -4817,7 +4817,7 @@
 }
 
 .performance-summary-kpi-support {
-  color: var(--text-subtle);
+  color: var(--text-muted);
   font-size: var(--type-body-small-size);
   line-height: var(--type-body-small-line-height);
   max-width: 21ch;
@@ -5735,7 +5735,7 @@
   border-color: rgba(51, 65, 85, 0.22);
   background: rgba(241, 245, 249, 0.96);
   color: var(--text);
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .performance-risk-info-drawer {
@@ -5766,7 +5766,7 @@
   border-color: rgba(51, 65, 85, 0.22);
   background: rgba(248, 250, 252, 0.96);
   color: var(--brand-strong);
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .performance-risk-info-drawer-shell {
@@ -6516,7 +6516,7 @@
   border-color: rgba(51, 65, 85, 0.34);
   color: var(--brand-strong);
   background: rgba(241, 245, 249, 0.98);
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .performance-risk-concentration-indicator-grid {
@@ -6855,7 +6855,7 @@
   appearance: none;
   border: 0;
   background: transparent;
-  color: var(--brand-600);
+  color: var(--brand);
   font: inherit;
   font-size: var(--type-button-size);
   font-weight: 600;
@@ -6866,9 +6866,9 @@
 
 .performance-panel-inline-action:hover,
 .performance-panel-inline-action:focus-visible {
-  color: var(--brand-700);
+  color: var(--brand-strong);
   text-decoration: underline;
-  outline: none;
+  outline: 2px solid transparent;
 }
 
 .performance-analysis-toolbar .MuiFormControl-root .MuiOutlinedInput-root {
@@ -8368,7 +8368,7 @@
 
   .portfolio-empty-state strong {
     font-size: 0.9375rem;
-    color: var(--text-strong);
+    color: var(--text);
     line-height: 1.3;
   }
 
@@ -8751,7 +8751,7 @@
 }
 
 .performance-horizon-matrix-support-value-muted {
-  color: var(--text-subtle);
+  color: var(--text-muted);
 }
 
 .performance-horizon-matrix-support strong {
@@ -9530,8 +9530,7 @@
 .nav-link:focus-visible,
 .page-toolbar button:focus-visible,
 .page-toolbar [role="button"]:focus-visible {
-  outline: 2px solid rgba(54, 95, 139, 0.72);
-  outline-offset: 2px;
+  outline: 2px solid transparent;
   box-shadow: var(--focus-ring);
 }
 
@@ -10056,7 +10055,7 @@
 .portfolio-page .portfolio-summary-table td {
   height: 32px;
   padding: 7px 12px;
-  border-bottom-color: var(--portfolio-ui-surface-variant, #e0e3e5);
+  border-bottom-color: var(--portfolio-ui-surface-container-highest);
 }
 
 .portfolio-page .portfolio-summary-table th {

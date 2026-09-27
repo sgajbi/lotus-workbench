@@ -1,59 +1,148 @@
-export const lotusThemeTokens = {
-  color: {
-    surface: {
-      canvas: "#f4f6f7",
-      canvasAlt: "#eef2f4",
-      page: "#f4f6f7",
-      foundation: "#e8edf0",
-      panel: "#ffffff",
-      panelAlt: "#f8faf9",
-      primary: "#ffffff",
-      secondary: "#f2f5f5",
-      tertiary: "#e8eeee",
-      interactive: "#edf3f4",
-      selected: "#e3edf0",
-      topbar: "#fbfcfb",
+const lightColorTokens = {
+  surface: {
+    canvas: "#f4f6f7",
+    canvasAlt: "#eef2f4",
+    page: "#f4f6f7",
+    foundation: "#e8edf0",
+    panel: "#ffffff",
+    panelAlt: "#f8faf9",
+    primary: "#ffffff",
+    secondary: "#f2f5f5",
+    tertiary: "#e8eeee",
+    interactive: "#edf3f4",
+    selected: "#e3edf0",
+    topbar: "#fbfcfb",
+  },
+  text: {
+    primary: "#18262f",
+    muted: "#5b6872",
+    inverse: "#ffffff",
+    inverseMuted: "#c3d2d9",
+    disabled: "#56636d",
+  },
+  border: {
+    default: "#d5dde1",
+    strong: "#7b8b94",
+    interactive: "#8fa5b1",
+    subtle: "1px solid #d5dde1",
+  },
+  brand: {
+    base: "#214f68",
+    strong: "#102f40",
+    soft: "#e7f0f3",
+    accent: "#765c25",
+    highlight: "#2f6f91",
+    hover: "#183e54",
+    attention: "#d2b46f",
+    attentionText: "#f4dda6",
+  },
+  semantic: {
+    success: "#256247",
+    warning: "#7d5714",
+    warningBorder: "#c89b45",
+    danger: "#a43e35",
+    analyticPositive: "#2f6587",
+    analyticPositiveSoft: "#66869a",
+    analyticNegative: "#8f554c",
+    analyticNegativeSoft: "#ad7b72",
+  },
+  statusBackground: {
+    success: "#edf7f1",
+    warning: "#fff7e6",
+    danger: "#fff1ef",
+    neutral: "#eef2f3",
+  },
+  chart: {
+    categorical: {
+      allocation: "#2f6f91",
+      selection: "#3e7357",
+      interaction: "#a43e35",
+      total: "#263746",
     },
-    text: {
-      primary: "#18262f",
-      muted: "#5b6872",
-      inverse: "#ffffff",
-      inverseMuted: "#c3d2d9",
-      disabled: "#56636d",
+    sequential: {
+      low: "#dce9ee",
+      medium: "#66869a",
+      high: "#214f68",
     },
-    border: {
-      default: "#d5dde1",
-      strong: "#7b8b94",
-      interactive: "#8fa5b1",
-      subtle: "1px solid #d5dde1",
+    diverging: {
+      negative: "#a43e35",
+      neutral: "#7b8b94",
+      positive: "#2f6587",
     },
-    brand: {
-      base: "#214f68",
-      strong: "#102f40",
-      soft: "#e7f0f3",
-      accent: "#765c25",
-      highlight: "#2f6f91",
-      hover: "#183e54",
-      attention: "#d2b46f",
-      attentionText: "#f4dda6",
-    },
-    semantic: {
-      success: "#256247",
-      warning: "#7d5714",
-      warningBorder: "#c89b45",
-      danger: "#a43e35",
-      analyticPositive: "#2f6587",
-      analyticPositiveSoft: "#66869a",
-      analyticNegative: "#8f554c",
-      analyticNegativeSoft: "#ad7b72",
-    },
-    statusBackground: {
-      success: "#edf7f1",
-      warning: "#fff7e6",
-      danger: "#fff1ef",
-      neutral: "#eef2f3",
+    chrome: {
+      axis: "#5b6872",
+      grid: "rgba(123, 139, 148, 0.2)",
+      tooltipBackground: "rgba(255, 255, 255, 0.98)",
+      tooltipBorder: "rgba(33, 79, 104, 0.18)",
     },
   },
+} as const;
+
+const panelTitleTypography = {
+  size: "1.125rem",
+  weight: 600,
+  lineHeight: 1.3333333333,
+  tracking: "0",
+} as const;
+
+const bodySmallTypography = {
+  size: "0.8125rem",
+  weight: 400,
+  lineHeight: 1.5384615385,
+} as const;
+
+const dataLabelTypography = {
+  size: "0.75rem",
+  weight: 500,
+  lineHeight: 1.3333333333,
+  tracking: "0.01em",
+} as const;
+
+const microLabelTypography = {
+  size: "0.75rem",
+  weight: 600,
+  lineHeight: 1.3333333333,
+  tracking: "0.04em",
+} as const;
+
+const metricValueLargeTypography = {
+  size: "1.75rem",
+  weight: 600,
+  lineHeight: 1.1428571429,
+  tracking: "0",
+} as const;
+
+const metricValueMediumTypography = {
+  size: "1.375rem",
+  weight: 600,
+  lineHeight: 1.2727272727,
+  tracking: "0",
+} as const;
+
+const buttonLabelTypography = {
+  size: "0.875rem",
+  weight: 600,
+  lineHeight: 1.4285714286,
+  tracking: "0",
+} as const;
+
+const badgeLabelTypography = {
+  size: "0.75rem",
+  weight: 600,
+  lineHeight: 1.3333333333,
+  tracking: "0.02em",
+} as const;
+
+const lotusColorSchemes = {
+  light: lightColorTokens,
+} as const;
+
+export type LotusColorScheme = keyof typeof lotusColorSchemes;
+
+export const lotusThemeTokens = {
+  colorSchemes: lotusColorSchemes,
+  // Compatibility access for existing consumers. New theme factories select colorSchemes explicitly.
+  color: lightColorTokens,
   typography: {
     fontFamily: {
       ui: 'var(--font-lotus-ui-face), "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -104,98 +193,45 @@ export const lotusThemeTokens = {
         lineHeight: 1.3333333333,
         tracking: "0",
       },
-      panelTitle: {
-        size: "1.125rem",
-        weight: 600,
-        lineHeight: 1.3333333333,
-        tracking: "0",
-      },
+      panelTitle: panelTitleTypography,
       subsectionTitle: {
         size: "0.875rem",
         weight: 600,
         lineHeight: 1.4285714286,
         tracking: "0",
       },
-      cardTitle: {
-        size: "1.125rem",
-        weight: 600,
-        lineHeight: 1.3333333333,
-        tracking: "0",
-      },
+      cardTitle: panelTitleTypography,
       body: {
         size: "0.875rem",
         weight: 400,
         lineHeight: 1.4285714286,
       },
-      bodySmall: {
-        size: "0.8125rem",
-        weight: 400,
-        lineHeight: 1.5384615385,
-      },
+      bodySmall: bodySmallTypography,
       helperText: {
         size: "0.75rem",
         weight: 400,
         lineHeight: 1.5,
       },
-      secondary: {
-        size: "0.8125rem",
-        weight: 400,
-        lineHeight: 1.5384615385,
-      },
-      label: {
-        size: "0.75rem",
-        weight: 500,
-        lineHeight: 1.3333333333,
-        tracking: "0.01em",
-      },
-      dataLabel: {
-        size: "0.75rem",
-        weight: 500,
-        lineHeight: 1.3333333333,
-        tracking: "0.01em",
-      },
-      microLabel: {
-        size: "0.75rem",
-        weight: 600,
-        lineHeight: 1.3333333333,
-        tracking: "0.04em",
-      },
+      secondary: bodySmallTypography,
+      dataLabel: dataLabelTypography,
+      microLabel: microLabelTypography,
+      eyebrow: microLabelTypography,
       metadata: {
         size: "0.75rem",
         weight: 400,
         lineHeight: 1.3333333333,
         tracking: "0",
       },
-      metricValue: {
-        size: "1.75rem",
-        weight: 600,
-        lineHeight: 1.1428571429,
-        tracking: "0",
-      },
-      metricValueCompact: {
-        size: "1.375rem",
-        weight: 600,
-        lineHeight: 1.2727272727,
-        tracking: "0",
-      },
+      metricValue: metricValueLargeTypography,
+      metricValueCompact: metricValueMediumTypography,
       metricValueXL: {
         size: "2.125rem",
         weight: 600,
         lineHeight: 1.1176470588,
         tracking: "0",
       },
-      metricValueL: {
-        size: "1.75rem",
-        weight: 600,
-        lineHeight: 1.1428571429,
-        tracking: "0",
-      },
-      metricValueM: {
-        size: "1.375rem",
-        weight: 600,
-        lineHeight: 1.2727272727,
-        tracking: "0",
-      },
+      metricValueL: metricValueLargeTypography,
+      metricValueM: metricValueMediumTypography,
       tableHeader: {
         size: "0.75rem",
         weight: 600,
@@ -208,18 +244,10 @@ export const lotusThemeTokens = {
         lineHeight: 1.4285714286,
         tracking: "0",
       },
-      buttonLabel: {
-        size: "0.875rem",
-        weight: 600,
-        lineHeight: 1.4285714286,
-        tracking: "0",
-      },
-      badgeLabel: {
-        size: "0.75rem",
-        weight: 600,
-        lineHeight: 1.3333333333,
-        tracking: "0.02em",
-      },
+      buttonLabel: buttonLabelTypography,
+      badgeLabel: badgeLabelTypography,
+      button: buttonLabelTypography,
+      badge: badgeLabelTypography,
       tooltipTitle: {
         size: "0.8125rem",
         weight: 600,
@@ -277,6 +305,26 @@ export const lotusThemeTokens = {
   focus: {
     ring: "0 0 0 2px #2f6f91",
   },
+  motion: {
+    duration: {
+      instant: "0ms",
+      fast: "120ms",
+      standard: "180ms",
+      emphasized: "240ms",
+    },
+    easing: {
+      standard: "cubic-bezier(0.2, 0, 0, 1)",
+      enter: "cubic-bezier(0, 0, 0.2, 1)",
+      exit: "cubic-bezier(0.4, 0, 1, 1)",
+    },
+  },
+  breakpoint: {
+    compact: 420,
+    mobile: 640,
+    tablet: 768,
+    desktop: 1024,
+    wide: 1440,
+  },
   layout: {
     workbenchSectionGap: "12px",
     workbenchCardPadding: "12px",
@@ -323,6 +371,13 @@ export const lotusThemeTokens = {
     },
   },
   zIndex: {
+    base: 0,
+    content: 1,
+    pinnedCell: 2,
+    pinnedHeader: 3,
     shellHeader: 20,
+    overlay: 40,
+    modal: 50,
+    toast: 60,
   },
 } as const;

@@ -87,8 +87,8 @@
 }
 
 .windowTrigger:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--surface-hover);
+  border-color: var(--brand-highlight);
+  background: var(--surface-interactive);
 }
 
 .windowTrigger:disabled {
@@ -127,7 +127,7 @@
 
 .windowTriggerAction {
   flex: 0 0 auto;
-  color: var(--accent);
+  color: var(--brand-highlight);
   font-size: var(--type-metadata-size);
   font-weight: 650;
   white-space: nowrap;

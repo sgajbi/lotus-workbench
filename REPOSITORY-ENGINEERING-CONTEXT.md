@@ -279,7 +279,7 @@ the documented sibling-checkout layout without relying on the scripts' personal 
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Install                                   | `npm ci --no-audit --no-fund`                                                                                                                    |
 | Develop                                   | `npm run dev` (the governed launcher supplies `LOTUS_ENVIRONMENT=dev` only when absent)                                                          |
-| Lint and architecture gates               | `npm run lint` (includes `quality:unused-code`, the exact production-reachability ratchet)                                                      |
+| Lint and architecture gates               | `npm run lint` (includes exact production-reachability and design-token integrity ratchets)                                                     |
 | Type safety                               | `npm run typecheck`                                                                                                                              |
 | Unit tests                                | `npm test`                                                                                                                                       |
 | Coverage gate                             | `npm run test:coverage`                                                                                                                          |
@@ -319,7 +319,7 @@ the business behavior, source boundary, degraded state, and applicable interacti
 
 Blocking gates cover BFF and feature transport, source-to-render authority, runtime-state and
 dependency inventories, the exact Knip production-reachability baseline, CSS and Risk architecture,
-product copy, screen documentation, E2E
+design-token reference and raw-colour integrity, product copy, screen documentation, E2E
 scenarios, ESLint, React Compiler rules, TypeScript, meaningful coverage, build, security,
 container parity, browser smoke, and fixture scenarios.
 
@@ -368,6 +368,13 @@ policy; it is not the default first read for a bounded Workbench change.
 - Product-copy scanning is transitional. Apply its current gate, but do not expand it into runtime
   evaluation; #872 owns replacement after simpler authority covers the behavior.
 - Global presentation cleanup under #492 is selected only for real workflow, hierarchy, or deletion benefit.
+- `quality:design-tokens` fails closed on undefined CSS custom properties and exact drift in the
+  banked out-of-layer raw-colour and `var()` fallback inventories. Colour values belong in
+  `src/design-system/theme/tokens.ts` and `src/styles/global/tokens.css`; changes to the measured
+  debt require review and an explicit `npm run quality:design-tokens -- --print-baseline` re-bank.
+  The colour structure is scheme-aware, but only `light` is populated and supported. Compatibility
+  typography names reuse canonical variant definitions while consumers migrate; do not duplicate
+  their values.
 - The absolute path in `auto:refresh:pas` is a runtime configuration defect covered by #1020 and
   the Platform #604/#727 repository-resolution contract; closed duplicate #913 is historical only.
 - Verify dynamic imports, route registries, exports, tests, saved recovery work, and supported

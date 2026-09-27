@@ -52,7 +52,7 @@ export default function RiskMetricCard({
         {definition ? (
           <RiskTermLabel label={label} definition={definition} />
         ) : (
-          <Text variant="label" className="workbench-summary-metric-label">
+          <Text variant="dataLabel" className="workbench-summary-metric-label">
             {label}
           </Text>
         )}

@@ -9,7 +9,7 @@
   border-left-width: 3px;
   border-radius: 10px;
   background: var(--refresh-background);
-  color: var(--ink);
+  color: var(--text);
 }
 
 .pending {
@@ -57,7 +57,7 @@
 }
 
 .confirmedContext {
-  color: var(--muted);
+  color: var(--text-muted);
   font-family: var(--font-ui);
   font-size: 0.8125rem;
   font-weight: 600;
@@ -85,7 +85,7 @@
 
 .message {
   max-width: 78ch;
-  color: var(--muted);
+  color: var(--text-muted);
   font-family: var(--font-ui);
   font-size: 0.8125rem;
   line-height: 1.5;
@@ -108,7 +108,7 @@
 }
 
 .contextItem dt {
-  color: var(--muted);
+  color: var(--text-muted);
   font-weight: 600;
 }
 

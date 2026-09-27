@@ -27,7 +27,7 @@ export const SHARED_CHART_TEXT = {
   legendSize: remTokenToPx(lotusThemeTokens.typography.size.textSm),
   axisSize: remTokenToPx(lotusThemeTokens.typography.size.textXs),
   legendWeight: lotusThemeTokens.typography.variant.cardTitle.weight,
-  axisWeight: lotusThemeTokens.typography.variant.label.weight,
+  axisWeight: lotusThemeTokens.typography.variant.dataLabel.weight,
   tooltipWeight: 600,
   tooltipPadding: [
     Number.parseInt(lotusThemeTokens.spacing.step3, 10),

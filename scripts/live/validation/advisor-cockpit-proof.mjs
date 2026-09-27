@@ -15,6 +15,8 @@ const DEFAULT_LEGAL_ENTITY_CODE = "SGPB";
 const DEFAULT_PRINCIPAL_STATUS = "ACTIVE";
 const READ_CAPABILITY = "advisory.advisor_cockpit.read";
 const ACKNOWLEDGE_CAPABILITY = "advisory.advisor_cockpit.acknowledge";
+const CANONICAL_ACTION_PAGE_SIZE = 100;
+const MAX_CANONICAL_ACTION_PAGES = 5;
 
 function advisorCockpitQuery({
   portfolioId,
@@ -145,6 +147,81 @@ function expectedActionFamilies(scenario) {
       .filter(Boolean);
   }
   return [];
+}
+
+async function readCanonicalActionFeed({
+  summary,
+  gatewayBaseUrl,
+  portfolioId,
+  headers,
+  timeoutMs,
+}) {
+  const items = [];
+  const actionIds = new Set();
+  let cursor;
+  let firstPage;
+  let sourceTotal;
+
+  for (let pageNumber = 1; pageNumber <= MAX_CANONICAL_ACTION_PAGES; pageNumber += 1) {
+    const query = advisorCockpitQuery({
+      portfolioId,
+      limit: CANONICAL_ACTION_PAGE_SIZE,
+      cursor,
+    });
+    const response = await sendJson(
+      summary,
+      `${gatewayBaseUrl}/api/v1/advisor-cockpit/actions?${query}`,
+      pageNumber === 1
+        ? "Advisor cockpit canonical action list"
+        : `Advisor cockpit canonical action list page ${pageNumber}`,
+      timeoutMs,
+      { headers },
+    );
+    const page = extractGatewayEnvelopeData(response);
+    firstPage ??= page;
+    const pageItems = Array.isArray(page?.items) ? page.items : [];
+    const pageTotal = Number(page?.total_count);
+    if (!Number.isSafeInteger(pageTotal) || pageTotal < 0) {
+      throw new Error("Advisor cockpit canonical action list returned no valid total_count.");
+    }
+    if (sourceTotal === undefined) {
+      sourceTotal = pageTotal;
+    } else if (sourceTotal !== pageTotal) {
+      throw new Error(
+        `Advisor cockpit canonical action list total_count changed from ${sourceTotal} to ${pageTotal} during pagination.`,
+      );
+    }
+    for (const item of pageItems) {
+      const actionId = readString(item?.action_item_id);
+      if (actionId && actionIds.has(actionId)) {
+        throw new Error(
+          `Advisor cockpit canonical action list repeated action ${actionId} during pagination.`,
+        );
+      }
+      if (actionId) {
+        actionIds.add(actionId);
+      }
+      items.push(item);
+    }
+
+    const nextCursor = readString(page?.next_cursor);
+    if (!nextCursor) {
+      if (items.length !== sourceTotal) {
+        throw new Error(
+          `Advisor cockpit canonical action list ended after ${items.length} items but declared total_count ${sourceTotal}.`,
+        );
+      }
+      return { firstPage, items };
+    }
+    if (nextCursor === cursor) {
+      throw new Error("Advisor cockpit canonical action list returned a non-advancing cursor.");
+    }
+    cursor = nextCursor;
+  }
+
+  throw new Error(
+    `Advisor cockpit canonical action list exceeded the bounded ${MAX_CANONICAL_ACTION_PAGES}-page proof budget.`,
+  );
 }
 
 function buildHouseViewCohortBody({ scenario, portfolioId }) {
@@ -424,20 +501,14 @@ export async function validateCanonicalAdvisorCockpit({
     portfolioId,
     timeoutMs,
   });
-  const query = advisorCockpitQuery({
-    portfolioId,
-    limit: 25,
-  });
   const readHeaders = advisorCockpitHeaders({ portfolioId, advisorId, role });
-  const actions = await sendJson(
+  const { firstPage: actionPage, items } = await readCanonicalActionFeed({
     summary,
-    `${gatewayBaseUrl}/api/v1/advisor-cockpit/actions?${query}`,
-    "Advisor cockpit canonical action list",
+    gatewayBaseUrl,
+    portfolioId,
+    headers: readHeaders,
     timeoutMs,
-    { headers: readHeaders },
-  );
-  const actionPage = extractGatewayEnvelopeData(actions);
-  const items = Array.isArray(actionPage?.items) ? actionPage.items : [];
+  });
   if (items.length < 1) {
     throw new Error(
       "Advisor cockpit canonical action list returned no action items.",
@@ -471,6 +542,10 @@ export async function validateCanonicalAdvisorCockpit({
       "Advisor cockpit canonical action item did not include stable identity and version.",
     );
   }
+  const query = advisorCockpitQuery({
+    portfolioId,
+    limit: CANONICAL_ACTION_PAGE_SIZE,
+  });
   await validateActionDetail({
     summary,
     gatewayBaseUrl,

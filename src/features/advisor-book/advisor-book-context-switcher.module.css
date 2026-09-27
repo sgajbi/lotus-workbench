@@ -2,9 +2,9 @@
   display: grid;
   gap: 6px;
   padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--text-inverse) 16%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-inverse) 4%, transparent);
 }
 
 .header {
@@ -14,7 +14,7 @@
 }
 
 .header span {
-  color: #c9d0df;
+  color: var(--text-inverse-muted);
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -22,22 +22,22 @@
 }
 
 .disclosure {
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, var(--text-inverse) 18%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--text-inverse) 6%, transparent);
 }
 
 .summary {
   min-height: 36px;
   padding: 8px 10px;
-  color: #f6f7f9;
+  color: var(--text-inverse);
   cursor: pointer;
   font-size: 0.8125rem;
   font-weight: 650;
 }
 
 .summary:focus-visible {
-  outline: 2px solid #fcdc9a;
+  outline: 2px solid var(--brand-attention);
   outline-offset: 2px;
 }
 
@@ -48,9 +48,9 @@
   padding: 4px;
   overflow: auto;
   list-style: none;
-  border-top: 1px solid var(--lotus-border-subtle, #dde2e8);
-  background: #ffffff;
-  color: #191c1e;
+  border-top: var(--border-subtle);
+  background: var(--surface-primary);
+  color: var(--text);
 }
 
 .options a,
@@ -65,15 +65,15 @@
 
 .options a:hover,
 .options a:focus-visible {
-  background: rgba(40, 91, 134, 0.08);
+  background: color-mix(in srgb, var(--brand) 8%, transparent);
 }
 
 .options small {
-  color: var(--lotus-text-muted, #66717f);
+  color: var(--text-muted);
 }
 
 .selected {
-  background: rgba(40, 91, 134, 0.1);
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
 }
 
 .optionState {
@@ -82,8 +82,8 @@
   gap: 8px;
   margin: 0;
   padding: 10px;
-  color: var(--lotus-text-muted, #66717f);
-  background: #ffffff;
+  color: var(--text-muted);
+  background: var(--surface-primary);
   font-size: 0.75rem;
 }
 
@@ -94,13 +94,13 @@
 .support {
   display: none;
   margin: 0;
-  color: var(--lotus-text-muted, #66717f);
+  color: var(--text-muted);
   font-size: 0.7rem;
   line-height: 1.35;
 }
 
 .warning {
-  color: #8a5a14;
+  color: var(--warn-text);
 }
 
 .compactContextLabel,

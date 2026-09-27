@@ -81,7 +81,7 @@ export function ApprovedUseSection({
           {consumers.map((consumer) => (
             <div key={consumer.consumerRepository} className={styles.consumerRow}>
               <div className={styles.consumerIdentity}>
-                <Text variant="label">{formatIdentifier(consumer.consumerRepository)}</Text>
+                <Text variant="dataLabel">{formatIdentifier(consumer.consumerRepository)}</Text>
                 <Text variant="secondary">{consumer.dependencyCount} declared dependencies</Text>
               </div>
               <div className={styles.badgeRow}>

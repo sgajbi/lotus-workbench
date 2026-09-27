@@ -164,8 +164,8 @@
 }
 
 .actionLink:focus-visible {
-  outline: 2px solid var(--brand-highlight);
-  outline-offset: 2px;
+  outline: 2px solid transparent;
+  box-shadow: var(--focus-ring);
 }
 
 @media (max-width: 900px) {

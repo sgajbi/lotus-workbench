@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import PerformanceAttributionTrendPanel from "../../src/apps/performance/components/performance-attribution-trend-panel";
+import { lotusThemeTokens } from "../../src/design-system/theme/tokens";
 import { WorkbenchApiError } from "../../src/features/workbench/api-client";
 
 const getTrendMock = vi.fn();
@@ -137,6 +138,7 @@ describe("PerformanceAttributionTrendPanel", () => {
         backgroundColor?: string;
         textStyle?: { color?: string };
       };
+      color?: string[];
     };
     expect(chartOption.series?.[0]?.barWidth).toBe(14);
     expect(chartOption.series?.[3]?.smooth).toBe(false);
@@ -146,8 +148,18 @@ describe("PerformanceAttributionTrendPanel", () => {
       cap: "round",
       join: "round",
     });
-    expect(chartOption.tooltip?.backgroundColor).toBe("rgba(255, 255, 255, 0.98)");
-    expect(chartOption.tooltip?.textStyle?.color).toBe("#172033");
+    expect(chartOption.color).toEqual([
+      lotusThemeTokens.color.chart.categorical.allocation,
+      lotusThemeTokens.color.chart.categorical.selection,
+      lotusThemeTokens.color.chart.categorical.interaction,
+      lotusThemeTokens.color.chart.categorical.total,
+    ]);
+    expect(chartOption.tooltip?.backgroundColor).toBe(
+      lotusThemeTokens.color.chart.chrome.tooltipBackground,
+    );
+    expect(chartOption.tooltip?.textStyle?.color).toBe(
+      lotusThemeTokens.color.text.primary,
+    );
     const trendTable = screen.getByLabelText("Attribution trend table");
     expect(within(trendTable).getByText("Allocation")).toBeInTheDocument();
     expect(within(trendTable).getByText("Selection")).toBeInTheDocument();
