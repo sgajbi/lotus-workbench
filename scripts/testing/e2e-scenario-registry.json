@@ -309,6 +309,9 @@
             "current-request": [
               "tracks an accepted request and deliberately starts a second at constrained width"
             ],
+            "portfolio-bundle": [
+              "orders a reviewed portfolio bundle and renders source-owned outcomes"
+            ],
             "retained-history": [
               "keeps retained request history decision-first and bounded at every content width"
             ]
