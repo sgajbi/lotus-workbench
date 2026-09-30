@@ -196,10 +196,32 @@ describe("design-token integrity gate", () => {
     );
   });
 
+  it("binds repeated selector declarations to their cascade occurrence", () => {
+    const root = createFixture({
+      "src/panel.module.css": ".panel { color: #fff; } .panel { color: #000; }",
+    });
+    const baseline = createDesignTokenIntegrityBaseline(analyze(root));
+    fs.writeFileSync(
+      path.join(root, "src/panel.module.css"),
+      ".panel { color: #000; } .panel { color: #fff; }",
+      "utf8",
+    );
+
+    const analysis = analyze(root);
+    expect(analysis.rawColorLiterals.count).toBe(
+      baseline.rawColorLiterals.count,
+    );
+    expect(analysis.rawColorLiterals.digest).not.toBe(
+      baseline.rawColorLiterals.digest,
+    );
+    expect(validateDesignTokenIntegrity({ analysis, baseline })).toContainEqual(
+      expect.stringContaining("rawColorLiterals.digest"),
+    );
+  });
+
   it("keeps declaration-context evidence stable across line-ending styles", () => {
     const root = createFixture({
-      "src/panel.module.css":
-        ".panel,\r\n.card {\r\n  color: #123;\r\n}\r\n",
+      "src/panel.module.css": ".panel,\r\n.card {\r\n  color: #123;\r\n}\r\n",
     });
     const windowsDigest = analyze(root).rawColorLiterals.digest;
     fs.writeFileSync(
@@ -396,6 +418,31 @@ describe("design-token integrity gate", () => {
     fs.writeFileSync(
       path.join(root, "src/icon.tsx"),
       'const accent = "red"; export const Icon = () => <path fill={accent} />;',
+      "utf8",
+    );
+
+    const analysis = analyze(root);
+    expect(analysis.rawColorLiterals.count).toBe(
+      baseline.rawColorLiterals.count + 1,
+    );
+    expect(validateDesignTokenIntegrity({ analysis, baseline })).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("rawColorLiterals.count"),
+        expect.stringContaining("rawColorLiterals.digest"),
+      ]),
+    );
+  });
+
+  it("records every style use of an imported colour constant", () => {
+    const root = createFixture({
+      "src/palette.ts": 'export const accent = "#fff";',
+      "src/panel.tsx":
+        'import { accent } from "./palette"; export const style = { color: accent };',
+    });
+    const baseline = createDesignTokenIntegrityBaseline(analyze(root));
+    fs.writeFileSync(
+      path.join(root, "src/secondary-panel.tsx"),
+      'import { accent as secondaryAccent } from "./palette"; export const style = { borderColor: secondaryAccent };',
       "utf8",
     );
 
@@ -633,9 +680,7 @@ describe("design-token integrity gate", () => {
     expect(analysis.variableFallbacks.contextDigest).not.toBe(
       baseline.variableFallbacks.contextDigest,
     );
-    expect(
-      validateDesignTokenIntegrity({ analysis, baseline }),
-    ).toContainEqual(
+    expect(validateDesignTokenIntegrity({ analysis, baseline })).toContainEqual(
       expect.stringContaining("variableFallbacks.contextDigest"),
     );
   });
