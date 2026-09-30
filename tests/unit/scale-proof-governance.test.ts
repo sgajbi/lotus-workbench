@@ -3,6 +3,11 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  normalizeInstruction,
+  parseDockerfile,
+} from "../../scripts/quality/runtime-support-source-evidence.mjs";
+
 const root = join(__dirname, "..", "..");
 const read = (...path: string[]) => readFileSync(join(root, ...path), "utf8");
 
@@ -29,11 +34,26 @@ describe("Workbench scale-proof governance", () => {
     const balancerDockerfile = read("scripts", "scale", "Dockerfile.balancer");
     const fixture = read("scripts", "scale", "gateway-fixture.mjs");
 
-    expect(balancerDockerfile).toContain(
+    const dockerModel = parseDockerfile(balancerDockerfile);
+    expect(dockerModel.stages).toHaveLength(1);
+    expect(dockerModel.stages[0]?.base).toBe(
       "nginx:1.30.3-alpine3.23-slim@sha256:d5b51cfc7d55fc7a7bcf4d1d577b9c3738331df56d68f0b1d8ac9795b9470a5a",
     );
-    expect(balancerDockerfile).toContain('"libcrypto3=3.5.8-r0"');
-    expect(balancerDockerfile).toContain('"libssl3=3.5.8-r0"');
+    const runInstructions = dockerModel.stages[0]?.instructions.filter(
+      (instruction: { keyword: string }) => instruction.keyword === "RUN",
+    );
+    expect(runInstructions).toHaveLength(1);
+    expect(normalizeInstruction(runInstructions[0].argument)).toBe(
+      'apk add --no-cache --upgrade "libcrypto3=3.5.9-r0" "libssl3=3.5.9-r0"',
+    );
+
+    expect(balancerDockerfile).toContain("CVE-2026-14456");
+    expect(balancerDockerfile).toContain("#873");
+    expect(balancerDockerfile).toContain("#897");
+    expect(balancerDockerfile).toContain(
+      "Remove this RUN once the pinned base carries libcrypto3/libssl3 >=3.5.9-r0.",
+    );
+    expect(balancerDockerfile).toContain("the build fails by design");
     expect(balancerDockerfile).toContain("USER 101:101");
     expect(balancerDockerfile).not.toContain("3.5.7-r0");
     expect(compose).toContain(
