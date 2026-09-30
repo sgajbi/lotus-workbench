@@ -211,13 +211,29 @@ describe("dependency security governance", () => {
     };
 
     expect(packageJson.overrides?.minimatch).toEqual({
-      "brace-expansion": "5.0.9",
+      "brace-expansion": "5.0.12",
     });
     expect(packageJson.overrides?.["brace-expansion"]).toBeUndefined();
     expect(packageLock.packages?.["node_modules/brace-expansion"]).toMatchObject({
-      version: "5.0.9",
+      version: "5.0.12",
       integrity:
-        "sha512-ScQ4IuvIEF1TMlP7Zt+vjJ//9zlPb2SDcxWxM3bk8s6t6GGdJ7KO1dCcTidOPJKePW30LE/2cT7wCyPho9/Wxg==",
+        "sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==",
+    });
+  });
+
+  it("pins the patched fast-uri line used by Ajv", () => {
+    const packageJson = JSON.parse(readRepositoryFile("package.json")) as {
+      overrides?: Record<string, unknown>;
+    };
+    const packageLock = JSON.parse(readRepositoryFile("package-lock.json")) as {
+      packages?: Record<string, { version?: string; integrity?: string }>;
+    };
+
+    expect(packageJson.overrides?.["fast-uri"]).toBe("3.1.8");
+    expect(packageLock.packages?.["node_modules/fast-uri"]).toMatchObject({
+      version: "3.1.8",
+      integrity:
+        "sha512-GZMtZUTNRpOVIECoXwLNZS5xUGE+mVNbTB8h/7Rwh2TFWcBQiPzTgyZi05BF9UMZKkLJv8XBRJTlU7zg8+ZfMg==",
     });
   });
 
