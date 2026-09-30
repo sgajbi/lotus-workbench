@@ -294,6 +294,7 @@ function recordValueEvidence({
   collectReferences = true,
   recordRawColors = true,
   evidenceContext = "unscoped",
+  rawColorEvidenceContext = evidenceContext,
 }) {
   if (collectReferences) {
     for (const reference of extractCustomPropertyReferences(value)) {
@@ -318,7 +319,7 @@ function recordValueEvidence({
   })) {
     rawColorFiles.add(relativePath);
     rawColorOccurrences.push(
-      `${relativePath}\u0000${canonicalizeEvidenceContext(evidenceContext)}\u0000${color.toLowerCase().replace(/\s+/g, " ")}`,
+      `${relativePath}\u0000${canonicalizeEvidenceContext(rawColorEvidenceContext)}\u0000${color.toLowerCase().replace(/\s+/g, " ")}`,
     );
   }
 }
@@ -339,24 +340,205 @@ function readTypeScriptPropertyName(name) {
   return null;
 }
 
-function analyzeTypeScriptSource({
-  content,
-  relativePath,
-  recordValue,
-  recordGeneratedStyleValue,
-}) {
-  const sourceFile = ts.createSourceFile(
-    relativePath,
+function typeScriptScriptKind(filePath) {
+  if (filePath.endsWith(".tsx")) {
+    return ts.ScriptKind.TSX;
+  }
+  if (filePath.endsWith(".mjs")) {
+    return ts.ScriptKind.JS;
+  }
+  return ts.ScriptKind.TS;
+}
+
+function parseTypeScriptSource(filePath, content) {
+  return ts.createSourceFile(
+    filePath,
     content,
     ts.ScriptTarget.Latest,
     true,
-    relativePath.endsWith(".tsx")
-      ? ts.ScriptKind.TSX
-      : relativePath.endsWith(".mjs")
-        ? ts.ScriptKind.JS
-        : ts.ScriptKind.TS,
+    typeScriptScriptKind(filePath),
   );
+}
+
+function collectStaticStringValues(
+  node,
+  constInitializers,
+  resolving = new Set(),
+) {
+  if (ts.isStringLiteralLike(node)) {
+    return [node.text];
+  }
+  if (ts.isIdentifier(node)) {
+    if (resolving.has(node.text)) {
+      return [];
+    }
+    const initializer = constInitializers.get(node.text);
+    return initializer
+      ? collectStaticStringValues(
+          initializer,
+          constInitializers,
+          new Set([...resolving, node.text]),
+        )
+      : [];
+  }
+  if (
+    ts.isParenthesizedExpression(node) ||
+    ts.isAsExpression(node) ||
+    ts.isTypeAssertionExpression(node) ||
+    ts.isSatisfiesExpression(node) ||
+    ts.isNonNullExpression(node)
+  ) {
+    return collectStaticStringValues(
+      node.expression,
+      constInitializers,
+      resolving,
+    );
+  }
+  if (ts.isConditionalExpression(node)) {
+    return [
+      ...collectStaticStringValues(node.whenTrue, constInitializers, resolving),
+      ...collectStaticStringValues(
+        node.whenFalse,
+        constInitializers,
+        resolving,
+      ),
+    ];
+  }
+  if (
+    ts.isBinaryExpression(node) &&
+    node.operatorToken.kind === ts.SyntaxKind.PlusToken
+  ) {
+    return [
+      ...collectStaticStringValues(node.left, constInitializers, resolving),
+      ...collectStaticStringValues(node.right, constInitializers, resolving),
+    ];
+  }
+  if (ts.isTemplateExpression(node)) {
+    return [
+      node.head.text,
+      ...node.templateSpans.flatMap((span) => [
+        ...collectStaticStringValues(
+          span.expression,
+          constInitializers,
+          resolving,
+        ),
+        span.literal.text,
+      ]),
+    ];
+  }
+  return [];
+}
+
+function buildStaticModuleExportIndex(sourceFiles) {
+  const moduleExports = new Map();
+  for (const absolutePath of sourceFiles) {
+    const extension = path.extname(absolutePath).toLowerCase();
+    if (![".mjs", ".ts", ".tsx"].includes(extension)) {
+      continue;
+    }
+    const sourceFile = parseTypeScriptSource(
+      absolutePath,
+      fs.readFileSync(absolutePath, "utf8"),
+    );
+    const constInitializers = new Map();
+    for (const statement of sourceFile.statements) {
+      if (!ts.isVariableStatement(statement)) {
+        continue;
+      }
+      if ((statement.declarationList.flags & ts.NodeFlags.Const) === 0) {
+        continue;
+      }
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name) && declaration.initializer) {
+          constInitializers.set(declaration.name.text, declaration.initializer);
+        }
+      }
+    }
+
+    const exports = new Map();
+    for (const statement of sourceFile.statements) {
+      const isExported = statement.modifiers?.some(
+        (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
+      );
+      if (isExported && ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          if (ts.isIdentifier(declaration.name) && declaration.initializer) {
+            exports.set(
+              declaration.name.text,
+              collectStaticStringValues(
+                declaration.initializer,
+                constInitializers,
+              ),
+            );
+          }
+        }
+      } else if (
+        ts.isExportDeclaration(statement) &&
+        !statement.moduleSpecifier &&
+        statement.exportClause &&
+        ts.isNamedExports(statement.exportClause)
+      ) {
+        for (const element of statement.exportClause.elements) {
+          const localName = element.propertyName?.text ?? element.name.text;
+          const initializer = constInitializers.get(localName);
+          if (initializer) {
+            exports.set(
+              element.name.text,
+              collectStaticStringValues(initializer, constInitializers),
+            );
+          }
+        }
+      } else if (ts.isExportAssignment(statement)) {
+        exports.set(
+          "default",
+          collectStaticStringValues(statement.expression, constInitializers),
+        );
+      }
+    }
+    moduleExports.set(path.resolve(absolutePath).toLowerCase(), exports);
+  }
+  return moduleExports;
+}
+
+function createStaticImportResolver(sourceFiles, absoluteSourceRoot) {
+  const moduleExports = buildStaticModuleExportIndex(sourceFiles);
+  const extensions = ["", ".ts", ".tsx", ".mjs"];
+  return (importerPath, moduleSpecifier, exportName) => {
+    if (!moduleSpecifier.startsWith(".") && !moduleSpecifier.startsWith("@/")) {
+      return [];
+    }
+    const basePath = moduleSpecifier.startsWith("@/")
+      ? path.resolve(absoluteSourceRoot, moduleSpecifier.slice(2))
+      : path.resolve(path.dirname(importerPath), moduleSpecifier);
+    const baseWithoutJavaScriptExtension = basePath.replace(/\.m?js$/i, "");
+    const candidates = [];
+    for (const extension of extensions) {
+      candidates.push(`${baseWithoutJavaScriptExtension}${extension}`);
+      candidates.push(
+        path.join(baseWithoutJavaScriptExtension, `index${extension}`),
+      );
+    }
+    for (const candidate of candidates) {
+      const exports = moduleExports.get(path.resolve(candidate).toLowerCase());
+      if (exports?.has(exportName)) {
+        return exports.get(exportName);
+      }
+    }
+    return [];
+  };
+}
+
+function analyzeTypeScriptSource({
+  content,
+  absolutePath,
+  relativePath,
+  recordValue,
+  recordGeneratedStyleValue,
+  resolveStaticImport,
+}) {
+  const sourceFile = parseTypeScriptSource(relativePath, content);
   const constInitializers = new Map();
+  const importedStaticValues = new Map();
 
   function enclosingLexicalScope(node) {
     let current = node.parent;
@@ -393,6 +575,40 @@ function analyzeTypeScriptSource({
   }
 
   indexConstInitializers(sourceFile);
+
+  for (const statement of sourceFile.statements) {
+    if (
+      !ts.isImportDeclaration(statement) ||
+      !ts.isStringLiteral(statement.moduleSpecifier) ||
+      !statement.importClause ||
+      statement.importClause.isTypeOnly
+    ) {
+      continue;
+    }
+    const moduleSpecifier = statement.moduleSpecifier.text;
+    if (statement.importClause.name) {
+      importedStaticValues.set(
+        statement.importClause.name.text,
+        resolveStaticImport(absolutePath, moduleSpecifier, "default"),
+      );
+    }
+    const bindings = statement.importClause.namedBindings;
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const element of bindings.elements) {
+        if (element.isTypeOnly) {
+          continue;
+        }
+        importedStaticValues.set(
+          element.name.text,
+          resolveStaticImport(
+            absolutePath,
+            moduleSpecifier,
+            element.propertyName?.text ?? element.name.text,
+          ),
+        );
+      }
+    }
+  }
 
   function containingStyleProperty(node) {
     let current = node.parent;
@@ -557,7 +773,13 @@ function analyzeTypeScriptSource({
       return;
     }
     const initializer = findVisibleConstInitializer(identifier);
-    if (!initializer || belongsToColorRegistry(initializer)) {
+    if (!initializer) {
+      for (const value of importedStaticValues.get(identifier.text) ?? []) {
+        recordGeneratedStyleValue(value, evidenceContext, evidenceOptions);
+      }
+      return;
+    }
+    if (belongsToColorRegistry(initializer)) {
       return;
     }
     recordGeneratedStyleExpression(
@@ -642,10 +864,9 @@ function analyzeCssSource({ content, relativePath, definitions, recordValue }) {
     throw new Error(`${relativePath}: CSS parsing failed: ${detail}`);
   }
 
-  root.walkDecls((declaration) => {
-    if (declaration.prop.startsWith("--")) {
-      definitions.add(declaration.prop);
-    }
+  const declarationContexts = new Map();
+  const declarationOccurrences = new Map();
+  const contextForDeclaration = (declaration) => {
     const contexts = [`property:${declaration.prop}`];
     let ancestor = declaration.parent;
     while (ancestor && ancestor !== root) {
@@ -656,9 +877,30 @@ function analyzeCssSource({ content, relativePath, definitions, recordValue }) {
       }
       ancestor = ancestor.parent;
     }
+    return contexts.reverse().join("/");
+  };
+  root.walkDecls((declaration) => {
+    const context = contextForDeclaration(declaration);
+    declarationContexts.set(
+      context,
+      (declarationContexts.get(context) ?? 0) + 1,
+    );
+  });
+
+  root.walkDecls((declaration) => {
+    if (declaration.prop.startsWith("--")) {
+      definitions.add(declaration.prop);
+    }
+    const evidenceContext = contextForDeclaration(declaration);
+    const occurrence = declarationOccurrences.get(evidenceContext) ?? 0;
+    declarationOccurrences.set(evidenceContext, occurrence + 1);
     recordValue(declaration.value, {
       includeNamedColors: true,
-      evidenceContext: contexts.reverse().join("/"),
+      evidenceContext,
+      rawColorEvidenceContext:
+        declarationContexts.get(evidenceContext) > 1
+          ? `${evidenceContext}/occurrence:${occurrence}`
+          : evidenceContext,
     });
   });
   root.walkAtRules((atRule) => {
@@ -731,6 +973,10 @@ export function analyzeDesignTokenIntegrity({
 }) {
   const absoluteSourceRoot = path.resolve(repoRoot, sourceRoot);
   const sourceFiles = walkSourceFiles(absoluteSourceRoot);
+  const resolveStaticImport = createStaticImportResolver(
+    sourceFiles,
+    absoluteSourceRoot,
+  );
   const definitions = new Set(runtimeDefinedCustomProperties);
   const references = [];
   const rawColorOccurrences = [];
@@ -782,9 +1028,11 @@ export function analyzeDesignTokenIntegrity({
     } else {
       analyzeTypeScriptSource({
         content,
+        absolutePath,
         relativePath,
         recordValue,
         recordGeneratedStyleValue,
+        resolveStaticImport,
       });
     }
   }
