@@ -2,6 +2,11 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import {
+  collectWorkflowStepEntries,
+  parseWorkflow,
+} from "../../scripts/quality/runtime-support-source-evidence.mjs";
+
 const repositoryRoot = join(__dirname, "..", "..");
 const governedLintCommand =
   "npm run quality:branch-protection && npm run quality:runtime-support && npm run quality:runtime-state && npm run quality:bff-header-boundary && npm run quality:feature-transport && npm run quality:source-authority && npm run quality:dependency-risk && npm run quality:unused-code && npm run quality:font-assets && npm run quality:design-tokens && npm run quality:product-copy && npm run quality:e2e-scenarios && npm run lint:css-global && npm run lint:risk-architecture && npm run quality:screen-docs && npm run lint:react-compiler && npm run lint:eslint";
@@ -375,25 +380,42 @@ describe("dependency security governance", () => {
       "aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1";
 
     for (const workflowName of ["pr-merge-gate.yml", "main-releasability.yml"]) {
-      const workflow = readRepositoryFile(".github", "workflows", workflowName);
+      const workflowSource = readRepositoryFile(".github", "workflows", workflowName);
+      const workflow = parseWorkflow(workflowSource);
+      const trivySteps = collectWorkflowStepEntries(workflow).filter(
+        ({ step }: { step: Record<string, unknown> }) => step.uses === trivyActionCommit,
+      );
 
-      expect(workflow.match(new RegExp(trivyActionCommit, "g"))).toHaveLength(3);
-      expect(workflow).toContain(
+      expect(workflowSource.match(new RegExp(trivyActionCommit, "g"))).toHaveLength(3);
+      expect(workflowSource).toContain(
         'docker build --label "com.lotus.repository.checkout=${{ github.workspace }}" --file scripts/scale/Dockerfile.balancer --tag lotus-workbench-scale-balancer:ci-test .',
       );
-      expect(workflow).toContain("image-ref: lotus-workbench-scale-balancer:ci-test");
-      expect(workflow).toContain(
+      expect(workflowSource).toContain(
         "Two-replica replacement and capacity regression proof",
       );
-      expect(workflow).toContain("version: v0.69.3");
-      expect(workflow).toContain("severity: HIGH,CRITICAL");
-      expect(workflow).toContain('exit-code: "1"');
-      expect(workflow).toContain("ignore-unfixed: true");
-      expect(workflow).toContain("scanners: vuln");
-      expect(workflow).toContain("format: cyclonedx");
-      expect(workflow).toContain("workbench-image.cdx.json");
-      expect(workflow).not.toContain("aquasecurity/trivy-action@master");
-      expect(workflow).not.toContain("version: latest");
+      for (const imageRef of [
+        "lotus-workbench:ci-test",
+        "lotus-workbench-scale-balancer:ci-test",
+      ]) {
+        const matchingSteps = trivySteps.filter(
+          ({ step }: { step: { with?: Record<string, unknown> } }) =>
+            step.with?.["image-ref"] === imageRef &&
+            step.with?.scanners === "vuln" &&
+            step.with?.format === "table",
+        );
+        expect(matchingSteps).toHaveLength(1);
+        expect(matchingSteps[0]?.step.with).toMatchObject({
+          "exit-code": "1",
+          "ignore-unfixed": true,
+          scanners: "vuln",
+          severity: "HIGH,CRITICAL",
+          version: "v0.69.3",
+        });
+      }
+      expect(workflowSource).toContain("format: cyclonedx");
+      expect(workflowSource).toContain("workbench-image.cdx.json");
+      expect(workflowSource).not.toContain("aquasecurity/trivy-action@master");
+      expect(workflowSource).not.toContain("version: latest");
     }
   });
 

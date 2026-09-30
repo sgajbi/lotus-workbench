@@ -1,7 +1,10 @@
 FROM nginx:1.30.3-alpine3.23-slim@sha256:d5b51cfc7d55fc7a7bcf4d1d577b9c3738331df56d68f0b1d8ac9795b9470a5a
 
+# CVE-2026-14456 remediation from #873, refreshed under #897.
+# Remove this RUN once the pinned base carries libcrypto3/libssl3 >=3.5.9-r0.
+# When Alpine supersedes these exact packages the build fails by design; refresh them through an issue.
 RUN apk add --no-cache --upgrade \
-    "libcrypto3=3.5.8-r0" \
-    "libssl3=3.5.8-r0"
+    "libcrypto3=3.5.9-r0" \
+    "libssl3=3.5.9-r0"
 
 USER 101:101
