@@ -210,8 +210,13 @@ function isStrictIsoDate(value: string): boolean {
 
 function hasDrawdownEventsWithinPeriod(period: RiskPeriod): boolean {
   return (
-    hasDrawdownDateRecord(period.summary, period) &&
-    hasDrawdownDateRecord(period.relative_to_benchmark, period) &&
+    hasDrawdownDateRecord(
+      period.summary,
+      period,
+      "summary",
+      Array.isArray(period.episodes) && period.episodes.length === 0,
+    ) &&
+    hasDrawdownDateRecord(period.relative_to_benchmark, period, "summary", true) &&
     hasDrawdownEpisodesWithinPeriod(period.episodes, period)
   );
 }
@@ -225,23 +230,34 @@ function hasDrawdownEpisodesWithinPeriod(
   }
   return (
     Array.isArray(episodes) &&
-    episodes.every((episode) => hasDrawdownDateRecord(episode, period))
+    episodes.every((episode) => hasDrawdownDateRecord(episode, period, "episode"))
   );
 }
 
-function hasDrawdownDateRecord(value: unknown, period: RiskPeriod): boolean {
+function hasDrawdownDateRecord(
+  value: unknown,
+  period: RiskPeriod,
+  recordRole: "summary" | "episode",
+  allowUndatedNoDrawdownSummary = false,
+): boolean {
   if (value == null) {
-    return true;
+    return recordRole === "summary";
   }
   if (typeof value !== "object") {
     return false;
   }
   const record = value as Readonly<Record<string, unknown>>;
   const usesSummaryDates =
+    recordRole === "summary" && (
+    "max_drawdown" in record ||
+    "time_under_water_days" in record ||
     "max_drawdown_peak_date" in record ||
     "max_drawdown_trough_date" in record ||
-    "max_drawdown_recovery_date" in record;
+    "max_drawdown_recovery_date" in record);
   const usesEpisodeDates =
+    recordRole === "episode" ||
+    "episode_id" in record ||
+    "depth" in record ||
     "peak_date" in record ||
     "trough_date" in record ||
     "recovery_date" in record;
@@ -257,12 +273,33 @@ function hasDrawdownDateRecord(value: unknown, period: RiskPeriod): boolean {
   const recovery = usesSummaryDates
     ? record.max_drawdown_recovery_date
     : record.recovery_date;
+  if (
+    allowUndatedNoDrawdownSummary &&
+    usesSummaryDates &&
+    isUndatedNoDrawdownSummary(record)
+  ) {
+    return true;
+  }
   return (
-    isDateWithinRiskPeriod(peak, period) &&
+    // An opening loss can have an undated source-owned unit-wealth peak.
+    (peak === null || isDateWithinRiskPeriod(peak, period)) &&
     isDateWithinRiskPeriod(trough, period) &&
-    peak <= trough &&
+    (peak === null || peak <= trough) &&
     (recovery == null ||
       (isDateWithinRiskPeriod(recovery, period) && trough <= recovery))
+  );
+}
+
+function isUndatedNoDrawdownSummary(record: Readonly<Record<string, unknown>>): boolean {
+  return (
+    record.max_drawdown === 0 &&
+    record.max_drawdown_peak_date === null &&
+    record.max_drawdown_trough_date === null &&
+    record.max_drawdown_recovery_date === null &&
+    record.is_recovered === true &&
+    record.days_to_trough === 0 &&
+    record.days_to_recovery === 0 &&
+    record.time_under_water_days === 0
   );
 }
 

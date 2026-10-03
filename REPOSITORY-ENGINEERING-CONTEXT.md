@@ -188,6 +188,14 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   after success, because doing so would duplicate source reads.
 - A source response is displayable only after schema and identity admission. Missing, malformed,
   partial, stale, unsupported, blocked, and conflicting evidence remain distinct.
+- Risk drawdown admission permits an explicitly null opening peak from the source-owned
+  unit-wealth baseline, while requiring a valid in-window trough and ordered known recovery.
+  Missing or malformed peaks remain refused. Episode peak-derived durations stay nullable;
+  the detail table shows unknown peak and duration as N/A without inventing chronology.
+  A summary with explicitly zero drawdown, recovered=true, all three event dates null, and
+  all three durations zero is admitted as source-reported no drawdown. The absolute summary
+  also requires an empty episode array; relative summary evidence is independent of absolute
+  episodes. Unknown or negative drawdown with a missing trough remains refused.
 - A source mutation is not success by itself. User-visible confirmation requires the exact receipt
   and the owning refreshed read or replay evidence required by that workflow.
 - Exact transaction detail uses Gateway's exact-record endpoint. It performs one automatic read per
