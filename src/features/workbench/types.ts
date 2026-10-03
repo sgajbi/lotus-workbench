@@ -1045,13 +1045,13 @@ export type WorkbenchRiskDrawdownSummary = {
 
 export type WorkbenchRiskDrawdownEpisode = {
   episode_id: string;
-  peak_date: string;
+  peak_date: string | null;
   trough_date: string;
   recovery_date?: string | null;
   depth: number;
-  days_to_trough: number;
+  days_to_trough: number | null;
   days_to_recovery?: number | null;
-  total_days: number;
+  total_days: number | null;
   is_recovered: boolean;
 };
 

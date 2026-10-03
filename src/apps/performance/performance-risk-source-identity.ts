@@ -210,8 +210,12 @@ function isStrictIsoDate(value: string): boolean {
 
 function hasDrawdownEventsWithinPeriod(period: RiskPeriod): boolean {
   return (
-    hasDrawdownDateRecord(period.summary, period) &&
-    hasDrawdownDateRecord(period.relative_to_benchmark, period) &&
+    hasDrawdownDateRecord(
+      period.summary,
+      period,
+      Array.isArray(period.episodes) && period.episodes.length === 0,
+    ) &&
+    hasDrawdownDateRecord(period.relative_to_benchmark, period, true) &&
     hasDrawdownEpisodesWithinPeriod(period.episodes, period)
   );
 }
@@ -229,7 +233,11 @@ function hasDrawdownEpisodesWithinPeriod(
   );
 }
 
-function hasDrawdownDateRecord(value: unknown, period: RiskPeriod): boolean {
+function hasDrawdownDateRecord(
+  value: unknown,
+  period: RiskPeriod,
+  allowUndatedNoDrawdownSummary = false,
+): boolean {
   if (value == null) {
     return true;
   }
@@ -257,12 +265,33 @@ function hasDrawdownDateRecord(value: unknown, period: RiskPeriod): boolean {
   const recovery = usesSummaryDates
     ? record.max_drawdown_recovery_date
     : record.recovery_date;
+  if (
+    allowUndatedNoDrawdownSummary &&
+    usesSummaryDates &&
+    isUndatedNoDrawdownSummary(record)
+  ) {
+    return true;
+  }
   return (
-    isDateWithinRiskPeriod(peak, period) &&
+    // An opening loss can have an undated source-owned unit-wealth peak.
+    (peak === null || isDateWithinRiskPeriod(peak, period)) &&
     isDateWithinRiskPeriod(trough, period) &&
-    peak <= trough &&
+    (peak === null || peak <= trough) &&
     (recovery == null ||
       (isDateWithinRiskPeriod(recovery, period) && trough <= recovery))
+  );
+}
+
+function isUndatedNoDrawdownSummary(record: Readonly<Record<string, unknown>>): boolean {
+  return (
+    record.max_drawdown === 0 &&
+    record.max_drawdown_peak_date === null &&
+    record.max_drawdown_trough_date === null &&
+    record.max_drawdown_recovery_date === null &&
+    record.is_recovered === true &&
+    record.days_to_trough === 0 &&
+    record.days_to_recovery === 0 &&
+    record.time_under_water_days === 0
   );
 }
 

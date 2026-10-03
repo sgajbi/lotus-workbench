@@ -1,0 +1,1320 @@
+{
+  "supplier_revision": "18c87b54fbedeecc8a4829c7f1b9f53366ce54d1",
+  "supplier_tree": "78a8d75157d6826fa7d910e8c6040e43d17e3892",
+  "supplier_receipt_sha256": "9a8f6e4912560b4ef6dc7ac3076a0b3816b4b912f7eda1c84620f0e3ba07fa67",
+  "supplier_committed_blobs": {
+    "src/app/contracts/risk_workspace_drawdown.py": "b51e5b38009c82bc6f7c0ea659ba7dd3383bfdf4",
+    "src/app/services/risk_workspace_drawdown_payloads.py": "c1b36a984819240d8c32c38e3b0dd1d457c4eef2",
+    "src/app/routers/workbench_risk_drawdown.py": "b639750aaa60f7d4945ca88b38d0633b4ffbe40a",
+    "tests/fixtures/risk-drawdown-source-responses.json": "5ea0548cb4cfbf578c90adab75627cddb1d5f39c",
+    "tests/integration/test_risk_drawdown_source_episodes.py": "e5159e676aa72e67f16aa6cb367dbca30b0c5fba",
+    "tests/contract/test_workbench_contract.py": "08d73ff6623cf0b83cf3bce7c91e22aa9bc7d581"
+  },
+  "producer_revision": "ab098043bb4c595106278f7fc9b06a47fe5f4702",
+  "producer_merge_revision": "fca945daea0620a448bbcedd3d3f94541f1ea695",
+  "scope": "Actual registered Gateway HTTP/service/cache/mapper with retained actual stateless Risk HTTP responses substituted at transport. No live upstream, stateful producer, browser, IAM, financial-runtime or banking certification.",
+  "cases": [
+    {
+      "name": "both_fall_outperform",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-07&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "95a98c4245af414cd2dbf720a48cf5280d316cce6a8db6736040b420cefa10ea",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-07",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "partial",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-07",
+              "portfolio_observation_count": 2,
+              "benchmark_observation_count": 2,
+              "summary": {
+                "max_drawdown": -0.050000000000000044,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": "2026-01-02",
+                "max_drawdown_recovery_date": null,
+                "is_recovered": false,
+                "days_to_trough": null,
+                "days_to_recovery": null,
+                "time_under_water_days": 2,
+                "average_drawdown": -0.050000000000000044,
+                "ulcer_index": 0.050000000000000044,
+                "drawdown_at_risk_95": -0.050000000000000044,
+                "conditional_drawdown_at_risk_95": -0.050000000000000044
+              },
+              "episodes": [
+                {
+                  "episode_id": "dd_0001",
+                  "peak_date": null,
+                  "trough_date": "2026-01-02",
+                  "recovery_date": null,
+                  "depth": -0.050000000000000044,
+                  "days_to_trough": null,
+                  "days_to_recovery": null,
+                  "total_days": null,
+                  "is_recovered": false
+                }
+              ],
+              "relative_to_benchmark": {
+                "max_drawdown": 0,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": null,
+                "max_drawdown_recovery_date": null,
+                "is_recovered": true,
+                "days_to_trough": 0,
+                "days_to_recovery": 0,
+                "time_under_water_days": 0
+              },
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": true,
+                "reason": "APPLIED",
+                "aligned_observation_count": 2
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": -0.050000000000000044
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": -0.050000000000000044
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "partial",
+            "reason": "stale_source_observations",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.536061+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    },
+    {
+      "name": "portfolio_up_underperform",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-07&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "afada0befcbf0b37b02e280487abff31d2d3023f055b42f14a663d9115b18d31",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-07",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "partial",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-07",
+              "portfolio_observation_count": 2,
+              "benchmark_observation_count": 2,
+              "summary": {
+                "max_drawdown": 0,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": null,
+                "max_drawdown_recovery_date": null,
+                "is_recovered": true,
+                "days_to_trough": 0,
+                "days_to_recovery": 0,
+                "time_under_water_days": 0,
+                "average_drawdown": 0,
+                "ulcer_index": 0,
+                "drawdown_at_risk_95": null,
+                "conditional_drawdown_at_risk_95": null
+              },
+              "episodes": [],
+              "relative_to_benchmark": {
+                "max_drawdown": -0.050000000000000044,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": "2026-01-02",
+                "max_drawdown_recovery_date": null,
+                "is_recovered": false,
+                "days_to_trough": null,
+                "days_to_recovery": null,
+                "time_under_water_days": 2
+              },
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": true,
+                "reason": "APPLIED",
+                "aligned_observation_count": 2
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": 0
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": 0
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "partial",
+            "reason": "stale_source_observations",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.551086+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    },
+    {
+      "name": "equal_path",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-07&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "6d1192a956717b8a23f8741b518de868c069bdddb81632669e809837abf0139a",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-07",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "ready",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-07",
+              "portfolio_observation_count": 3,
+              "benchmark_observation_count": 3,
+              "summary": {
+                "max_drawdown": -0.09999999999999998,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": "2026-01-02",
+                "max_drawdown_recovery_date": null,
+                "is_recovered": false,
+                "days_to_trough": null,
+                "days_to_recovery": null,
+                "time_under_water_days": 3,
+                "average_drawdown": -0.039999999999999925,
+                "ulcer_index": 0.05830951894845298,
+                "drawdown_at_risk_95": -0.09999999999999998,
+                "conditional_drawdown_at_risk_95": -0.09999999999999998
+              },
+              "episodes": [
+                {
+                  "episode_id": "dd_0001",
+                  "peak_date": null,
+                  "trough_date": "2026-01-02",
+                  "recovery_date": null,
+                  "depth": -0.09999999999999998,
+                  "days_to_trough": null,
+                  "days_to_recovery": null,
+                  "total_days": null,
+                  "is_recovered": false
+                }
+              ],
+              "relative_to_benchmark": {
+                "max_drawdown": 0,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": null,
+                "max_drawdown_recovery_date": null,
+                "is_recovered": true,
+                "days_to_trough": 0,
+                "days_to_recovery": 0,
+                "time_under_water_days": 0
+              },
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": true,
+                "reason": "APPLIED",
+                "aligned_observation_count": 3
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": -0.09999999999999998
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": -0.009999999999999898
+                },
+                {
+                  "date": "2026-01-06",
+                  "drawdown": -0.009999999999999898
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "ready",
+            "reason": "calculation_complete",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.563499+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    },
+    {
+      "name": "active_recovery",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-07&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "023457105030b2fe5ebe7c74f581971101ea4ef028a894572bec2e9bbd716906",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-07",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "ready",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-07",
+              "portfolio_observation_count": 3,
+              "benchmark_observation_count": 3,
+              "summary": {
+                "max_drawdown": -0.09999999999999998,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": "2026-01-02",
+                "max_drawdown_recovery_date": null,
+                "is_recovered": false,
+                "days_to_trough": null,
+                "days_to_recovery": null,
+                "time_under_water_days": 3,
+                "average_drawdown": -0.039999999999999925,
+                "ulcer_index": 0.05830951894845298,
+                "drawdown_at_risk_95": -0.09999999999999998,
+                "conditional_drawdown_at_risk_95": -0.09999999999999998
+              },
+              "episodes": [
+                {
+                  "episode_id": "dd_0001",
+                  "peak_date": null,
+                  "trough_date": "2026-01-02",
+                  "recovery_date": null,
+                  "depth": -0.09999999999999998,
+                  "days_to_trough": null,
+                  "days_to_recovery": null,
+                  "total_days": null,
+                  "is_recovered": false
+                }
+              ],
+              "relative_to_benchmark": {
+                "max_drawdown": -0.09999999999999998,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": "2026-01-02",
+                "max_drawdown_recovery_date": "2026-01-05",
+                "is_recovered": true,
+                "days_to_trough": null,
+                "days_to_recovery": 1,
+                "time_under_water_days": 1
+              },
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": true,
+                "reason": "APPLIED",
+                "aligned_observation_count": 3
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": -0.09999999999999998
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": -0.009999999999999898
+                },
+                {
+                  "date": "2026-01-06",
+                  "drawdown": -0.009999999999999898
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "ready",
+            "reason": "calculation_complete",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.582881+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    },
+    {
+      "name": "later_active_peak",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-07&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "98785b675df0005d0cfd188f129ef756f3e8c0cbc38cff6a8fc6e41fd00fa2cf",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-07",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "ready",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-07",
+              "portfolio_observation_count": 3,
+              "benchmark_observation_count": 3,
+              "summary": {
+                "max_drawdown": -0.09999999999999998,
+                "max_drawdown_peak_date": "2026-01-02",
+                "max_drawdown_trough_date": "2026-01-05",
+                "max_drawdown_recovery_date": null,
+                "is_recovered": false,
+                "days_to_trough": 1,
+                "days_to_recovery": null,
+                "time_under_water_days": 2,
+                "average_drawdown": -0.07750000000000001,
+                "ulcer_index": 0.06589132466923599,
+                "drawdown_at_risk_95": -0.09999999999999998,
+                "conditional_drawdown_at_risk_95": -0.09999999999999998
+              },
+              "episodes": [
+                {
+                  "episode_id": "dd_0001",
+                  "peak_date": "2026-01-02",
+                  "trough_date": "2026-01-05",
+                  "recovery_date": null,
+                  "depth": -0.09999999999999998,
+                  "days_to_trough": 1,
+                  "days_to_recovery": null,
+                  "total_days": 2,
+                  "is_recovered": false
+                }
+              ],
+              "relative_to_benchmark": {
+                "max_drawdown": -0.09999999999999998,
+                "max_drawdown_peak_date": "2026-01-02",
+                "max_drawdown_trough_date": "2026-01-05",
+                "max_drawdown_recovery_date": null,
+                "is_recovered": false,
+                "days_to_trough": 1,
+                "days_to_recovery": null,
+                "time_under_water_days": 2
+              },
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": true,
+                "reason": "APPLIED",
+                "aligned_observation_count": 3
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": 0
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": -0.09999999999999998
+                },
+                {
+                  "date": "2026-01-06",
+                  "drawdown": -0.05500000000000005
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "ready",
+            "reason": "calculation_complete",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.596766+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    },
+    {
+      "name": "sparse",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-07&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "6aa2c167c7406ea64782a541da9d5fc8ed0146bbe19750c450f6d37913dfe2a1",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-07",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "ready",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-07",
+              "portfolio_observation_count": 3,
+              "benchmark_observation_count": 2,
+              "summary": {
+                "max_drawdown": -0.06007000000000007,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": "2026-01-06",
+                "max_drawdown_recovery_date": null,
+                "is_recovered": false,
+                "days_to_trough": null,
+                "days_to_recovery": null,
+                "time_under_water_days": 3,
+                "average_drawdown": -0.04702333333333338,
+                "ulcer_index": 0.048543468149690384,
+                "drawdown_at_risk_95": -0.06007000000000007,
+                "conditional_drawdown_at_risk_95": -0.06007000000000007
+              },
+              "episodes": [
+                {
+                  "episode_id": "dd_0001",
+                  "peak_date": null,
+                  "trough_date": "2026-01-06",
+                  "recovery_date": null,
+                  "depth": -0.06007000000000007,
+                  "days_to_trough": null,
+                  "days_to_recovery": null,
+                  "total_days": null,
+                  "is_recovered": false
+                }
+              ],
+              "relative_to_benchmark": {
+                "max_drawdown": -0.040000000000000036,
+                "max_drawdown_peak_date": "2026-01-02",
+                "max_drawdown_trough_date": "2026-01-06",
+                "max_drawdown_recovery_date": null,
+                "is_recovered": false,
+                "days_to_trough": 2,
+                "days_to_recovery": null,
+                "time_under_water_days": 1
+              },
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": true,
+                "reason": "APPLIED",
+                "aligned_observation_count": 2
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": -0.050000000000000044
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": -0.031000000000000028
+                },
+                {
+                  "date": "2026-01-06",
+                  "drawdown": -0.06007000000000007
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "ready",
+            "reason": "calculation_complete",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.610125+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    },
+    {
+      "name": "disjoint",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-07&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "e02fa86adeab632684249a24b03f86071690ad5c659f048e074c1401c37eb0e0",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-07",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "partial",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-07",
+              "portfolio_observation_count": 3,
+              "benchmark_observation_count": 1,
+              "summary": {
+                "max_drawdown": -0.06007000000000007,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": "2026-01-06",
+                "max_drawdown_recovery_date": null,
+                "is_recovered": false,
+                "days_to_trough": null,
+                "days_to_recovery": null,
+                "time_under_water_days": 3,
+                "average_drawdown": -0.04702333333333338,
+                "ulcer_index": 0.048543468149690384,
+                "drawdown_at_risk_95": -0.06007000000000007,
+                "conditional_drawdown_at_risk_95": -0.06007000000000007
+              },
+              "episodes": [
+                {
+                  "episode_id": "dd_0001",
+                  "peak_date": null,
+                  "trough_date": "2026-01-06",
+                  "recovery_date": null,
+                  "depth": -0.06007000000000007,
+                  "days_to_trough": null,
+                  "days_to_recovery": null,
+                  "total_days": null,
+                  "is_recovered": false
+                }
+              ],
+              "relative_to_benchmark": null,
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": false,
+                "reason": "NO_ALIGNED_OBSERVATIONS",
+                "aligned_observation_count": 0
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": -0.050000000000000044
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": -0.031000000000000028
+                },
+                {
+                  "date": "2026-01-06",
+                  "drawdown": -0.06007000000000007
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "partial",
+            "reason": "Benchmark-relative drawdown was not returned by lotus-risk.",
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "ready",
+            "reason": "calculation_complete",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.632291+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    },
+    {
+      "name": "recovery",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-06&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "c5cc7de961c4f060ddd7709b8ff033c8b25fd51f279e3f913614da284c7aa685",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-06",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "partial",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-06",
+              "portfolio_observation_count": 3,
+              "benchmark_observation_count": 0,
+              "summary": {
+                "max_drawdown": -0.19999999999999996,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": "2026-01-02",
+                "max_drawdown_recovery_date": "2026-01-05",
+                "is_recovered": true,
+                "days_to_trough": null,
+                "days_to_recovery": 1,
+                "time_under_water_days": 1,
+                "average_drawdown": -0.19999999999999996,
+                "ulcer_index": 0.11547005383792512,
+                "drawdown_at_risk_95": -0.19999999999999996,
+                "conditional_drawdown_at_risk_95": -0.19999999999999996
+              },
+              "episodes": [
+                {
+                  "episode_id": "dd_0001",
+                  "peak_date": null,
+                  "trough_date": "2026-01-02",
+                  "recovery_date": "2026-01-05",
+                  "depth": -0.19999999999999996,
+                  "days_to_trough": null,
+                  "days_to_recovery": 1,
+                  "total_days": null,
+                  "is_recovered": true
+                }
+              ],
+              "relative_to_benchmark": null,
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": false,
+                "reason": "NOT_REQUESTED",
+                "aligned_observation_count": 0
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": -0.19999999999999996
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": 0
+                },
+                {
+                  "date": "2026-01-06",
+                  "drawdown": 0
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "partial",
+            "reason": "Benchmark-relative drawdown was not returned by lotus-risk.",
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "ready",
+            "reason": "calculation_complete",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.655487+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    },
+    {
+      "name": "later_peak",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-06&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "87c83b2d84d00081a8f2d3ff3c991563cf2d5953458684be04d77487e3745832",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-06",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "partial",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-06",
+              "portfolio_observation_count": 3,
+              "benchmark_observation_count": 0,
+              "summary": {
+                "max_drawdown": -0.19999999999999996,
+                "max_drawdown_peak_date": "2026-01-02",
+                "max_drawdown_trough_date": "2026-01-05",
+                "max_drawdown_recovery_date": "2026-01-06",
+                "is_recovered": true,
+                "days_to_trough": 1,
+                "days_to_recovery": 1,
+                "time_under_water_days": 1,
+                "average_drawdown": -0.19999999999999996,
+                "ulcer_index": 0.11547005383792512,
+                "drawdown_at_risk_95": -0.19999999999999996,
+                "conditional_drawdown_at_risk_95": -0.19999999999999996
+              },
+              "episodes": [
+                {
+                  "episode_id": "dd_0001",
+                  "peak_date": "2026-01-02",
+                  "trough_date": "2026-01-05",
+                  "recovery_date": "2026-01-06",
+                  "depth": -0.19999999999999996,
+                  "days_to_trough": 1,
+                  "days_to_recovery": 1,
+                  "total_days": 2,
+                  "is_recovered": true
+                }
+              ],
+              "relative_to_benchmark": null,
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": false,
+                "reason": "NOT_REQUESTED",
+                "aligned_observation_count": 0
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": 0
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": -0.19999999999999996
+                },
+                {
+                  "date": "2026-01-06",
+                  "drawdown": 0
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "partial",
+            "reason": "Benchmark-relative drawdown was not returned by lotus-risk.",
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "ready",
+            "reason": "calculation_complete",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.672365+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    },
+    {
+      "name": "flat",
+      "request_path": "/api/v1/workbench/REVIEW-RELATIVE/risk/drawdown?period=YTD&detail_basis=NET&as_of_date=2026-01-06&reporting_currency=USD&benchmark_code=REVIEW-BENCHMARK&include_underwater_series=true",
+      "status": 200,
+      "response_bytes_sha256": "06698cff14bf6ab6c65b44907f99693d77b9991e4f425174e77b41e7236a3c01",
+      "response": {
+        "correlation_id": "drawdown-source-replay",
+        "contract_version": "risk-workspace.v1",
+        "portfolio_id": "REVIEW-RELATIVE",
+        "period": "YTD",
+        "as_of_date": "2026-01-06",
+        "benchmark_code": "REVIEW-BENCHMARK",
+        "requested_report_start_date": null,
+        "requested_report_end_date": null,
+        "source_service": "lotus-risk",
+        "state": "partial",
+        "payload": {
+          "periods": [
+            {
+              "key": "YTD",
+              "label": "YTD",
+              "start_date": "2026-01-02",
+              "end_date": "2026-01-06",
+              "portfolio_observation_count": 3,
+              "benchmark_observation_count": 0,
+              "summary": {
+                "max_drawdown": 0,
+                "max_drawdown_peak_date": null,
+                "max_drawdown_trough_date": null,
+                "max_drawdown_recovery_date": null,
+                "is_recovered": true,
+                "days_to_trough": 0,
+                "days_to_recovery": 0,
+                "time_under_water_days": 0,
+                "average_drawdown": 0,
+                "ulcer_index": 0,
+                "drawdown_at_risk_95": null,
+                "conditional_drawdown_at_risk_95": null
+              },
+              "episodes": [],
+              "relative_to_benchmark": null,
+              "relative_to_benchmark_context": {
+                "requested": false,
+                "applied": false,
+                "reason": "NOT_REQUESTED",
+                "aligned_observation_count": 0
+              },
+              "underwater_series": [
+                {
+                  "date": "2026-01-02",
+                  "drawdown": 0
+                },
+                {
+                  "date": "2026-01-05",
+                  "drawdown": 0
+                },
+                {
+                  "date": "2026-01-06",
+                  "drawdown": 0
+                }
+              ],
+              "error": null
+            }
+          ],
+          "analysis_context": {
+            "include_underwater_series": true,
+            "include_episode_list": true,
+            "top_n_episodes": 5,
+            "cdar_alpha": 0.95,
+            "minimum_episode_depth_bps": 0,
+            "duration_unit": "BUSINESS_DAYS",
+            "include_benchmark": false,
+            "missing_benchmark_policy": "IGNORE"
+          }
+        },
+        "supportability": [
+          {
+            "key": "portfolio_returns",
+            "label": "Portfolio returns",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "benchmark_relative_drawdown",
+            "label": "Benchmark-relative drawdown",
+            "state": "partial",
+            "reason": "Benchmark-relative drawdown was not returned by lotus-risk.",
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "underwater_series",
+            "label": "Underwater series",
+            "state": "ready",
+            "reason": null,
+            "source_service": "lotus-risk"
+          },
+          {
+            "key": "source_calculation",
+            "label": "Source calculation",
+            "state": "ready",
+            "reason": "calculation_complete",
+            "source_service": "lotus-risk"
+          }
+        ],
+        "warnings": [],
+        "partial_failures": [],
+        "metadata": {
+          "generated_at": "2026-10-03T23:26:11.686270+00:00",
+          "input_mode": "stateful",
+          "methodology_version": "drawdown.v1",
+          "cache_status": "miss"
+        },
+        "detail_basis": "NET"
+      }
+    }
+  ]
+}
