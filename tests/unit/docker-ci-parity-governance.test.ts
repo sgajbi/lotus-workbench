@@ -3,6 +3,20 @@ import { resolve } from "node:path";
 
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
+import { parseDockerfile } from "../../scripts/quality/runtime-support-source-evidence.mjs";
+
+function localToolPathClosed(source: string): boolean {
+  const stages = parseDockerfile(source).stages as {
+    name: string;
+    instructions: { keyword: string; argument: string }[];
+  }[];
+  const deps = stages.find((stage) => stage.name === "deps")?.instructions ?? [];
+  const installIndex = deps.findIndex((entry) => entry.keyword === "RUN" && entry.argument === "npm ci --no-audit --no-fund");
+  const copyIndex = deps.findIndex((entry) => entry.keyword === "COPY" && entry.argument === "tools/eslint-plugin-next ./tools/eslint-plugin-next");
+  const builder = stages.find((stage) => stage.name === "builder")?.instructions ?? [];
+  return copyIndex >= 0 && installIndex > copyIndex && builder.some((entry) =>
+    entry.keyword === "COPY" && entry.argument === "tools/eslint-plugin-next ./tools/eslint-plugin-next");
+}
 
 function readRepositoryFile(...segments: string[]): string {
   return readFileSync(resolve(process.cwd(), ...segments), "utf8");
@@ -18,6 +32,22 @@ interface ComposeWorkflow {
 }
 
 describe("Docker CI parity governance", () => {
+  it("closes the local npm package link before install and in the builder", () => {
+    const source = readRepositoryFile("Dockerfile");
+    expect(localToolPathClosed(source)).toBe(true);
+    expect(localToolPathClosed(source.replace("COPY tools/eslint-plugin-next ./tools/eslint-plugin-next\n", ""))).toBe(false);
+    const builderOffset = source.indexOf("FROM ci-base AS builder");
+    expect(localToolPathClosed(source.slice(0, builderOffset) + source.slice(builderOffset).replace("COPY tools/eslint-plugin-next ./tools/eslint-plugin-next\n", ""))).toBe(false);
+    expect(localToolPathClosed(source.replace("COPY tools/eslint-plugin-next ./tools/eslint-plugin-next\n", "# COPY tools/eslint-plugin-next ./tools/eslint-plugin-next\n"))).toBe(false);
+  });
+  it("admits only the maintained package subtree into the explicit Docker context", () => {
+    const ignore = readRepositoryFile(".dockerignore");
+    expect(ignore).toContain("!tools/\ntools/*\n!tools/eslint-plugin-next/\ntools/eslint-plugin-next/*");
+    for (const path of ["package.json", "LICENSE", "README.md", "UPSTREAM-PROVENANCE.json", "dist/"])
+      expect(ignore).toContain("!tools/eslint-plugin-next/" + path);
+    expect(ignore).toContain("!tools/eslint-plugin-next/dist/**");
+    expect(ignore).not.toContain("!tools/**");
+  });
   it("bounds Vitest workers without weakening assertions or individual timeouts", () => {
     const compose = readRepositoryFile("docker-compose.ci-local.yml");
     const packageJson = JSON.parse(readRepositoryFile("package.json")) as {

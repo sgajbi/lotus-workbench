@@ -534,7 +534,7 @@
       "ownershipBoundary": "Workbench owns product routes and BFF policy; Next.js owns framework execution, rendering, and packaging behavior.",
       "architecturalRole": "framework_core",
       "criticality": "critical",
-      "containmentBoundary": "Framework behavior is governed through App Router entrypoints, BFF routes, runtime policy, and standalone container proof.",
+      "containmentBoundary": "Framework behavior is governed through App Router entrypoints, BFF routes, runtime policy, and standalone container proof. The separate development-only @lotus/eslint-plugin-next local fork retains all 21 lint rules under its own provenance and expiring owner guard; it is outside this direct-production inventory and is owned by issue #1110.",
       "replacementPosture": {
         "strategy": "framework_migration",
         "exitPath": "Require an architecture RFC and staged migration preserving Gateway boundaries, routes, server behavior, and browser evidence.",
@@ -563,8 +563,8 @@
       },
       "review": {
         "owner": "workbench-architecture-maintainers",
-        "reviewedOn": "2026-09-16",
-        "nextReviewBy": "2026-09-30"
+        "reviewedOn": "2026-10-03",
+        "nextReviewBy": "2026-10-14"
       },
       "exception": null
     },

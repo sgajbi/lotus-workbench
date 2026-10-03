@@ -5,8 +5,8 @@
 - Status: accepted baseline; technology-risk certification remains incomplete
 - Owner: `lotus-workbench`
 - Governed issue: [#612](https://github.com/sgajbi/lotus-workbench/issues/612)
-- Reviewed: 2026-09-16
-- Next review: 2026-09-30
+- Reviewed: 2026-10-03
+- Next review: 2026-10-14
 - Machine-readable policy:
   [`workbench-runtime-support-policy.v1.json`](workbench-runtime-support-policy.v1.json)
 
@@ -20,11 +20,12 @@ work owned by #612.
 Workbench will use a conservative, supported web application stack with one exact build and CI
 runtime, a minimal immutable production container, and a Gateway-first product boundary:
 
-1. Node `22.23.1` and its bundled npm `10.9.8` are the exact CI and container build toolchain.
+1. Node `22.23.3` and its bundled npm `10.9.9` are the exact CI and container build toolchain.
 2. Developers may use the governed Node 22/npm 10 compatibility range; protected CI proves the
    exact release used to produce deployable evidence.
 3. Next.js `15.5.25` remains temporarily accepted while it is in Maintenance LTS. Its support
-   posture must be reviewed by 2026-09-30; a major upgrade requires its own compatibility evidence.
+   posture must be reviewed by 2026-10-14. Its two-year upstream maintenance boundary is
+   2026-10-21; a major upgrade requires its own compatibility evidence under #624.
 4. React `19.1.0` and TypeScript `5.9.3` remain exact-version application foundations.
 5. The production image uses the digest-pinned official Debian Bookworm slim Node image, Next
    standalone output, the unprivileged `node` user, and no runtime package-manager toolchain.
@@ -36,11 +37,33 @@ runtime, a minimal immutable production container, and a Gateway-first product b
 
 ## Why this stack is retained
 
-The 2026-09-16 bounded review rechecked the primary [Node release schedule](https://nodejs.org/en/about/previous-releases)
-and [Next support policy](https://nextjs.org/support-policy). Node 22 and Next 15 remain supported
-lines; no dependency or image was changed by this review. Full-graph and production moderate npm
-audits passed with zero reported vulnerabilities. This renews the support review only, not the
-independent browser, capacity, identity or bank certification claims below.
+The 2026-10-03 review checked the primary [Node release schedule](https://nodejs.org/en/about/previous-releases),
+[July security release](https://nodejs.org/en/blog/vulnerability/july-2026-security-releases),
+[22.23.3 release](https://github.com/nodejs/node/releases/tag/v22.23.3), and
+[Next support policy](https://nextjs.org/support-policy). The previous Node 22.23.1 pin predates
+the July fixes. The new official Bookworm slim image uses multi-platform index
+`sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c`, from
+docker-node commit `81f419144a1251854c6d9afb09eaa39928e724e8`. An isolated read-only,
+network-disabled qualification ran Node 22.23.3/npm 10.9.9 as UID 1000 and observed
+PCRE2 `10.42-1+deb12u1`; the existing fail-closed PCRE2 upgrade clause remains.
+
+The accountable review owner is `workbench-architecture-maintainers`. Runtime-state ownership and
+manifest/lock/source parity remain enforced by the existing validators. Next 15 is Maintenance
+LTS, with two years measured from its initial 2024-10-21 release. The owner must complete or
+reassess #624's Next 16 compatibility tranche by 2026-10-14 and before the 2026-10-21 boundary.
+That tranche must preserve Gateway authority, routing, source qualification, SSR/hydration,
+browser controls and image security evidence; a version bump alone is insufficient.
+
+Issue #1110 tracks removal of the inherited Next ESLint / fast-glob / micromatch / braces chain
+and GHSA-vfj7-8cjw-p6xm through the maintained development tool below. Full-graph security must be
+proved against the changed installed lockfile; production-only audit does not replace that gate.
+This support review grants no security exception or release approval. Exact-candidate image
+scanning, SBOM, protected main and wider
+browser, capacity, identity or bank certification remain separate evidence requirements.
+
+Rollback must retain artifact and deployment identity. The expired, security-old Node 22.23.1
+baseline is not an approved production fallback. If the new patch fails qualification, stop
+release and keep the relevant gate red until a supported replacement is proven.
 
 The current foundation is composed of mature, documented technologies with large engineering
 ecosystems and supported release channels. Retaining it avoids novelty risk and an unnecessary
@@ -139,10 +162,33 @@ Rejected:
    and continuation invariants, which would enlarge the quality-tool supply chain without improving
    the governed evidence needed here.
 
+## Maintained development lint tool
+
+Issue [#1110](https://github.com/sgajbi/lotus-workbench/issues/1110) owns the bounded
+`@lotus/eslint-plugin-next` 15.5.25-lotus.1 local development package. It retains all 21 published
+Next 15.5.25 rules and configurations, replacing only the root-directory resolver with bounded
+literal-path lookup. Unsupported globs, malformed values and excessive input fail explicitly.
+This removes the resolver's fast-glob/micromatch/braces dependency rather than suppressing its
+advisory or removing lint rules. It is an owned fork, not an upstream security release.
+
+`tools/eslint-plugin-next/UPSTREAM-PROVENANCE.json` binds the independently verified npm tarball
+SHA512, 52 published-file hashes, immutable release lineage, complete MIT notice and one changed
+resolver. Reproducible upstream transpilation is not claimed. From the repository root on Windows
+or POSIX, run `npm run quality:next-eslint-fork`; full lint runs this fail-closed provenance and
+maintenance guard. Behavioral controls cover all 21 rule ASTs, pages/app links and literal-root
+admission/refusal. Production inventory remains scoped to direct runtime dependencies; this
+development tool is governed separately by its provenance and full dependency audit.
+
+The accountable owner is `workbench-architecture-maintainers`, with the current implementation
+owner responsible for updates. Review upstream advisories before each update and by 2026-10-14;
+the guard refuses expired reviews. Next 15 support still ends 2026-10-21. Return to a fixed
+supported upstream plugin or supported Next 16 migration only after rule parity and full audit
+proof. Protected CI, exact-main acceptance and wiki publication remain delivery requirements.
+
 ## Evidence sources
 
 1. [Node.js release lifecycle](https://nodejs.org/en/about/previous-releases)
-2. [Node 22.23.1 archive and bundled npm version](https://nodejs.org/en/download/archive/v22.23.1)
+2. [Node 22.23.3 archive and bundled npm version](https://nodejs.org/en/download/archive/v22.23.3)
 3. [Next.js support policy](https://nextjs.org/support-policy)
 4. [npm package metadata and `devEngines`](https://docs.npmjs.com/files/package.json/)
 5. [Next.js supported browser floors](https://nextjs.org/docs/pages/getting-started/installation#supported-browsers)

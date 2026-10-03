@@ -3,6 +3,16 @@
 *
 !package.json
 !package-lock.json
+!tools/
+tools/*
+!tools/eslint-plugin-next/
+tools/eslint-plugin-next/*
+!tools/eslint-plugin-next/package.json
+!tools/eslint-plugin-next/LICENSE
+!tools/eslint-plugin-next/README.md
+!tools/eslint-plugin-next/UPSTREAM-PROVENANCE.json
+!tools/eslint-plugin-next/dist/
+!tools/eslint-plugin-next/dist/**
 !next-env.d.ts
 !next.config.mjs
 !tsconfig.json

@@ -14,9 +14,9 @@ evidence deterministic. This is not a claim that a bank has approved the stack.
 
 | Concern | Current decision | Evidence posture |
 | --- | --- | --- |
-| Build and server runtime | Node `22.23.1` Maintenance LTS | Exact in protected CI and digest-pinned container |
-| Package manager | npm `10.9.8`, bundled with the governed Node release | Exact declaration; npm 10 compatibility range for developers |
-| Application framework | Next.js `15.5.25` Maintenance LTS | Current security backport; time-bounded review required by 2026-09-15 |
+| Build and server runtime | Node `22.23.3` Maintenance LTS | Exact declarations and isolated official-image qualification; protected release proof required |
+| Package manager | npm `10.9.9`, bundled with the governed Node release | Exact declaration; npm 10 compatibility range for developers |
+| Application framework | Next.js `15.5.25` Maintenance LTS | Review by 2026-10-14; upstream maintenance boundary 2026-10-21; #624 compatibility tranche open |
 | UI foundation | React `19.1.0` and TypeScript `5.9.3` | Exact manifest and policy reconciliation |
 | Production container | Official Debian Bookworm slim Node image | Immutable digest, standalone output, non-root runtime |
 | Browser automation | Playwright `1.58.2`, Chromium project | Protected smoke evidence; wider browser certification open |
@@ -31,6 +31,25 @@ The architecture decision is
 [`workbench-production-runtime-decision.md`](https://github.com/sgajbi/lotus-workbench/blob/main/docs/architecture/workbench-production-runtime-decision.md).
 The direct dependency source is
 [`workbench-dependency-risk-inventory.v1.json`](https://github.com/sgajbi/lotus-workbench/blob/main/docs/architecture/workbench-dependency-risk-inventory.v1.json).
+
+The 2026-10-03 substantive review found that Node 22.23.1 predates the
+[July security fixes](https://nodejs.org/en/blog/vulnerability/july-2026-security-releases).
+The replacement official image is pinned to multi-platform index
+`sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c`, with
+docker-node source `81f419144a1251854c6d9afb09eaa39928e724e8`. A network-disabled,
+read-only qualification confirmed Node 22.23.3/npm 10.9.9, UID 1000 and the existing
+PCRE2 security-package version. This is runtime identity evidence, not an image scan or release approval.
+
+`workbench-architecture-maintainers` owns the review and #624's Next 16 compatibility follow-up.
+The 2026-10-14 decision deadline precedes Next 15's inferred 2026-10-21 support boundary.
+Routing, Gateway authority, SSR/hydration, source qualification and browser/image controls must
+survive that migration. If the new runtime fails qualification, stop release; the expired,
+security-old Node 22.23.1 baseline is not an accepted production rollback.
+
+[#1110](https://github.com/sgajbi/lotus-workbench/issues/1110) owns removal of GHSA-vfj7-8cjw-p6xm
+from the inherited Next ESLint dependency chain through the maintained tool below. The changed
+installed graph must pass full audit; image scan/SBOM, protected main and wiki publication remain
+required. No review-date extension, supported major line or fixture test waives those controls.
 
 ## Governed Typography Delivery
 
@@ -111,6 +130,16 @@ configuration without turning a downstream outage into fabricated application su
 Production-image builds require an explicit deployment identity, and readiness rejects a runtime
 identity that differs from the value embedded in the immutable build.
 
+The validation balancer's immutable NGINX base requires separate vendor package upgrades:
+OpenSSL `libcrypto3`/`libssl3` `3.5.9-r0` and, under #1110, Alpine v3.23 PCRE2 `10.49-r0`.
+The protected PR #1112 scan rejected PCRE2 `10.47-r0` for four fixable HIGH findings:
+`CVE-2026-103111`, `CVE-2026-86145`, `CVE-2026-89157`, and `CVE-2026-89161`.
+[Alpine's fixed package](https://pkgs.alpinelinux.org/package/v3.23/main/x86_64/pcre2)
+comes from packaging commit `d3daff575f2cf4da02cba798b41436b60d843444`.
+Retire each pin only when the immutable base contains its fixed version; remove the RUN
+only after both independent OpenSSL and PCRE2 conditions hold. The balancer remains
+subject to the separate blocking fixable HIGH/CRITICAL scan before scale proof.
+
 The hermetic `npm run scale:proof` regression has now demonstrated two identical production-image
 replicas behind a no-affinity, least-connections balancer; cross-replica source persistence; bounded
 operation while one replica is stopped and removed; changed container identity after disposable
@@ -176,7 +205,7 @@ This baseline does not certify:
 
 ## Next Review And Escalation
 
-The runtime policy must be reviewed by 2026-09-15 because Next.js 15 is in Maintenance LTS. The
+The runtime policy must be reviewed by 2026-10-14 because Next.js 15 is in Maintenance LTS. The
 broader dependency inventory must be reviewed by 2026-11-10; each dependency can carry an earlier
 date where its lifecycle requires it. Any security advisory, end-of-support change, critical
 dependency abandonment, license change, or browser policy change requires immediate issue-backed
@@ -186,10 +215,27 @@ Remaining certification work and acceptance evidence belong on
 [`lotus-workbench#612`](https://github.com/sgajbi/lotus-workbench/issues/612), keeping GitHub as the
 durable execution record.
 
+## Maintained Development Lint Tool
+
+The development lint package `@lotus/eslint-plugin-next` 15.5.25-lotus.1 is a maintained local fork
+under [#1110](https://github.com/sgajbi/lotus-workbench/issues/1110). All 21 published rules and
+configurations remain intact; only the directory resolver uses bounded literal filesystem paths.
+Globs, malformed settings and oversized inputs fail explicitly. The fast-glob/micromatch/braces
+chain is removed rather than waived. This package is not an official upstream patch.
+
+The repo-authored provenance manifest records independently verified npm SHA512, published file
+hashes, immutable source/license lineage and the one resolver change. Full upstream transpilation
+reproducibility is not claimed. From the Workbench repository root on Windows or POSIX, run
+`npm run quality:next-eslint-fork`; full lint runs that guard. The owner is
+`workbench-architecture-maintainers`, with review due 2026-10-14 and Next 15 support ending
+2026-10-21. A fixed supported upstream artifact or supported Next 16 migration is the exit trigger,
+subject to preserved rule behavior and full audit proof. Image scan/SBOM evidence and development
+dependency audit are separate controls; protected CI and exact-main acceptance are still required.
+
 ## Primary Sources
 
 1. [Node.js release lifecycle](https://nodejs.org/en/about/previous-releases)
-2. [Node 22.23.1 and bundled npm](https://nodejs.org/en/download/archive/v22.23.1)
+2. [Node 22.23.3 and bundled npm](https://nodejs.org/en/download/archive/v22.23.3)
 3. [Next.js support policy](https://nextjs.org/support-policy)
 4. [Next.js local font documentation](https://nextjs.org/docs/app/api-reference/components/font)
 5. [IBM Plex releases](https://github.com/IBM/plex/releases)

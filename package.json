@@ -2,7 +2,7 @@
   "name": "lotus-workbench",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "npm@10.9.8",
+  "packageManager": "npm@10.9.9",
   "engines": {
     "node": ">=22 <23",
     "npm": ">=10 <11"
@@ -23,8 +23,9 @@
     "dev": "node scripts/runtime/start-workbench-development.mjs",
     "build": "node scripts/quality/clean-next-build-artifacts.mjs && next build && npm run quality:portfolio-record-bundles",
     "start": "next start",
-    "lint": "npm run quality:branch-protection && npm run quality:runtime-support && npm run quality:runtime-state && npm run quality:bff-header-boundary && npm run quality:feature-transport && npm run quality:source-authority && npm run quality:dependency-risk && npm run quality:unused-code && npm run quality:font-assets && npm run quality:design-tokens && npm run quality:product-copy && npm run quality:e2e-scenarios && npm run lint:css-global && npm run lint:risk-architecture && npm run quality:screen-docs && npm run lint:react-compiler && npm run lint:eslint",
+    "lint": "npm run quality:branch-protection && npm run quality:runtime-support && npm run quality:runtime-state && npm run quality:bff-header-boundary && npm run quality:feature-transport && npm run quality:source-authority && npm run quality:dependency-risk && npm run quality:next-eslint-fork && npm run quality:unused-code && npm run quality:font-assets && npm run quality:design-tokens && npm run quality:product-copy && npm run quality:e2e-scenarios && npm run lint:css-global && npm run lint:risk-architecture && npm run quality:screen-docs && npm run lint:react-compiler && npm run lint:eslint",
     "lint:eslint": "eslint . --max-warnings=0",
+    "quality:next-eslint-fork": "node scripts/quality/check-next-eslint-fork.mjs",
     "lint:css-global": "node scripts/quality/check-css-global-governance.mjs",
     "lint:risk-architecture": "node scripts/quality/check-risk-architecture.mjs",
     "quality:screen-docs": "node scripts/quality/check-workbench-screen-documentation.mjs",
@@ -129,7 +130,7 @@
     "zod": "4.1.12"
   },
   "devDependencies": {
-    "@next/eslint-plugin-next": "15.5.25",
+    "@lotus/eslint-plugin-next": "file:tools/eslint-plugin-next",
     "@playwright/test": "1.58.2",
     "@testing-library/jest-dom": "6.6.4",
     "@testing-library/react": "16.2.0",

@@ -4,6 +4,8 @@ next-env.d.ts
 .next-build/
 .next-dev/
 dist/
+!tools/eslint-plugin-next/dist/
+!tools/eslint-plugin-next/dist/**
 coverage/
 .env*
 *.tsbuildinfo

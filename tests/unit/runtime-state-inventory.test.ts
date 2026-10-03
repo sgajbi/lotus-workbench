@@ -445,6 +445,7 @@ describe("runtime state inventory", () => {
 
   it("rejects expired state review and remediation exceptions", () => {
     const evidence = loadEvidence();
+    evidence.inventory.nextReviewBy = "2026-09-30";
     evidence.inventory.stateHolders[0].temporaryException = {
       issue: 619,
       expiresOn: "2026-09-15",

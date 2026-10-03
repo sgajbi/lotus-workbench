@@ -39,6 +39,52 @@ function loadEvidence() {
 }
 
 describe("runtime support policy", () => {
+  it("admits the reviewed exact Node and bundled npm execution pair", () => {
+    const evidence = loadEvidence();
+    evidence.today = "2026-10-03";
+    evidence.execution = {
+      enforceExact: true,
+      nodeVersion: "22.23.3",
+      npmVersion: "10.9.9",
+    };
+    expect(validateRuntimeSupportPolicy(evidence)).toEqual([]);
+  });
+
+  it("rejects the previous immutable base or bundled npm declaration", () => {
+    const oldBase = loadEvidence();
+    oldBase.dockerfile = oldBase.dockerfile.replace(
+      "node:22.23.3-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c",
+      "node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3",
+    );
+    expect(validateRuntimeSupportPolicy(oldBase)).toEqual(
+      expect.arrayContaining([expect.stringContaining("container base image must be")]),
+    );
+    const oldNpm = loadEvidence();
+    oldNpm.packageJson.packageManager = "npm@10.9.8";
+    expect(validateRuntimeSupportPolicy(oldNpm)).toEqual(
+      expect.arrayContaining([expect.stringContaining("packageManager")]),
+    );
+  });
+
+  it.each(
+    Object.entries(loadEvidence().workflowSources).flatMap(([path, source]) =>
+      [...source.matchAll(/node-version: "22\.23\.3"/g)].map((match, index) => ({
+        path,
+        index,
+        offset: match.index,
+      })),
+    ),
+  )("rejects one stale active Node selector in $path at index $index", ({ path, offset }) => {
+    const evidence = loadEvidence();
+    const source = evidence.workflowSources[path];
+    evidence.workflowSources[path] =
+      source.slice(0, offset) +
+      source.slice(offset).replace('node-version: "22.23.3"', 'node-version: "22.23.1"');
+    expect(validateRuntimeSupportPolicy(evidence)).toEqual(
+      expect.arrayContaining([expect.stringContaining(`${path} must use Node 22.23.3`)]),
+    );
+  });
+
   it("keeps package, container, workflow, framework, and browser posture aligned", () => {
     expect(validateRuntimeSupportPolicy(loadEvidence())).toEqual([]);
   });
@@ -46,7 +92,7 @@ describe("runtime support policy", () => {
   it("rejects package and container runtime drift", () => {
     const evidence = loadEvidence();
     evidence.packageJson.engines.node = ">=24 <25";
-    evidence.dockerfile = evidence.dockerfile.replace("node:22.23.1", "node:24.1.0");
+    evidence.dockerfile = evidence.dockerfile.replace("node:22.23.3", "node:24.1.0");
 
     expect(validateRuntimeSupportPolicy(evidence)).toEqual(
       expect.arrayContaining([
@@ -115,7 +161,7 @@ describe("runtime support policy", () => {
 
     expect(validateRuntimeSupportPolicy(evidence)).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("feature-lane.yml must use Node 22.23.1"),
+        expect.stringContaining("feature-lane.yml must use Node 22.23.3"),
         expect.stringContaining("execute as node"),
       ])
     );
@@ -130,17 +176,17 @@ describe("runtime support policy", () => {
         [
           "      - uses: actions/checkout@v6",
           "        with:",
-          '          node-version: "22.23.1"',
+          '          node-version: "22.23.3"',
         ].join("\n")
       )
       .replace(
-        /(- uses: actions\/setup-node@v6\r?\n\s+with:\r?\n)\s+node-version: "22\.23\.1"\r?\n/,
+        /(- uses: actions\/setup-node@v6\r?\n\s+with:\r?\n)\s+node-version: "22\.23\.3"\r?\n/,
         "$1"
       );
 
     expect(validateRuntimeSupportPolicy(evidence)).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("feature-lane.yml must use Node 22.23.1"),
+        expect.stringContaining("feature-lane.yml must use Node 22.23.3"),
       ])
     );
   });
@@ -158,7 +204,7 @@ describe("runtime support policy", () => {
 
       expect(validateRuntimeSupportPolicy(evidence)).toEqual(
         expect.arrayContaining([
-          expect.stringContaining("feature-lane.yml must use Node 22.23.1"),
+          expect.stringContaining("feature-lane.yml must use Node 22.23.3"),
         ])
       );
     }
@@ -172,7 +218,7 @@ describe("runtime support policy", () => {
 
     expect(validateRuntimeSupportPolicy(evidence)).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("feature-lane.yml must use Node 22.23.1"),
+        expect.stringContaining("feature-lane.yml must use Node 22.23.3"),
       ])
     );
   });
@@ -182,7 +228,7 @@ describe("runtime support policy", () => {
     evidence.workflowSources[".github/workflows/pr-merge-gate.yml"] = evidence.workflowSources[
       ".github/workflows/pr-merge-gate.yml"
     ].replace(
-      /      - uses: actions\/setup-node@v6\r?\n        with:\r?\n          node-version: "22\.23\.1"\r?\n          cache: "npm"\r?\n/,
+      /      - uses: actions\/setup-node@v6\r?\n        with:\r?\n          node-version: "22\.23\.3"\r?\n          cache: "npm"\r?\n/,
       ""
     );
 
@@ -197,11 +243,11 @@ describe("runtime support policy", () => {
     const evidence = loadEvidence();
     evidence.workflowSources[".github/workflows/feature-lane.yml"] = evidence.workflowSources[
       ".github/workflows/feature-lane.yml"
-    ].replace('          node-version: "22.23.1"', '          # node-version: "22.23.1"');
+    ].replace('          node-version: "22.23.3"', '          # node-version: "22.23.3"');
 
     expect(validateRuntimeSupportPolicy(evidence)).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("feature-lane.yml must use Node 22.23.1"),
+        expect.stringContaining("feature-lane.yml must use Node 22.23.3"),
       ])
     );
   });

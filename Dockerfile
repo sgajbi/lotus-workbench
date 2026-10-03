@@ -1,4 +1,4 @@
-ARG NODE_BASE_IMAGE=node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3
+ARG NODE_BASE_IMAGE=node:22.23.3-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c
 ARG POWERSHELL_BASE_IMAGE=mcr.microsoft.com/powershell:7.5-debian-12@sha256:7ab5bd5ca6f95a3351fa0c6a1205237d57048c94542355aab55519a0861a9b25
 ARG WORKBENCH_DEPLOYMENT_ID
 
@@ -16,6 +16,7 @@ RUN apt-get update \
 
 FROM ci-base AS deps
 COPY package.json package-lock.json ./
+COPY tools/eslint-plugin-next ./tools/eslint-plugin-next
 RUN npm ci --no-audit --no-fund
 
 FROM ci-base AS builder
@@ -23,6 +24,7 @@ WORKDIR /app
 ARG WORKBENCH_DEPLOYMENT_ID
 ENV WORKBENCH_DEPLOYMENT_ID=${WORKBENCH_DEPLOYMENT_ID}
 COPY --from=deps /app/node_modules ./node_modules
+COPY tools/eslint-plugin-next ./tools/eslint-plugin-next
 COPY package.json package-lock.json next.config.mjs tsconfig.json ./
 COPY src ./src
 COPY scripts/config/next-artifact-layout.mjs ./scripts/config/next-artifact-layout.mjs
