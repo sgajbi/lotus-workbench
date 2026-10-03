@@ -691,14 +691,11 @@ function resolvePanelState(
   if (supportabilityState === "BLOCKED") {
     return "blocked";
   }
-  if (readWaveRecord(primary.data)) {
-    return ["DEGRADED", "PARTIAL", "UNKNOWN"].includes(supportabilityState) ? "partial" : "ready";
-  }
-  if (listRows.length === 0 && itemRows.length === 0) {
-    return "empty";
-  }
-  if (["DEGRADED", "PARTIAL", "UNKNOWN"].includes(supportabilityState)) {
+  if (supportabilityState !== "READY") {
     return "partial";
+  }
+  if (!readWaveRecord(primary.data) && listRows.length === 0 && itemRows.length === 0) {
+    return "empty";
   }
   return "ready";
 }

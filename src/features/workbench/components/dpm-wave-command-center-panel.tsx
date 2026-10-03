@@ -148,8 +148,7 @@ export default function DpmWaveCommandCenterPanel({
     isDpmWaveActionBlocked(model.blockedActions, "approve") ||
     Number.parseInt(model.selectedWaveIssueCount.replaceAll(",", ""), 10) > 0 ||
     model.reasonCodes.length > 0 ||
-    model.state === "blocked" ||
-    model.state === "partial";
+    model.state !== "ready";
   const stagingBlocked = isDpmWaveActionBlocked(model.blockedActions, "stage");
   const handoffBlocked = isDpmWaveActionBlocked(model.blockedActions, "handoff");
   const stateCopy = dpmWaveStatePanelCopy(model.state, portfolioId);

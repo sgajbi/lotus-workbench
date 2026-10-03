@@ -198,6 +198,12 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 
 ### Product-specific authority
 
+- DPM wave readiness requires explicit Manage supportability `READY` after case/whitespace
+  normalization. `BLOCKED` stays blocked; every other absent, blank, adverse or unfamiliar value
+  remains partial even when rows or a selected wave exist, including empty adverse responses.
+  A confirmed-ready source with no wave or rows is empty; no source response is unavailable.
+  Preserve source reasons, blocked actions and selected identity fences. Approval readiness and
+  its existing request control require a ready panel as well as their source issue/action gates.
 - Allocation admits the dedicated Gateway valuation-coverage envelope for the requested portfolio,
   date and currency. Book views leave coverage unconfirmed. Keep each direct/expanded view paired
   with its admitted coverage, source reason and bounded counts. Unknown values/weights remain

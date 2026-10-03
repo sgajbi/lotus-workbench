@@ -45,6 +45,86 @@ const waveListResponse: DpmWaveGatewayResponse = {
 };
 
 describe("DPM wave command-center view model", () => {
+  describe("source supportability admission", () => {
+    const cases = [
+      ["ready", "READY", "ready"],
+      [" \tReAdY\n", "READY", "ready"],
+      ["blocked", "BLOCKED", "blocked"],
+      [" \tBlOcKeD\n", "BLOCKED", "blocked"],
+      ["degraded", "DEGRADED", "partial"],
+      ["partial", "PARTIAL", "partial"],
+      ["unknown", "UNKNOWN", "partial"],
+      ["unavailable", "UNAVAILABLE", "partial"],
+      ["unsupported", "UNSUPPORTED", "partial"],
+      ["future_state", "FUTURE_STATE", "partial"],
+      ["complete", "COMPLETE", "partial"],
+      ["", "UNKNOWN", "partial"],
+      [" \t\n", "UNKNOWN", "partial"],
+      [undefined, "UNKNOWN", "partial"],
+    ] as const;
+
+    for (const shape of ["selected", "list", "items", "empty"] as const) {
+      it.each(cases)(`admits %j for the ${shape} source without losing qualification`, (state, normalized, expected) => {
+        const response: DpmWaveGatewayResponse = {
+          ...waveListResponse,
+          supportability: {
+            ...waveListResponse.supportability,
+            reason_codes: ["source_reason"],
+            blocked_actions: ["simulate", "approve"],
+          },
+          data: shape === "selected"
+            ? { wave: { wave_id: "dwv_001", state: "SIMULATION_READY" } }
+            : shape === "items"
+              ? { items: [{ wave_item_id: "dwi_001", portfolio_id: "PORTFOLIO_001" }] }
+              : shape === "empty" ? {} : waveListResponse.data,
+        };
+        if (state === undefined) {
+          Reflect.deleteProperty(response.supportability, "state");
+        } else {
+          response.supportability.state = state;
+        }
+        const model = buildDpmWaveCommandCenterModel({
+          selectedWaveId: "dwv_001",
+          waveList: shape === "list" || shape === "empty" ? response : null,
+          waveDetail: shape === "selected" ? response : null,
+          waveDetailSourceWaveId: "dwv_001",
+          waveItems: shape === "items" ? response : null,
+          waveItemsSourceWaveId: "dwv_001",
+        });
+
+        expect(model.state).toBe(shape === "empty" && expected === "ready" ? "empty" : expected);
+        expect(model.supportabilityState).toBe(normalized);
+        expect(model.reasonCodes).toEqual(["source_reason"]);
+        expect(model.blockedActions).toEqual(["simulate", "approve"]);
+        expect(model.selectedWaveId).toBe("dwv_001");
+        expect(response.supportability.state).toBe(state);
+      });
+    }
+
+    it("does not borrow foreign selected supportability into an admitted list", () => {
+      const model = buildDpmWaveCommandCenterModel({
+        waveList: waveListResponse,
+        selectedWaveId: "dwv_001",
+        waveDetailSourceWaveId: "foreign-wave",
+        waveDetail: {
+          ...waveListResponse,
+          supportability: {
+            ...waveListResponse.supportability,
+            state: "blocked",
+            reason_codes: ["foreign_reason"],
+            blocked_actions: ["approve"],
+          },
+          data: { wave: { wave_id: "dwv_001", state: "BLOCKED" } },
+        },
+      });
+
+      expect(model.state).toBe("ready");
+      expect(model.supportabilityState).toBe("READY");
+      expect(model.reasonCodes).toEqual(waveListResponse.supportability.reason_codes);
+      expect(model.blockedActions).toEqual([]);
+    });
+  });
+
   it("keeps issue count unknown without source wave evidence", () => {
     const model = buildDpmWaveCommandCenterModel({ waveList: null });
 

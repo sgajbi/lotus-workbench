@@ -331,6 +331,75 @@ describe("DpmWaveCommandCenterPanel", () => {
     vi.clearAllMocks();
   });
 
+  it.each(["unavailable", "unsupported", "future_state", "unknown", "", " \t\n"])(
+    "withholds approval readiness for unconfirmed source %j",
+    async (state) => {
+      const response: DpmWaveGatewayResponse = {
+        ...waveResponse,
+        supportability: { ...waveResponse.supportability, state },
+      };
+      vi.mocked(getDpmWave).mockResolvedValue(response);
+      vi.mocked(getDpmWaveItems).mockResolvedValue({
+        ...itemResponse,
+        supportability: response.supportability,
+      });
+      renderWithQueryClient(
+        <DpmWaveCommandCenterPanel portfolioId="PORTFOLIO_001" waveList={response} />,
+      );
+      await waitFor(() => expect(getDpmWaveItems).toHaveBeenCalledWith("dwv_001"));
+
+      const approval = screen.getByRole("button", { name: "Request Approval" });
+      await waitFor(() => expect(approval).toBeDisabled());
+      expect(within(screen.getByLabelText("Rebalance readiness")).queryByText("Ready", { exact: true })).not.toBeInTheDocument();
+      expect(screen.queryByText("Approval can proceed after advisor review.")).not.toBeInTheDocument();
+      fireEvent.click(approval);
+      expect(approveDpmWave).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not advertise approval readiness for an empty source despite a retained wave identity", async () => {
+    const response: DpmWaveGatewayResponse = { ...waveResponse, data: {} };
+    vi.mocked(getDpmWave).mockResolvedValue(response);
+    vi.mocked(getDpmWaveItems).mockResolvedValue({ ...itemResponse, data: {} });
+    renderWithQueryClient(
+      <DpmWaveCommandCenterPanel portfolioId="PORTFOLIO_001" waveList={response} />,
+    );
+    await waitFor(() => expect(getDpmWaveItems).toHaveBeenCalledWith("dwv_001"));
+    const approval = screen.getByRole("button", { name: "Request Approval" });
+    expect(approval).toBeDisabled();
+    expect(screen.queryByText("Approval can proceed after advisor review.")).not.toBeInTheDocument();
+    fireEvent.click(approval);
+    expect(approveDpmWave).not.toHaveBeenCalled();
+  });
+
+  it("withholds approval readiness when no source response is available", () => {
+    renderWithQueryClient(
+      <DpmWaveCommandCenterPanel portfolioId="PORTFOLIO_001" waveList={null} />,
+    );
+    expect(screen.getByRole("button", { name: "Request Approval" })).toBeDisabled();
+    expect(within(screen.getByLabelText("Rebalance readiness")).queryByText("Ready", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText("Approval can proceed after advisor review.")).not.toBeInTheDocument();
+    expect(approveDpmWave).not.toHaveBeenCalled();
+  });
+
+  it("preserves the normalized ready approval control through the existing action boundary", async () => {
+    const response: DpmWaveGatewayResponse = {
+      ...waveResponse,
+      supportability: { ...waveResponse.supportability, state: " \tReAdY\n" },
+    };
+    vi.mocked(getDpmWave).mockResolvedValue(response);
+    vi.mocked(approveDpmWave).mockResolvedValue(response);
+    renderWithQueryClient(
+      <DpmWaveCommandCenterPanel portfolioId="PORTFOLIO_001" waveList={response} />,
+    );
+    await waitFor(() => expect(getDpmWaveItems).toHaveBeenCalledWith("dwv_001"));
+    const approval = screen.getByRole("button", { name: "Request Approval" });
+    await waitFor(() => expect(approval).toBeEnabled());
+    expect(screen.getByText("Approval can proceed after advisor review.")).toBeInTheDocument();
+    fireEvent.click(approval);
+    await waitFor(() => expect(approveDpmWave).toHaveBeenCalledWith("dwv_001"));
+  });
+
   it("renders the business-facing rebalance workspace with implementation-backed proposed changes", async () => {
     renderWithQueryClient(
       <DpmWaveCommandCenterPanel
