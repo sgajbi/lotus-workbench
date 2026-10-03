@@ -303,10 +303,10 @@ export function buildPortfolioExportPayload(
 }
 
 export function getInvestedAssetWeight(workspace: PortfolioWorkspace): number | null {
-  const marketValue = workspace.summary.market_value_base ?? 0;
-  const investedValue = workspace.summary.invested_market_value_base ?? 0;
+  const marketValue = workspace.summary.market_value_base;
+  const investedValue = workspace.summary.invested_market_value_base;
 
-  if (!marketValue) {
+  if (!marketValue || investedValue == null) {
     return null;
   }
 

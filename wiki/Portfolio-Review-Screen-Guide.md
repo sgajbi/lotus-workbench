@@ -32,6 +32,13 @@ metric. Detailed records and analytical methods stay in their owning screens.
 
 ## Shared Review Context
 
+Cash and invested figures retain their source availability. When Gateway publishes unavailable
+cash valuation, the related cash amount, cash weight and invested value display **N/A**; unavailable
+invested value also leaves its share of portfolio value unavailable. Independently reported portfolio
+value remains visible. Measured zero, negative cash and a source-confirmed no-cash portfolio keep
+their published amounts and weights. Workbench does not infer complete cash from a partially valued
+cash inventory or substitute zero for missing evidence.
+
 The compact **Review portfolio** strip is the single orientation surface for the selected
 portfolio name, mandate type, booking centre, business date, and reporting currency. Portfolio
 and client references remain available under **Support details**, with copy actions for operational

@@ -5,6 +5,15 @@ import PortfolioIncomeActivityWorkspace from "../../src/apps/portfolio/component
 import type { PortfolioWorkspace } from "../../src/apps/portfolio/types";
 
 describe("PortfolioIncomeActivityWorkspace", () => {
+  it("preserves unknown cash weight alongside independently booked cash movements", () => {
+    const workspace = buildWorkspace();
+    workspace.summary.cash_weight_pct = null;
+    render(<PortfolioIncomeActivityWorkspace workspace={workspace} />);
+    const movements = screen.getByLabelText("Booked cash movement summary");
+    expect(within(movements).getByText("N/A")).toBeInTheDocument();
+    expect(within(movements).queryByText("0.00%")).not.toBeInTheDocument();
+    expect(within(movements).getByText("73,500 USD")).toBeInTheDocument();
+  });
   it("renders a truthful booked-income bridge and signed cash movements", () => {
     render(<PortfolioIncomeActivityWorkspace workspace={buildWorkspace()} />);
 

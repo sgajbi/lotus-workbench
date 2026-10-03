@@ -359,9 +359,9 @@ export type PortfolioWorkspace = {
   };
   summary: {
     market_value_base: number;
-    invested_market_value_base?: number;
-    total_cash_base: number;
-    cash_weight_pct: number;
+    invested_market_value_base?: number | null;
+    total_cash_base: number | null;
+    cash_weight_pct: number | null;
     position_count: number;
     cash_balance_count?: number;
   };

@@ -1,11 +1,35 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import PortfolioWorkspaceView from "../../src/apps/portfolio/components/portfolio-workspace";
-import { buildPortfolioWorkspaceContext } from "../fixtures/portfolio-workspace-component-fixtures";
+import PortfolioSummaryHeaderSection from "../../src/apps/portfolio/components/portfolio-summary-header-section";
+import { buildPortfolioWorkspace, buildPortfolioWorkspaceContext } from "../fixtures/portfolio-workspace-component-fixtures";
 
 describe("PortfolioWorkspaceView", () => {
+  it.each([
+    ["unknown cash", null, null, null, "N/A", "N/A", "N/A"],
+    ["positive cash", 100, 10, 900, "100 USD", "10.00%", "90.00%"],
+    ["measured zero", 0, 0, 1000, "0 USD", "0.00%", "100.00%"],
+    ["negative cash", -100, -10, 1100, "-100 USD", "-10.00%", "110.00%"],
+  ] as const)("renders %s summary without hiding independent portfolio value", (_label, cash, weight, invested, cashDisplay, cashWeightDisplay, investedWeightDisplay) => {
+    const workspace = buildPortfolioWorkspace();
+    workspace.summary = { ...workspace.summary, market_value_base: 1000, total_cash_base: cash, cash_weight_pct: weight, invested_market_value_base: invested };
+    render(<PortfolioSummaryHeaderSection workspace={workspace} onOpenMetricDrawer={() => {}} />);
+    const metrics = screen.getByRole("group", { name: "Portfolio key metrics" });
+    const cashTile = within(metrics).getByText("Cash").closest(".portfolio-summary-band-item")!;
+    const investedTile = within(metrics).getByText("Invested assets").closest(".portfolio-summary-band-item")!;
+    const valueTile = within(metrics).getByText("Portfolio value").closest(".portfolio-summary-band-item")!;
+    expect(valueTile).toHaveTextContent("1,000 USD");
+    expect(cashTile).toHaveTextContent(cashDisplay);
+    expect(cashTile).toHaveTextContent(cashWeightDisplay);
+    expect(investedTile).toHaveTextContent(investedWeightDisplay);
+    if (invested === null) {
+      expect(investedTile).not.toHaveTextContent("0.00%");
+      expect(cashTile).not.toHaveTextContent("0 USD");
+    }
+  });
+
   it("keeps a visible My Book recovery action when selected portfolio context is unavailable", () => {
     render(
       <PortfolioWorkspaceView

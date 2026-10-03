@@ -21,7 +21,7 @@ const FORBIDDEN_PORTFOLIO_UI_COPY =
   /\b(?:Booked holdings|Available holdings|Top holdings|Ranked holdings|Direct holdings(?: only)?|contributing holdings|Search holdings|Export holdings|Unrealized P&L|Realized P&L|Portfolio Currency|Base Currency|Reporting Currency|Transaction Currency|Trade currency)\b/;
 const ALLOWED_BOUNDARY_REFERENCES = {
   "api.ts": [
-    { snippet: "assets_under_management_base: number;", count: 2 },
+    { snippet: "assets_under_management_base: number;", count: 1 },
     { snippet: ".assets_under_management_base", count: 2 },
   ],
   "workspace-config.ts": [
@@ -130,7 +130,6 @@ describe("portfolio terminology", () => {
         "api.ts",
         [
           "assets_under_management_base: number;",
-          "assets_under_management_base: number;",
           "summary.assets_under_management_base",
           "payload.summary.assets_under_management_base",
         ].join("\n"),
@@ -159,6 +158,15 @@ describe("portfolio terminology", () => {
         FORBIDDEN_PORTFOLIO_AUM_COPY,
       );
     }
+  });
+
+  it.each([0, 2])("rejects a drifted boundary declaration count of %s", (count) => {
+    const source = [
+      ...Array.from({ length: count }, () => "assets_under_management_base: number;"),
+      "summary.assets_under_management_base",
+      "payload.summary.assets_under_management_base",
+    ].join("\n");
+    expect(() => stripAllowedBoundaryReferences("api.ts", source)).toThrow();
   });
 
   it("prevents retired position, currency, and UK-English variants from returning to portfolio UI", () => {
