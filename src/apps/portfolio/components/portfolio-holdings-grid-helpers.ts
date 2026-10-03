@@ -133,8 +133,9 @@ export function countUnpricedHoldings(positions: PortfolioPositionView[]): numbe
   ).length;
 }
 
-export function sumHoldingsMarketValue(rows: HoldingsRow[]): number {
-  return rows.reduce((total, row) => total + (row.marketValue ?? 0), 0);
+export function sumHoldingsMarketValue(rows: HoldingsRow[]): number | null {
+  if (rows.some((row) => row.marketValue === null)) return null;
+  return rows.reduce((total, row) => total + row.marketValue!, 0);
 }
 
 export function buildHoldingsExportRows(

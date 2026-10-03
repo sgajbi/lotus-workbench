@@ -1,4 +1,6 @@
 import { createServer, type Server, type ServerResponse } from 'node:http';
+import { qualifyAllocationControl } from '../fixtures/qualify-allocation-control';
+import { qualifiedAllocation } from '../fixtures/qualified-allocation';
 
 const PORTFOLIO_ID = 'PB_SG_GLOBAL_BAL_001';
 const AS_OF_DATE = '2026-04-10';
@@ -8,6 +10,7 @@ const HISTORICAL_AS_OF_DATE = '2026-03-31';
 export type PortfolioFixtureScenario =
   | 'cashflow'
   | 'allocation-recovery'
+  | 'allocation-qualified'
   | 'income-activity'
   | 'review-context-states'
   | 'shell-unavailable'
@@ -21,6 +24,7 @@ export type PortfolioFixtureGateway = {
   getWorkspaceRequestCount: () => number;
   port: number;
   setReviewContextSourceState: (state: 'confirmed' | 'partial') => void;
+  setAllocationValuationState: (state: string) => void;
 };
 
 export async function startPortfolioFixtureGateway({
@@ -32,6 +36,7 @@ export async function startPortfolioFixtureGateway({
 }): Promise<PortfolioFixtureGateway> {
   let workspaceRequestCount = 0;
   let allocationRequestCount = 0;
+  let allocationValuationState = 'PARTIAL';
   let reviewContextSourceState: 'confirmed' | 'partial' = 'confirmed';
   const server = createServer((request, response) => {
     const requestUrl = new URL(request.url ?? '/', `http://127.0.0.1:${port}`);
@@ -188,6 +193,15 @@ export async function startPortfolioFixtureGateway({
 
     if (requestUrl.pathname === `/api/v1/portfolio/portfolios/${PORTFOLIO_ID}/allocations`) {
       allocationRequestCount += 1;
+      if (scenario === 'allocation-qualified') {
+        const payload = qualifiedAllocation(allocationValuationState);
+        payload.portfolio_id = PORTFOLIO_ID;
+        payload.as_of_date = AS_OF_DATE;
+        for (const view of payload.views) for (const bucket of view.buckets)
+          for (const item of bucket.contributors) item.portfolio_id = PORTFOLIO_ID;
+        sendJson(response, payload);
+        return;
+      }
       if (scenario === 'allocation-recovery' && allocationRequestCount === 1) {
         // An empty source response exercises the same client-side unconfirmed state
         // without teaching the browser proof to ignore an HTTP console failure.
@@ -196,7 +210,8 @@ export async function startPortfolioFixtureGateway({
       }
       const prefersLookThrough =
         requestUrl.searchParams.get('look_through_mode') === 'prefer_look_through';
-      const allocationResponse = {
+      const allocationResponse = qualifyAllocationControl({
+        portfolio_id: PORTFOLIO_ID, as_of_date: AS_OF_DATE,
         reporting_currency: 'USD',
         look_through: {
           requested_mode: prefersLookThrough ? 'prefer_look_through' : 'direct_only',
@@ -206,7 +221,7 @@ export async function startPortfolioFixtureGateway({
         views: prefersLookThrough
           ? buildExpandedAllocationViews()
           : buildDirectAllocationViews(),
-      };
+      });
       if (scenario === 'allocation-recovery') {
         setTimeout(() => sendJson(response, allocationResponse), 150);
       } else {
@@ -241,6 +256,10 @@ export async function startPortfolioFixtureGateway({
     port,
     close: () => close(server),
     getAllocationRequestCount: () => allocationRequestCount,
+    setAllocationValuationState: (state) => {
+      if (scenario !== 'allocation-qualified') throw new Error('Qualified allocation fixture required.');
+      allocationValuationState = state;
+    },
     getWorkspaceRequestCount: () => workspaceRequestCount,
     setReviewContextSourceState: (state) => {
       if (scenario !== 'review-context-states') {
@@ -560,12 +579,20 @@ function buildBookResponse(
             : buildWorkspaceResponse(scenario).summary,
     cash_balances: [],
     allocation_views:
-      scenario === 'allocation-recovery'
+      scenario === 'allocation-qualified'
+        ? qualifiedAllocation().views
+        : scenario === 'allocation-recovery'
         ? buildDirectAllocationViews()
         : [{ dimension: 'asset_class', buckets: [] }],
     top_positions: [],
     positions:
-      scenario === 'positions-status'
+      scenario === 'allocation-qualified'
+        ? qualifiedAllocation().views[0].buckets.map((bucket, index) => ({
+            security_id: `SEC_${index}`, instrument_name: bucket.bucket, asset_class: bucket.bucket,
+            quantity: 1, market_price: bucket.market_value_base, market_value_base: bucket.market_value_base,
+            weight_pct: bucket.weight_pct, currency: 'USD', reprocessing_status: bucket.market_value_base === null ? 'STALE_PRICE' : 'CURRENT',
+          }))
+        : scenario === 'positions-status'
         ? buildPositionStatusMatrix()
         : scenario === 'allocation-recovery'
           ? buildAllocationRecoveryPositions()

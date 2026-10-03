@@ -171,13 +171,25 @@ describe("service addressing", () => {
     expect(resolveGatewayBaseUrl()).toBe("http://127.0.0.1:18120");
   });
 
-  it("allows only the exact process-owned Portfolio allocation-recovery fixture loopback", () => {
+  it.each(["allocation-recovery", "allocation-qualified"])("allows only the exact process-owned Portfolio %s fixture loopback", (scenario) => {
     process.env.BFF_BASE_URL = "http://127.0.0.1:18120/";
     process.env.WORKBENCH_E2E_FIXTURE_GATEWAY = "portfolio";
-    process.env.PORTFOLIO_E2E_FIXTURE = "allocation-recovery";
+    process.env.PORTFOLIO_E2E_FIXTURE = scenario;
     process.env.PORTFOLIO_E2E_FIXTURE_PORT = "18120";
 
     expect(resolveGatewayBaseUrl()).toBe("http://127.0.0.1:18120");
+  });
+
+  it.each([
+    ["http://127.0.0.1:18121", "portfolio", "allocation-qualified"],
+    ["http://127.0.0.1:18120", "", "allocation-qualified"],
+    ["http://127.0.0.1:18120", "portfolio", "allocation-qualified-unknown"],
+  ])("refuses qualified-allocation fixture admission outside the exact owned tuple", (url, owner, scenario) => {
+    process.env.BFF_BASE_URL = url;
+    process.env.WORKBENCH_E2E_FIXTURE_GATEWAY = owner;
+    process.env.PORTFOLIO_E2E_FIXTURE = scenario;
+    process.env.PORTFOLIO_E2E_FIXTURE_PORT = "18120";
+    expect(() => resolveGatewayBaseUrl()).toThrow("must use a canonical Lotus hostname");
   });
 
   it("allows only the exact process-owned Portfolio income-activity fixture loopback", () => {

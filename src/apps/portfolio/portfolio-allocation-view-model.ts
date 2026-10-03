@@ -1,5 +1,16 @@
 import type { PortfolioLookThroughMode } from "./api";
-import type { PortfolioAllocationLookThrough } from "./types";
+import type { PortfolioAllocationLookThrough, PortfolioAllocationView } from "./types";
+
+export function allocationWeightTotal(buckets: PortfolioAllocationView["buckets"]): number | null {
+  if (!buckets.length || buckets.some((b) => b.weight_pct === null)) return null;
+  return buckets.reduce((sum, b) => sum + b.weight_pct!, 0);
+}
+
+export function compareAllocationValues(left: number | null, right: number | null): number {
+  if (left === null) return right === null ? 0 : 1;
+  if (right === null) return -1;
+  return right - left;
+}
 
 export const ALLOCATION_DIMENSIONS = [
   { key: "asset_class", label: "Asset Class" },

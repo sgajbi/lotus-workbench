@@ -198,6 +198,13 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 
 ### Product-specific authority
 
+- Allocation admits the dedicated Gateway valuation-coverage envelope for the requested portfolio,
+  date and currency. Book views leave coverage unconfirmed. Keep each direct/expanded view paired
+  with its admitted coverage, source reason and bounded counts. Unknown values/weights remain
+  unavailable in tables, totals, ordering and geometry; measured zero and signed exposure stay
+  distinct. Source contributor lineage is preserved independently from the booked-position filter.
+  The shared holdings summary returns an unknown total if any displayed holding value is unknown;
+  selecting an unvalued allocation cannot manufacture a measured-zero contributor total.
 - Position and settlement posture use their shared portfolio view models. Grid, summary, evidence,
   drawer, and export must not duplicate or reinterpret the projection.
 - Risk Review renders exact Gateway/Risk measures and Gateway-composed Manage mandate comparison.

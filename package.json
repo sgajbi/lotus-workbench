@@ -39,7 +39,7 @@
     "quality:unused-code": "node scripts/quality/check-unused-code.mjs",
     "quality:font-assets": "node scripts/quality/check-font-asset-governance.mjs",
     "quality:design-tokens": "node scripts/quality/check-design-token-integrity.mjs",
-    "quality:product-copy": "node scripts/quality/check-product-copy-governance.mjs --max=226 --max-unresolved=1692 --unresolved-digest=eb4d557843e7326343490f6a07793ec1be3abca54eb0a193d048aeb95f58e1ac",
+    "quality:product-copy": "node scripts/quality/check-product-copy-governance.mjs --max=226 --max-unresolved=1692 --unresolved-digest=423cd17a2ec20e7bc79101958cc054823ec999c153ff4a572917cf246e86a051",
     "quality:e2e-scenarios": "node scripts/quality/check-e2e-scenario-governance.mjs",
     "quality:portfolio-record-bundles": "node scripts/quality/check-portfolio-record-bundles.mjs",
     "scale:proof": "node scripts/scale/run-workbench-scale-proof.mjs",

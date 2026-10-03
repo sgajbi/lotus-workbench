@@ -36,6 +36,7 @@ const OWNED_E2E_FIXTURE_GATEWAYS = [
     scenarios: new Set([
       "cashflow",
       "allocation-recovery",
+      "allocation-qualified",
       "income-activity",
       "review-context-states",
       "shell-unavailable",

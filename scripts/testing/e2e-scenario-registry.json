@@ -28,6 +28,11 @@
             "allocation keeps direct evidence usable and recovers expanded exposure coverage"
           ]
         },
+        "allocation-qualified": {
+          "fixture_value": "allocation-qualified",
+          "spec": "tests/e2e/portfolio-workbench.smoke.spec.ts",
+          "expected_tests": ["allocation preserves qualified unknown zero signed and carry-forward source facts"]
+        },
         "income-activity": {
           "fixture_value": "income-activity",
           "spec": "tests/e2e/portfolio-workbench.smoke.spec.ts",

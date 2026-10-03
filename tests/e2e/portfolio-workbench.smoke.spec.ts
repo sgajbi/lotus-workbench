@@ -30,6 +30,7 @@ test.beforeAll(async () => {
   if (
     scenario !== 'cashflow' &&
     scenario !== 'allocation-recovery' &&
+    scenario !== 'allocation-qualified' &&
     scenario !== 'income-activity' &&
     scenario !== 'review-context-states' &&
     scenario !== 'shell-unavailable' &&
@@ -1347,7 +1348,7 @@ test.describe('Portfolio workbench smoke', () => {
     ).toBeVisible();
     await expect(recheckCoverage).toBeFocused();
     await expect(recheckCoverage).toHaveAttribute('aria-disabled', 'false');
-    await expect.poll(() => fixtureGateway?.getAllocationRequestCount()).toBe(2);
+    await expect.poll(() => fixtureGateway?.getAllocationRequestCount()).toBe(3);
     const retryFocusStable = await recheckCoverage.evaluate(
       (element) => document.activeElement === element,
     );
@@ -1861,5 +1862,75 @@ test.describe('Portfolio workbench smoke', () => {
     expect(serverNavigations).toBe(0);
   });
 
-
+  test('allocation preserves qualified unknown zero signed and carry-forward source facts', async ({ page, request }) => {
+    test.skip(process.env.PORTFOLIO_E2E_FIXTURE !== 'allocation-qualified', 'Owned qualified allocation fixture required.');
+    const runtime = observeBrowserRuntimeFailures(page);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const session = await openAllocationPortfolio(page, request);
+    expect(session.available).toBe(true);
+    const coverage = page.getByLabel('Allocation valuation coverage');
+    await expect(coverage).toContainText('Allocation valuation is partial');
+    await expect(coverage).toContainText('1 of 2 expected positions valued');
+    await expect(coverage).toContainText('market_value_missing');
+    const unknownRow = page.locator('.portfolio-allocation-ranked-row').filter({ hasText: 'Unpriced bond' });
+    await expect(unknownRow).toContainText('Unavailable');
+    await expect(unknownRow).not.toContainText('0.00%');
+    await expect(page.getByLabel('Allocation donut chart')).toHaveCount(0);
+    await page.getByRole('radio', { name: 'Comparison', exact: true }).click();
+    await expect(page.locator('.portfolio-allocation-bar-fill')).toHaveCount(0);
+    await unknownRow.focus();
+    await unknownRow.press('Enter');
+    await expect(page.getByRole('heading', { name: 'Contributing positions', exact: true })).toBeVisible();
+    const selectedSummary = page.locator('.portfolio-grid-module').filter({ has: page.getByRole('heading', { name: 'Contributing positions', exact: true }) }).locator('.portfolio-record-grid-summary');
+    await expect(selectedSummary.getByText('Unavailable', { exact: true })).toBeVisible();
+    await expect(selectedSummary.getByText('0 USD', { exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Clear filter', exact: true }).click();
+    await page.getByText('Source contributors', { exact: true }).click();
+    await expect(page.getByText(/SEC_1.*Unavailable/)).toBeVisible();
+    const evidenceDirectory = process.env.PORTFOLIO_E2E_EVIDENCE_DIR;
+    for (const width of [1440, 519]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await expect(unknownRow).toBeVisible();
+      const sizes = await measureViewportEvidence(page);
+      expect(sizes.document.scrollWidth).toBeLessThanOrEqual(sizes.document.clientWidth + 1);
+      if (evidenceDirectory) await page.screenshot({ path: resolve(evidenceDirectory, `diagnostic-qualified-partial-${width}px.png`), fullPage: true });
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    for (const [state, title] of [
+      ['MEASURED_ZERO', 'Allocation values are measured zero'],
+      ['COMPLETE', 'Allocation valuation is complete'],
+      ['CARRY_FORWARD', 'Allocation valuation is carried forward'],
+      ['UNAVAILABLE', 'Allocation valuation is unavailable'],
+      ['LOADED_EMPTY', 'Allocation source snapshot is empty'],
+    ]) {
+      fixtureGateway?.setAllocationValuationState(state);
+      await page.getByRole('button', { name: 'Recheck exposure coverage' }).click();
+      await expect(coverage).toContainText(title);
+      if (state === 'MEASURED_ZERO') {
+        await expect(page.locator('.portfolio-allocation-ranked-row').first()).toContainText('0 USD');
+        await expect(page.locator('.portfolio-allocation-ranked-row').first()).toContainText('Unavailable');
+        await expect(page.getByLabel('Allocation donut chart')).toHaveCount(0);
+      }
+      if (state === 'COMPLETE' || state === 'CARRY_FORWARD') {
+        await expect(page.locator('.portfolio-allocation-ranked-row').last()).toContainText('-20.00%');
+        await expect(page.getByLabel('Allocation bar chart')).toBeVisible();
+        const negative = page.locator('.portfolio-allocation-bar-row').filter({ hasText: 'Unpriced bond' });
+        await expect(negative.locator('.portfolio-allocation-bar-fill')).toHaveAttribute('style', /width: 16\.666/);
+      }
+      if (state === 'UNAVAILABLE') {
+        await expect(coverage).toContainText('0 of 2 expected positions valued');
+        await expect(page.locator('.portfolio-allocation-ranked-row')).toHaveCount(0);
+      }
+    }
+    runtime.assertClean();
+    if (evidenceDirectory) await writeFile(resolve(evidenceDirectory, 'qualified-allocation-proof.json'), JSON.stringify({
+      boundary: 'Deterministic Gateway double through actual Workbench BFF/browser; no live Core, canonical acceptance or IAM proof',
+      portfolioId: session.portfolioId, states: ['PARTIAL', 'MEASURED_ZERO', 'COMPLETE', 'CARRY_FORWARD', 'UNAVAILABLE', 'LOADED_EMPTY'],
+      unknownAmount: null, measuredZeroAmount: 0, signedWeight: -20, valued: 1, expected: 2,
+      sourceRevision: process.env.WORKBENCH_DEPLOYMENT_ID,
+      sourceVector: { workbench: process.env.WORKBENCH_DEPLOYMENT_ID, gatewayContract: 'f53efc4e5b621f90f25f911dfc33be91e3640752', source: 'deterministic Gateway double; allocation and initial booked rows explicitly constructed' },
+      selectionUnknownTotal: null,
+      allocationRequests: fixtureGateway?.getAllocationRequestCount(), browserRuntime: runtime.snapshot(),
+    }, null, 2));
+  });
 });

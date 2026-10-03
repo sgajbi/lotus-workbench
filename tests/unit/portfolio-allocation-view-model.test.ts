@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  allocationWeightTotal,
+  compareAllocationValues,
   ALLOCATION_CHART_TYPES,
   ALLOCATION_COLORS,
   ALLOCATION_DIMENSIONS,
@@ -13,6 +15,17 @@ import {
 } from "../../src/apps/portfolio/portfolio-allocation-view-model";
 
 describe("portfolio allocation view model", () => {
+  it("withholds totals with any unknown weight and retains signed totals", () => {
+    const buckets = [120, -20].map((weight_pct, index) => ({ bucket: String(index), position_count: 1, market_value_base: weight_pct, weight_pct }));
+    expect(allocationWeightTotal(buckets)).toBe(100);
+    expect(allocationWeightTotal([{ ...buckets[0], weight_pct: null }, buckets[1]])).toBeNull();
+    expect(allocationWeightTotal([{ ...buckets[0], weight_pct: 0 }])).toBe(0);
+    expect(allocationWeightTotal([])).toBeNull();
+  });
+  it("keeps unknown amounts after known zero and negative values without substituting zero", () => {
+    const values = [null, -20, 0, 120, null];
+    expect(values.sort(compareAllocationValues)).toEqual([120, 0, -20, null, null]);
+  });
   it("keeps supported dimensions and chart types explicit", () => {
     expect(ALLOCATION_DIMENSIONS.map((dimension) => dimension.key)).toEqual([
       "asset_class",

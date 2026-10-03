@@ -1641,13 +1641,17 @@ describe("portfolio api", () => {
   it("requests strategic allocation views with explicit look-through and reporting currency", async () => {
     const fetchSpy = vi.fn(async () =>
       jsonResponse({
+        portfolio_id: "MANUAL_PB_USD_001", as_of_date: "2026-03-28",
+        total_market_value_reporting_currency: "0",
+        valuation_coverage: { coverage_state: "LOADED_EMPTY", coverage_reason: "no_open_positions",
+          snapshot_row_count: 0, expected_open_position_count: 0, valued_position_count: 0, unvalued_position_count: 0 },
         reporting_currency: "USD",
         look_through: {
           requested_mode: "prefer_look_through",
           effective_mode: "prefer_look_through",
           applied: true,
         },
-        views: [{ dimension: "region", buckets: [] }],
+        views: [{ dimension: "region", total_market_value_reporting_currency: "0", buckets: [] }],
       })
     );
     vi.stubGlobal("fetch", fetchSpy);

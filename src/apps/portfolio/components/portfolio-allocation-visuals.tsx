@@ -5,6 +5,7 @@ import { type KeyboardEvent } from "react";
 import {
   ALLOCATION_COLORS,
   describeAllocationArc,
+  compareAllocationValues,
 } from "../portfolio-allocation-view-model";
 import { formatCurrency, formatPct } from "../formatters";
 import type {
@@ -12,6 +13,14 @@ import type {
   PortfolioAllocationView,
 } from "../types";
 import styles from "./portfolio-allocation-panel.module.css";
+
+function allocationPercent(value: number | null): string {
+  return value === null ? "Unavailable" : formatPct(value);
+}
+
+function allocationCurrency(value: number | null, currency: string): string {
+  return value === null ? "Unavailable" : formatCurrency(value, currency);
+}
 
 function handleInteractiveKeyPress(
   event: KeyboardEvent<Element>,
@@ -42,7 +51,7 @@ export function AllocationDonutChart({
   onSelect,
 }: {
   buckets: PortfolioAllocationView["buckets"];
-  totalWeight: number;
+  totalWeight: number | null;
   hoveredBucket: string | null;
   selectedBucket: string | null;
   holdingsDrilldownAvailable: boolean;
@@ -61,8 +70,8 @@ export function AllocationDonutChart({
     const previousArc = arcs[arcs.length - 1];
     const startAngle = previousArc ? previousArc.endAngle : -90;
     const portion =
-      totalWeight > 0
-        ? Math.max(bucket.weight_pct ?? 0, 0) / totalWeight
+      totalWeight !== null && totalWeight > 0 && bucket.weight_pct !== null && bucket.weight_pct >= 0
+        ? bucket.weight_pct / totalWeight
         : 0;
     const endAngle = startAngle + portion * 360;
     return [
@@ -102,7 +111,7 @@ export function AllocationDonutChart({
               tabIndex={holdingsDrilldownAvailable ? 0 : -1}
               aria-disabled={!holdingsDrilldownAvailable}
               aria-label={buildHoldingsActionLabel(
-                `${bucket.bucket}: ${formatPct(bucket.weight_pct)}`,
+                `${bucket.bucket}: ${allocationPercent(bucket.weight_pct)}`,
                 holdingsDrilldownAvailable,
               )}
               className={
@@ -125,7 +134,7 @@ export function AllocationDonutChart({
                   : undefined
               }
             >
-              <title>{`${bucket.bucket}: ${formatPct(bucket.weight_pct)}`}</title>
+              <title>{`${bucket.bucket}: ${allocationPercent(bucket.weight_pct)}`}</title>
             </path>
           );
         })}
@@ -172,7 +181,7 @@ export function AllocationBarChart({
   onSelect: (bucket: string) => void;
 }) {
   const maxWeight = Math.max(
-    ...buckets.map((bucket) => bucket.weight_pct ?? 0),
+    ...buckets.flatMap((bucket) => bucket.weight_pct === null ? [] : [Math.abs(bucket.weight_pct)]),
     0,
   );
 
@@ -182,10 +191,8 @@ export function AllocationBarChart({
       aria-label="Allocation bar chart"
     >
       {buckets.map((bucket, index) => {
-        const width =
-          maxWeight > 0
-            ? `${((bucket.weight_pct ?? 0) / maxWeight) * 100}%`
-            : "0%";
+        const width = bucket.weight_pct === null ? null : maxWeight > 0
+          ? `${(Math.abs(bucket.weight_pct) / maxWeight) * 100}%` : "0%";
         const isHovered = hoveredBucket === bucket.bucket;
         const isSelected = selectedBucket === bucket.bucket;
         return (
@@ -194,10 +201,10 @@ export function AllocationBarChart({
             type="button"
             disabled={!holdingsDrilldownAvailable}
             aria-label={buildHoldingsActionLabel(
-              `${bucket.bucket}: ${formatPct(bucket.weight_pct)}`,
+              `${bucket.bucket}: ${allocationPercent(bucket.weight_pct)}`,
               holdingsDrilldownAvailable,
             )}
-            title={`${bucket.bucket}: ${formatPct(bucket.weight_pct)}`}
+            title={`${bucket.bucket}: ${allocationPercent(bucket.weight_pct)}`}
             className={
               isSelected
                 ? "portfolio-allocation-bar-row portfolio-allocation-bar-row-selected"
@@ -213,17 +220,17 @@ export function AllocationBarChart({
               {bucket.bucket}
             </span>
             <span className="portfolio-allocation-bar-track">
-              <span
+              {width !== null ? <span
                 className="portfolio-allocation-bar-fill"
                 style={{
                   width,
                   backgroundColor:
                     ALLOCATION_COLORS[index % ALLOCATION_COLORS.length],
                 }}
-              />
+              /> : null}
             </span>
             <span className="portfolio-allocation-bar-value">
-              {formatPct(bucket.weight_pct)}
+              {allocationPercent(bucket.weight_pct)}
             </span>
           </button>
         );
@@ -261,10 +268,10 @@ export function AllocationTableChart({
             type="button"
             disabled={!holdingsDrilldownAvailable}
             aria-label={buildHoldingsActionLabel(
-              `${bucket.bucket}: ${formatPct(bucket.weight_pct)}`,
+              `${bucket.bucket}: ${allocationPercent(bucket.weight_pct)}`,
               holdingsDrilldownAvailable,
             )}
-            title={`${bucket.bucket}: ${formatPct(bucket.weight_pct)}`}
+            title={`${bucket.bucket}: ${allocationPercent(bucket.weight_pct)}`}
             className={
               isSelected
                 ? "portfolio-allocation-table-row portfolio-allocation-table-row-selected"
@@ -284,7 +291,7 @@ export function AllocationTableChart({
               }}
             />
             <span>{bucket.bucket}</span>
-            <span>{formatPct(bucket.weight_pct)}</span>
+            <span>{allocationPercent(bucket.weight_pct)}</span>
           </button>
         );
       })}
@@ -326,7 +333,7 @@ export function AllocationRankedList({
           .slice()
           .sort(
             (left, right) =>
-              (right.market_value_base ?? 0) - (left.market_value_base ?? 0),
+              compareAllocationValues(left.market_value_base, right.market_value_base),
           )
           .map((bucket, index) => {
             const isHovered = hoveredBucket === bucket.bucket;
@@ -337,10 +344,10 @@ export function AllocationRankedList({
                 type="button"
                 disabled={!holdingsDrilldownAvailable}
                 aria-label={buildHoldingsActionLabel(
-                  `${bucket.bucket}: ${formatCurrency(bucket.market_value_base, baseCurrency)}, ${formatPct(bucket.weight_pct)}, ${bucket.position_count} positions`,
+                  `${bucket.bucket}: ${allocationCurrency(bucket.market_value_base, baseCurrency)}, ${allocationPercent(bucket.weight_pct)}, ${bucket.position_count} positions`,
                   holdingsDrilldownAvailable,
                 )}
-                title={`${bucket.bucket}: ${formatPct(bucket.weight_pct)}`}
+                title={`${bucket.bucket}: ${allocationPercent(bucket.weight_pct)}`}
                 className={
                   isSelected
                     ? "portfolio-allocation-ranked-row portfolio-allocation-ranked-row-selected"
@@ -363,10 +370,10 @@ export function AllocationRankedList({
                   {bucket.bucket}
                 </span>
                 <span className="portfolio-allocation-ranked-number">
-                  {formatCurrency(bucket.market_value_base, baseCurrency)}
+                  {allocationCurrency(bucket.market_value_base, baseCurrency)}
                 </span>
                 <span className="portfolio-allocation-ranked-number">
-                  {formatPct(bucket.weight_pct)}
+                  {allocationPercent(bucket.weight_pct)}
                 </span>
                 <span className="portfolio-allocation-ranked-number">
                   {bucket.position_count}

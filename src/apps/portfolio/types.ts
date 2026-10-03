@@ -63,12 +63,36 @@ export type PortfolioAllocationBucket = {
 
 export type PortfolioAllocationView = {
   dimension: string;
+  total_market_value_reporting_currency?: string | number | null;
   buckets: Array<{
     bucket: string;
     position_count: number;
     market_value_base: number | null;
     weight_pct: number | null;
+    market_value_reporting_currency?: string | number | null;
+    contributor_count?: number;
+    contributors_truncated?: boolean;
+    omitted_market_value_reporting_currency?: string | number | null;
+    contributors?: Array<{
+      contributor_type: "direct_position" | "look_through_component";
+      portfolio_id: string;
+      security_id: string;
+      booked_security_id: string;
+      source_snapshot_id: number;
+      component_record_id?: number | null;
+      market_value_reporting_currency: string | number | null;
+      bucket_weight?: string | number | null;
+    }>;
   }>;
+};
+
+export type PortfolioAllocationValuationCoverage = {
+  coverage_state: "COMPLETE" | "MEASURED_ZERO" | "CARRY_FORWARD" | "LOADED_EMPTY" | "PARTIAL" | "UNAVAILABLE";
+  coverage_reason: string;
+  snapshot_row_count: number;
+  expected_open_position_count: number;
+  valued_position_count: number;
+  unvalued_position_count: number;
 };
 
 export type PortfolioAllocationLookThrough = {

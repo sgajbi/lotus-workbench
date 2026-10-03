@@ -90,6 +90,7 @@ export default function PortfolioHoldingsGrid({
     [baseCurrency, positions]
   );
   const unpricedCount = useMemo(() => countUnpricedHoldings(positions), [positions]);
+  const totalMarketValue = sumHoldingsMarketValue(rowData);
 
   const columnDefs = useMemo<ColDef<HoldingsRow>[]>(
     () => [
@@ -217,7 +218,7 @@ export default function PortfolioHoldingsGrid({
       title={title}
       description={resolvedDescription}
       summaryLabel={formatCount(rowData.length, "position")}
-      summaryValue={formatCurrency(sumHoldingsMarketValue(rowData), baseCurrency)}
+      summaryValue={totalMarketValue === null ? "Unavailable" : formatCurrency(totalMarketValue, baseCurrency)}
       searchControl={
         <TextField
           size="small"
