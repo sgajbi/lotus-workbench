@@ -114,10 +114,10 @@ client-delivery authority, or execution authority.
 
 | Decision or action | Required source gate | Persisted effect |
 | --- | --- | --- |
-| Treat the active wave as usable | Matching Manage wave identity and non-blocked supportability | None; read-only review |
+| Treat the active wave as ready | Matching Manage wave identity and explicitly confirmed `READY` supportability | None; read-only review |
 | Load proposed changes | A selected source wave and no conflicting request in progress | Re-contacts Gateway for source items; no portfolio mutation |
 | Run source check or simulation | Action not blocked by the returned wave contract | Manage records the returned workflow progression |
-| Request approval | No source-reported issue, reason, partial state, or approval block | Manage records an approval request; Workbench does not approve it |
+| Request approval | Ready panel and no source-reported issue, reason, or approval block | Manage records an approval request; Workbench does not approve it |
 | Stage or prepare handoff | The exact source action is enabled | Manage records staging or handoff posture; no order or execution is claimed |
 | Open evidence | A selected wave and supported proof action | Reads or requests source-owned evidence posture |
 | Prepare PM memo or operations brief | Selected wave plus governed AI workflow availability | Creates an internal review-gated workflow-pack result, not client communication |
@@ -125,6 +125,15 @@ client-delivery authority, or execution authority.
 | Record a governance action | Exact selected campaign plus the typed action fields and business rationale | Manage owns the approval, assignment, task, transition, or maker-checker evidence |
 | Retire or supersede a campaign | Exact selected campaign, source-supported replacement where applicable, business rationale, and explicit consequence confirmation | Manage records the lifecycle change; Workbench refreshes definitions and exact lifecycle evidence |
 | Launch a campaign | Selected campaign, Manage-returned `READY` launch package, and explicit consequence confirmation | Manage owns the durable campaign event and returned wave identity; the confirmation resets after success |
+
+Wave supportability confirms readiness only when the source explicitly returns `ready`, ignoring
+letter case and surrounding whitespace. `blocked` stays blocked. Degraded, partial, unknown,
+unavailable, unsupported, unfamiliar, missing, and blank values remain qualified as partial; a wave
+record or populated list cannot make them ready. An empty response also retains that non-ready
+qualification. A confirmed-ready response with no wave or rows is empty; an absent source response
+is unavailable. Source reasons, blocked actions, and selected-wave identity checks are preserved.
+Approval readiness and **Request Approval** remain withheld for partial, blocked, empty, or
+unavailable panels, in addition to the existing source issue, reason, and action gates.
 
 Pending actions disable conflicting controls. Success is shown only from the returned source
 response. If persistence succeeds but the evidence refresh fails, Workbench preserves the recorded
