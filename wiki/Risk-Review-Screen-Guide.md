@@ -96,6 +96,14 @@ mandate-waiver authority, investment advice, order approval, or client-publicati
   evidence. It is never treated as silent agreement.
 - Presents drawdown depth, duration, episodes, benchmark-relative context, and an on-demand
   underwater series only when the source contract supports them.
+- Retains an opening-loss episode whose source-owned opening peak is undated. Its peak and
+  unknown duration display **N/A** alongside the actual depth, trough, and source-reported recovery.
+  Workbench does not assign a date or zero duration to that opening baseline; real zero durations
+  remain zero. Known event dates must still fit the selected source window and chronology.
+- Accepts source-reported zero drawdown with no event dates only when its complete summary
+  explicitly confirms recovered status and zero durations. The portfolio summary also requires
+  no retained episodes; a benchmark-relative zero summary may coexist with portfolio loss episodes.
+  Missing timing on a non-zero or unknown drawdown does not establish that no drawdown occurred.
 - Presents rolling-risk windows with exact latest, typical, range, coverage, and source-supported
   series detail; it does not extrapolate a missing series.
 - Presents source-admitted total- or active-risk attribution controls and contributor evidence. A
