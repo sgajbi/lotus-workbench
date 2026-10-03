@@ -248,6 +248,13 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 
 ### Runtime and support
 
+- The 2026-10-03 support review pairs Node 22.23.3/npm 10.9.9 with the official immutable
+  Bookworm slim image in Docker, protected workflows and the scale fixture. The review owner is
+  `workbench-architecture-maintainers`; reassess Next 15 by 2026-10-14 before its upstream
+  2026-10-21 maintenance boundary through #624's Next 16 compatibility tranche. The full npm
+  graph requires changed-lock installation/audit proof under #1110; production-only audit and isolated runtime identity checks
+  do not replace full security, image scan/SBOM or protected main proof. An expired Node 22.23.1
+  artifact is not an approved production rollback. See the owning runtime decision/wiki.
 - The governed local path is the Workbench canonical front-office runtime, not the Platform
   infrastructure-only stack. Use portfolio `PB_SG_GLOBAL_BAL_001` for canonical populated proof.
 - Canonical Idea orchestration keeps the platform business as-of date separate from live source,
@@ -333,6 +340,12 @@ Preserve these current documentation contracts when editing their owners:
 - Runtime terms remain in their owning domain modules; productive vocabulary is in
   `docs/documentation/product-vocabulary.md`.
 - `npm run scale:proof` remains the discoverable two-replica regression command.
+- Its validation-only balancer retains the immutable NGINX base and exact OpenSSL
+  `libcrypto3`/`libssl3` `3.5.9-r0` upgrades. Under #1110 it also installs Alpine v3.23
+  `pcre2=10.49-r0`, vendor packaging commit `d3daff575f2cf4da02cba798b41436b60d843444`,
+  to remediate four fixable HIGH PCRE2 findings. Retire each package pin only when the
+  immutable base carries that package's fixed version; remove the upgrade RUN only after
+  both OpenSSL and PCRE2 conditions hold. Keep the separately blocking balancer scan.
 
 ## Standards And RFCs That Govern This Repository
 
@@ -458,6 +471,18 @@ Scoped process-environment restoration must preserve absence as well as value. U
 `[NullString]::Value` when removing an originally absent .NET environment variable: PowerShell 7
 can convert a saved null into an empty string, unlike Windows PowerShell 5. Exercise both shells
 when changing these process-boundary helpers; empty and absent are not interchangeable inputs.
+
+Development lint practice: `@lotus/eslint-plugin-next` 15.5.25-lotus.1 is an owned local package
+at `tools/eslint-plugin-next`. Preserve all published rule/config bytes; only the bounded literal
+root resolver differs. Its provenance/license/file/maintenance guard runs in full lint through
+`npm run quality:next-eslint-fork` from this repository root (Windows and POSIX). The reviewed
+support boundary rejects globs/malformed/oversized settings explicitly. Root review is due
+2026-10-14, owned by `workbench-architecture-maintainers`; Next 15 support ends 2026-10-21.
+Verify the published tarball SHA512 and immutable source/license lineage before updates; do not
+claim reproduced transpilation. Return to supported upstream tooling or supported Next 16 only
+after all 21 behavioral controls and full dependency proof. The Docker deps stage copies this local
+package before npm ci and the builder preserves its linked path; the build context admits only
+that tooling subtree. Issue #1110 owns final security acceptance; source authoring alone is not it.
 
 ## Cross-Links
 

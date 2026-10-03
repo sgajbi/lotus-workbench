@@ -9,7 +9,7 @@ import {
 
 const repositoryRoot = join(__dirname, "..", "..");
 const governedLintCommand =
-  "npm run quality:branch-protection && npm run quality:runtime-support && npm run quality:runtime-state && npm run quality:bff-header-boundary && npm run quality:feature-transport && npm run quality:source-authority && npm run quality:dependency-risk && npm run quality:unused-code && npm run quality:font-assets && npm run quality:design-tokens && npm run quality:product-copy && npm run quality:e2e-scenarios && npm run lint:css-global && npm run lint:risk-architecture && npm run quality:screen-docs && npm run lint:react-compiler && npm run lint:eslint";
+  "npm run quality:branch-protection && npm run quality:runtime-support && npm run quality:runtime-state && npm run quality:bff-header-boundary && npm run quality:feature-transport && npm run quality:source-authority && npm run quality:dependency-risk && npm run quality:next-eslint-fork && npm run quality:unused-code && npm run quality:font-assets && npm run quality:design-tokens && npm run quality:product-copy && npm run quality:e2e-scenarios && npm run lint:css-global && npm run lint:risk-architecture && npm run quality:screen-docs && npm run lint:react-compiler && npm run lint:eslint";
 const governedTimeoutsByJob = new Map([
   [
     "e2e-smoke",
@@ -282,7 +282,7 @@ describe("dependency security governance", () => {
     const ciCompose = readRepositoryFile("docker-compose.ci-local.yml");
     const nextConfig = readRepositoryFile("next.config.mjs");
     const governedBase =
-      "node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3";
+      "node:22.23.3-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c";
 
     expect(dockerfile).toContain(`ARG NODE_BASE_IMAGE=${governedBase}`);
     expect(dockerfile.match(/FROM \$\{NODE_BASE_IMAGE\}/g)).toHaveLength(1);

@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": ["tools/eslint-plugin-next/dist/index.js!"],
   "ignore": [
     "scripts/**",
     "tests/**",

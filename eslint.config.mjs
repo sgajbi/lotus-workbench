@@ -1,4 +1,4 @@
-import nextPlugin from "@next/eslint-plugin-next";
+import nextPlugin from "@lotus/eslint-plugin-next";
 import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
@@ -48,6 +48,7 @@ export default [
       `${NEXT_PRODUCTION_DIRECTORY}/**`,
       "coverage/**",
       "node_modules/**",
+      "tools/eslint-plugin-next/dist/**",
       "output/**",
       "playwright-report/**",
       "test-results/**",

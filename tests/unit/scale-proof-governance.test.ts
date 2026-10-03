@@ -44,15 +44,31 @@ describe("Workbench scale-proof governance", () => {
     );
     expect(runInstructions).toHaveLength(1);
     expect(normalizeInstruction(runInstructions[0].argument)).toBe(
-      'apk add --no-cache --upgrade "libcrypto3=3.5.9-r0" "libssl3=3.5.9-r0"',
+      'apk add --no-cache --upgrade "libcrypto3=3.5.9-r0" "libssl3=3.5.9-r0" "pcre2=10.49-r0"',
     );
 
     expect(balancerDockerfile).toContain("CVE-2026-14456");
     expect(balancerDockerfile).toContain("#873");
     expect(balancerDockerfile).toContain("#897");
     expect(balancerDockerfile).toContain(
-      "Remove this RUN once the pinned base carries libcrypto3/libssl3 >=3.5.9-r0.",
+      "Remove the OpenSSL pins once the pinned base carries libcrypto3/libssl3 >=3.5.9-r0.",
     );
+    expect(balancerDockerfile).toContain(
+      "Remove the PCRE2 pin once the pinned base carries pcre2 >=10.49-r0.",
+    );
+    expect(balancerDockerfile).toContain(
+      "Remove this RUN only after both independent retirement conditions are satisfied.",
+    );
+    for (const vulnerability of [
+      "CVE-2026-103111",
+      "CVE-2026-86145",
+      "CVE-2026-89157",
+      "CVE-2026-89161",
+    ]) {
+      expect(balancerDockerfile).toContain(vulnerability);
+    }
+    expect(balancerDockerfile).toContain("#1110");
+    expect(balancerDockerfile).toContain("d3daff575f2cf4da02cba798b41436b60d843444");
     expect(balancerDockerfile).toContain("the build fails by design");
     expect(balancerDockerfile).toContain("USER 101:101");
     expect(balancerDockerfile).not.toContain("3.5.7-r0");
@@ -60,7 +76,7 @@ describe("Workbench scale-proof governance", () => {
       "image: ${WORKBENCH_SCALE_BALANCER_IMAGE:-lotus-workbench-scale-balancer:scale-proof}",
     );
     expect(compose).toContain(
-      "node:22.23.1-bookworm-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3",
+      "node:22.23.3-bookworm-slim@sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c",
     );
     expect(fixture).toContain('request.url === "/api/v1/scale-proof/state"');
     expect(fixture).toContain('request.url === "/api/v1/scale-proof/actions"');

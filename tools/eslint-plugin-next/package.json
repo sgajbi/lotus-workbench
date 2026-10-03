@@ -1,0 +1,15 @@
+{
+  "name": "@lotus/eslint-plugin-next",
+  "version": "15.5.25-lotus.1",
+  "private": true,
+  "description": "Lotus maintained Next ESLint rules with bounded literal-root support.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "license": "MIT",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md",
+    "UPSTREAM-PROVENANCE.json"
+  ]
+}

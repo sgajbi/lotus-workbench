@@ -1,2 +1,5 @@
 src/assets/fonts/** binary
 docs/licenses/fonts/** text eol=lf -whitespace
+tools/eslint-plugin-next/dist/** text eol=lf
+tools/eslint-plugin-next/LICENSE text eol=lf
+tools/eslint-plugin-next/dist/utils/node-attributes.js -whitespace
