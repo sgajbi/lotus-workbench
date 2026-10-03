@@ -63,6 +63,7 @@ export default function PortfolioAllocationPanel({
     activeDimensionLabel,
     buckets,
     totalWeight,
+    valuationCoverage,
     chartType,
     setChartType,
     hoveredBucket,
@@ -79,6 +80,9 @@ export default function PortfolioAllocationPanel({
     toggleLookThrough,
     recheckLookThroughCoverage,
   } = allocationState;
+  const weightsKnown = valuationCoverage !== null && totalWeight !== null;
+  const signed = buckets.some((bucket) => bucket.weight_pct !== null && bucket.weight_pct < 0);
+  const effectiveChart = !weightsKnown ? "table" : chartType === "donut" && signed ? "bar" : chartType;
 
   return (
     <div className={`portfolio-allocation-panel ${styles.root}`}>
@@ -159,6 +163,23 @@ export default function PortfolioAllocationPanel({
       </WorkbenchSummaryToolbar>
 
       <AllocationCoverageStatus status={lookThroughCoverageStatus} />
+      <div role="status" aria-label="Allocation valuation coverage">
+        <strong>{valuationCoverage ? {
+          COMPLETE: "Allocation valuation is complete",
+          MEASURED_ZERO: "Allocation values are measured zero",
+          CARRY_FORWARD: "Allocation valuation is carried forward",
+          LOADED_EMPTY: "Allocation source snapshot is empty",
+          PARTIAL: "Allocation valuation is partial",
+          UNAVAILABLE: "Allocation valuation is unavailable",
+        }[valuationCoverage.coverage_state] : "Allocation valuation coverage is unconfirmed"}</strong>
+        {valuationCoverage ? <p className="muted">
+          {valuationCoverage.valued_position_count} of {valuationCoverage.expected_open_position_count} expected positions valued;
+          {" "}{valuationCoverage.snapshot_row_count} snapshot rows; {valuationCoverage.unvalued_position_count} unvalued.
+          {" "}Source reason: {valuationCoverage.coverage_reason}.
+        </p> : null}
+        {!weightsKnown && buckets.length ? <p className="muted">Weights are unavailable. Exposure identities and source values remain visible in the table.</p> : null}
+        {signed ? <p className="muted">Comparison tracks show magnitude; signed weights remain explicit. Composition requires non-negative weights.</p> : null}
+      </div>
 
       <div
         className="portfolio-analytics-canvas portfolio-allocation-card"
@@ -172,7 +193,7 @@ export default function PortfolioAllocationPanel({
         {buckets.length ? (
           <div className={`portfolio-allocation-body ${styles.body}`}>
             <div className={`portfolio-allocation-visual ${styles.visual}`}>
-              {chartType === "donut" ? (
+              {effectiveChart === "donut" ? (
                 <AllocationDonutChart
                   buckets={buckets}
                   totalWeight={totalWeight}
@@ -183,7 +204,7 @@ export default function PortfolioAllocationPanel({
                   onSelect={selectBucket}
                 />
               ) : null}
-              {chartType === "bar" ? (
+              {effectiveChart === "bar" ? (
                 <AllocationBarChart
                   buckets={buckets}
                   hoveredBucket={hoveredBucket}
@@ -193,7 +214,7 @@ export default function PortfolioAllocationPanel({
                   onSelect={selectBucket}
                 />
               ) : null}
-              {chartType === "table" ? (
+              {effectiveChart === "table" ? (
                 <AllocationTableChart
                   buckets={buckets}
                   hoveredBucket={hoveredBucket}
@@ -217,8 +238,20 @@ export default function PortfolioAllocationPanel({
             />
           </div>
         ) : (
-          <AllocationEmptyState dimensionLabel={activeDimensionLabel} />
+          valuationCoverage?.coverage_state === "LOADED_EMPTY" ? <p>No open positions in the source snapshot.</p>
+            : <AllocationEmptyState dimensionLabel={activeDimensionLabel} />
         )}
+        {buckets.some((bucket) => bucket.contributors?.length) ? <details>
+          <summary>Source contributors</summary>
+          {buckets.map((bucket) => <div key={bucket.bucket}>
+            <strong>{bucket.bucket}</strong>
+            <ul>{bucket.contributors?.map((item, index) => <li key={`${item.source_snapshot_id}-${item.component_record_id ?? "direct"}-${index}`}>
+              {item.security_id} ({item.booked_security_id}; {item.contributor_type === "direct_position" ? "direct position" : "look-through component"}):
+              {" "}{item.market_value_reporting_currency === null ? "Unavailable" : `${item.market_value_reporting_currency} ${reportingCurrency}`}
+            </li>)}</ul>
+            {bucket.contributors_truncated ? <p>Source contributor list is bounded: {bucket.contributors?.length} of {bucket.contributor_count} shown.</p> : null}
+          </div>)}
+        </details> : null}
       </div>
     </div>
   );

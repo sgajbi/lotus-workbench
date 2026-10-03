@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import PortfolioAllocationPanel from "../../src/apps/portfolio/components/portfolio-allocation-panel";
 import type { PortfolioAllocationView } from "../../src/apps/portfolio/types";
+import { qualifyAllocationControl } from "../fixtures/qualify-allocation-control";
 
 const allocationViews: PortfolioAllocationView[] = [
   {
@@ -121,7 +122,7 @@ describe("PortfolioAllocationPanel", () => {
     expect(
       screen.getByText("Expanded exposure is available for this portfolio snapshot"),
     ).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Region" })).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("radio", { name: "Region" })).not.toHaveAttribute("aria-disabled", "true");
 
     fireEvent.click(screen.getByRole("radio", { name: "Currency" }));
     expect(screen.getByRole("region", { name: "Currency allocation view" })).toBeInTheDocument();
@@ -237,12 +238,8 @@ describe("PortfolioAllocationPanel", () => {
 
     expect(screen.getByRole("radio", { name: "Asset Class" })).not.toHaveAttribute("aria-disabled", "true");
     expect(screen.getByRole("radio", { name: "Region" })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getAllByText("Asset Class allocation is not available yet")).toHaveLength(1);
-    expect(
-      screen.getAllByText(
-        "This dimension requires funded positions with current valuations before a reliable composition view can be shown."
-      )
-    ).toHaveLength(1);
+    expect(screen.getByText("No open positions in the source snapshot.")).toBeInTheDocument();
+    expect(screen.getByText("Allocation source snapshot is empty")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Asset Class allocation view" })).toBeInTheDocument();
   });
 
@@ -430,7 +427,7 @@ describe("PortfolioAllocationPanel", () => {
     ).toBeInTheDocument();
     expect(document.activeElement).toBe(recheck);
     expect(recheck).toHaveAttribute("aria-disabled", "false");
-    expect(allocationRequestCount).toBe(2);
+    expect(allocationRequestCount).toBe(3);
     expect(onSelectionChange).not.toHaveBeenCalled();
     expect(selectedExposure).toHaveClass("portfolio-allocation-ranked-row-selected");
     expect(screen.getByRole("button", { name: "Show expanded exposure" })).toBeEnabled();
@@ -488,7 +485,7 @@ describe("PortfolioAllocationPanel", () => {
     await waitFor(() => expect(onSelectionChange).toHaveBeenCalledWith(null));
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Direct positions only")).toBeInTheDocument();
-    expect(screen.getAllByText("Asset Class allocation is not available yet")).toHaveLength(1);
+    expect(screen.getByText("No open positions in the source snapshot.")).toBeInTheDocument();
     expect(screen.queryByText("725,000 USD")).not.toBeInTheDocument();
   });
 
@@ -549,7 +546,7 @@ describe("PortfolioAllocationPanel", () => {
 
     await waitFor(() => expect(onSelectionChange).toHaveBeenCalledWith(null));
     expect(onSelectionChange).toHaveBeenCalledTimes(1);
-    expect(screen.getAllByText("Asset Class allocation is not available yet")).toHaveLength(1);
+    expect(screen.getByText("No open positions in the source snapshot.")).toBeInTheDocument();
     expect(screen.queryByText("725,000 USD")).not.toBeInTheDocument();
   });
 
@@ -592,7 +589,7 @@ describe("PortfolioAllocationPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Show expanded exposure" }));
 
-    expect(screen.getAllByText("Asset Class allocation is not available yet")).toHaveLength(1);
+    expect(screen.getByText("No open positions in the source snapshot.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Show direct positions" })).toBeEnabled();
     expect(screen.getByText("Source coverage confirmed")).toBeInTheDocument();
   });
@@ -646,6 +643,7 @@ describe("PortfolioAllocationPanel", () => {
         return supersededRequest;
       }
       return jsonResponse({
+        portfolio_id: "PORTFOLIO_NEW",
         reporting_currency: "USD",
         look_through: {
           requested_mode: "prefer_look_through",
@@ -721,7 +719,9 @@ describe("PortfolioAllocationPanel", () => {
 });
 
 function jsonResponse(payload: unknown, status = 200): Response {
-  return new Response(JSON.stringify(payload), {
+  const qualified = payload && typeof payload === "object" && "views" in payload
+    ? qualifyAllocationControl(payload as Parameters<typeof qualifyAllocationControl>[0]) : payload;
+  return new Response(JSON.stringify(qualified), {
     status,
     headers: { "Content-Type": "application/json" },
   });

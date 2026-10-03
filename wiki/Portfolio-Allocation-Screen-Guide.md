@@ -55,7 +55,8 @@ These roles describe business use, not production entitlement or approval author
 5. Select a direct exposure to inspect its booked contributing positions; clear the filter to return
    to the complete booked inventory.
 6. Use expanded exposure only after the source-coverage status confirms it for the current
-   snapshot. Expanded contributors remain unavailable until source lineage is published.
+   snapshot. Open **Source contributors** for retained source lineage. Expanded rows do not filter
+   the booked positions grid because component identity is separate from the booked parent.
 7. Continue to Positions for position detail, Performance or Risk for source-owned analytics, or
    Portfolio Review for the daily decision checkpoint.
 
@@ -74,8 +75,33 @@ These roles describe business use, not production entitlement or approval author
 - Retains valid direct allocation when the optional expanded-exposure request fails.
 - Keeps **Recheck coverage** mounted, prevents duplicate activation while pending, and preserves
   keyboard focus through successful recovery.
-- Disables expanded-exposure contributor selection because the current contract does not publish
-  decomposed contributor lineage to Workbench.
+- Preserves source contributor identities and nullable values in **Source contributors**, including
+  look-through components and bounded-list counts. Expanded rows do not claim booked contributors.
+- Keeps valuation coverage separate from optional look-through availability. A valid look-through
+  response does not make incomplete valuation ready.
+
+### Valuation qualification
+
+Gateway supplies the Core-owned coverage state, bounded source reason and observed/expected/valued/
+unvalued counts. The dedicated allocation response is admitted for the exact portfolio, date and
+reporting currency. Book views alone leave valuation coverage **unconfirmed** until that read succeeds.
+
+| Source valuation state | Reading posture |
+| --- | --- |
+| Complete | Known values and weights remain usable; signed exposure uses comparison rather than unsigned composition |
+| Measured zero | Source monetary zero remains zero; a zero denominator leaves weights unavailable |
+| Carried forward | Values retain an explicit carry-forward qualification and source reason |
+| Partial | Known bucket values can remain, but unknown amounts and all unsupported weights say **Unavailable**; the table replaces geometry |
+| Unavailable | Expected-position coverage remains visible even when no snapshot rows or buckets exist |
+| Loaded empty | An actual empty source snapshot is distinguished from unavailable valuations |
+
+Unavailable values are not assigned zero for totals, ranking, chart widths, or selection. Unknown
+buckets retain identity after known market values, including signed negative values. Direct selection
+can inspect booked classification without asserting a measured weight. Recheck and mode changes keep
+the displayed views and their source qualification together.
+The contributing-positions summary remains **Unavailable** when any retained holding value is
+unknown; it does not publish the sum of known rows as a complete total. Genuine zero and signed
+holding values remain measurable.
 
 ## Decisions And Actions
 
@@ -149,6 +175,12 @@ wording, calculations, or unsupported capability.
 - `tests/unit/portfolio-api.test.ts` proves uncached BFF transport and explicit source recheck
   semantics; application-level reuse belongs to the governed Query client rather than this API
   adapter.
+- `tests/unit/portfolio-allocation-qualified.test.tsx` covers source qualification, malformed source
+  rejection, unknown versus measured zero, signed comparison and carry-forward controls.
+- The `allocation-qualified` browser scenario exercises all six coverage states through the actual
+  BFF and browser with a deterministic Gateway double. This is bounded consumer proof; it does not
+  certify live Core ingestion, production authority or the full canonical journey. Its screenshots
+  are diagnostic evidence until canonical API, calculation and panel validation succeeds.
 - `tests/e2e/portfolio-workbench.smoke.spec.ts` proves the optimized-production journey with
   `PB_SG_GLOBAL_BAL_001`: retained direct evidence, keyboard contributor review, forced source
   recheck, confirmed recovery, compact exact-value priority, zero page overflow, and clean browser

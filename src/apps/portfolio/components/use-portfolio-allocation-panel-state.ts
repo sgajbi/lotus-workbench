@@ -8,6 +8,7 @@ import {
 } from "../api";
 import {
   ALLOCATION_DIMENSIONS,
+  allocationWeightTotal,
   formatAllocationDimensionLabel,
   isDirectLookThroughFallbackConfirmed,
   isExpandedLookThroughSupported,
@@ -19,6 +20,7 @@ import type {
   PortfolioAllocationLookThrough,
   PortfolioAllocationSelection,
   PortfolioAllocationView,
+  PortfolioAllocationValuationCoverage,
 } from "../types";
 import type { AllocationExposureMode } from "../portfolio-allocation-drilldown-view-model";
 
@@ -36,12 +38,15 @@ type AllocationResolutionState = {
   sourceKey: string;
   directAllocationViews: PortfolioAllocationView[];
   resolvedAllocationViews: PortfolioAllocationView[];
+  directValuationCoverage: PortfolioAllocationValuationCoverage | null;
+  valuationCoverage: PortfolioAllocationValuationCoverage | null;
   lookThroughRequestedMode: PortfolioLookThroughMode;
   lookThroughEffectiveMode: PortfolioLookThroughMode;
   lookThroughCoverageStatus: AllocationCoverageStatus;
   cachedLookThroughResponse: {
     views: PortfolioAllocationView[];
     lookThrough: PortfolioAllocationLookThrough | null;
+    valuationCoverage: PortfolioAllocationValuationCoverage;
   } | null;
 };
 
@@ -123,7 +128,11 @@ export function usePortfolioAllocationPanelState({
       asOfDate,
       reportingCurrency,
       lookThroughMode: "prefer_look_through",
-    }).then((response) => {
+    }).then(async (response) => {
+      if (cancelled || requestSequence !== coverageRequestSequence.current) return;
+      const directResponse = response && isExpandedLookThroughSupported(response.look_through ?? null)
+        ? await getPortfolioAllocationViews(portfolioId, { asOfDate, reportingCurrency, lookThroughMode: "direct_only" })
+        : null;
       if (cancelled || requestSequence !== coverageRequestSequence.current) {
         return;
       }
@@ -131,6 +140,7 @@ export function usePortfolioAllocationPanelState({
       const nextDirectAllocationViews = resolveDirectAllocationViews(
         allocationViews,
         response,
+        directResponse,
       );
       if (
         currentSelection &&
@@ -144,6 +154,7 @@ export function usePortfolioAllocationPanelState({
             ? current
             : buildInitialAllocationResolutionState(allocationSourceKey, allocationViews),
           response,
+          directResponse,
         ),
       );
     });
@@ -163,11 +174,7 @@ export function usePortfolioAllocationPanelState({
   const activeView = viewsByDimension.get(activeDimension) ?? null;
   const buckets = activeView?.buckets ?? [];
   const activeDimensionLabel = formatAllocationDimensionLabel(activeDimension);
-  const totalWeight =
-    buckets.reduce(
-      (sum, bucket) => sum + Math.max(bucket.weight_pct ?? 0, 0),
-      0,
-    ) || 0;
+  const totalWeight = allocationWeightTotal(buckets);
   const activeHoveredBucket = buckets.some(
     (bucket) => bucket.bucket === hoveredBucket,
   )
@@ -230,6 +237,9 @@ export function usePortfolioAllocationPanelState({
         resolvedAllocationViews: showExpanded
           ? current.cachedLookThroughResponse?.views ?? current.directAllocationViews
           : current.directAllocationViews,
+        valuationCoverage: showExpanded
+          ? current.cachedLookThroughResponse?.valuationCoverage ?? null
+          : current.directValuationCoverage,
         lookThroughRequestedMode: showExpanded
           ? "prefer_look_through"
           : "direct_only",
@@ -251,6 +261,7 @@ export function usePortfolioAllocationPanelState({
         ? {
             ...current,
             resolvedAllocationViews: current.directAllocationViews,
+            valuationCoverage: current.directValuationCoverage,
             lookThroughRequestedMode: "direct_only",
             lookThroughEffectiveMode: "direct_only",
             lookThroughCoverageStatus: "checking",
@@ -263,6 +274,9 @@ export function usePortfolioAllocationPanelState({
       reportingCurrency,
       lookThroughMode: "prefer_look_through",
     });
+    const directResponse = response && isExpandedLookThroughSupported(response.look_through ?? null)
+      ? await getPortfolioAllocationViews(portfolioId, { asOfDate, reportingCurrency, lookThroughMode: "direct_only" })
+      : null;
     if (requestSequence !== coverageRequestSequence.current) {
       return;
     }
@@ -270,6 +284,7 @@ export function usePortfolioAllocationPanelState({
     const nextDirectAllocationViews = resolveDirectAllocationViews(
       activeAllocationState.directAllocationViews,
       response,
+      directResponse,
     );
     if (
       currentSelection &&
@@ -279,7 +294,7 @@ export function usePortfolioAllocationPanelState({
     }
     setAllocationState((current) =>
       current.sourceKey === allocationSourceKey
-        ? applyLookThroughCoverageResponse(current, response)
+        ? applyLookThroughCoverageResponse(current, response, directResponse)
         : current,
     );
   }
@@ -290,6 +305,7 @@ export function usePortfolioAllocationPanelState({
     activeDimensionLabel,
     buckets,
     totalWeight,
+    valuationCoverage: activeAllocationState.valuationCoverage,
     chartType,
     setChartType,
     hoveredBucket: activeHoveredBucket,
@@ -318,6 +334,8 @@ function buildInitialAllocationResolutionState(
     sourceKey,
     directAllocationViews: allocationViews,
     resolvedAllocationViews: allocationViews,
+    directValuationCoverage: null,
+    valuationCoverage: null,
     lookThroughRequestedMode: "direct_only",
     lookThroughEffectiveMode: "direct_only",
     lookThroughCoverageStatus: "checking",
@@ -330,7 +348,9 @@ function applyLookThroughCoverageResponse(
   response: {
     views: PortfolioAllocationView[];
     look_through?: PortfolioAllocationLookThrough | null;
+    valuation_coverage: PortfolioAllocationValuationCoverage;
   } | null,
+  directResponse?: { views: PortfolioAllocationView[]; valuation_coverage: PortfolioAllocationValuationCoverage; look_through?: PortfolioAllocationLookThrough | null } | null,
 ): AllocationResolutionState {
   if (!response) {
     return {
@@ -342,6 +362,8 @@ function applyLookThroughCoverageResponse(
   const supportsExpandedLookThrough = isExpandedLookThroughSupported(
     response.look_through ?? null,
   );
+  const admittedDirect = directResponse?.look_through?.effective_mode === "direct_only" && !directResponse.look_through.applied
+    ? directResponse : null;
   if (!supportsExpandedLookThrough) {
     if (!isDirectLookThroughFallbackConfirmed(response.look_through ?? null)) {
       return {
@@ -357,6 +379,8 @@ function applyLookThroughCoverageResponse(
       ...current,
       directAllocationViews,
       resolvedAllocationViews: directAllocationViews,
+      directValuationCoverage: response.valuation_coverage,
+      valuationCoverage: response.valuation_coverage,
       lookThroughRequestedMode: "direct_only",
       lookThroughEffectiveMode: "direct_only",
       lookThroughCoverageStatus: "unsupported",
@@ -366,10 +390,15 @@ function applyLookThroughCoverageResponse(
 
   return {
     ...current,
+    directAllocationViews: admittedDirect?.views ?? current.directAllocationViews,
+    resolvedAllocationViews: admittedDirect?.views ?? current.directAllocationViews,
+    directValuationCoverage: admittedDirect?.valuation_coverage ?? current.directValuationCoverage,
+    valuationCoverage: admittedDirect?.valuation_coverage ?? current.directValuationCoverage,
     lookThroughCoverageStatus: "available",
     cachedLookThroughResponse: {
       views: response.views,
       lookThrough: response.look_through ?? null,
+      valuationCoverage: response.valuation_coverage,
     },
   };
 }
@@ -380,7 +409,9 @@ function resolveDirectAllocationViews(
     views: PortfolioAllocationView[];
     look_through?: PortfolioAllocationLookThrough | null;
   } | null,
+  directResponse?: { views: PortfolioAllocationView[]; look_through?: PortfolioAllocationLookThrough | null } | null,
 ): PortfolioAllocationView[] {
+  if (directResponse?.look_through?.effective_mode === "direct_only" && !directResponse.look_through.applied) return directResponse.views;
   if (
     !response ||
     !isDirectLookThroughFallbackConfirmed(response.look_through ?? null)

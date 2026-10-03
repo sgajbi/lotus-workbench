@@ -85,9 +85,17 @@ describe("portfolio holdings grid helpers", () => {
       weight_pct: 0.01,
     };
 
-    expect(sumHoldingsMarketValue(rows)).toBe(147000);
+    expect(sumHoldingsMarketValue(rows)).toBeNull();
     expect(countUnpricedHoldings(positions)).toBe(1);
     expect(countUnpricedHoldings([...positions, sourceValuedCashBalance])).toBe(1);
+  });
+
+  it("distinguishes unknown totals from genuine zero and signed value", () => {
+    const rows = buildHoldingsRows(positions, "USD");
+    expect(sumHoldingsMarketValue([rows[1]])).toBeNull();
+    expect(sumHoldingsMarketValue([{ ...rows[0], marketValue: 0 }])).toBe(0);
+    expect(sumHoldingsMarketValue([{ ...rows[0], marketValue: -20 }, { ...rows[0], marketValue: 120 }])).toBe(100);
+    expect(sumHoldingsMarketValue([])).toBe(0);
   });
 
   it("builds holdings export rows from visible column policy", () => {
