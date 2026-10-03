@@ -159,7 +159,7 @@ function ActivityReviewModule({
   asOfDate,
 }: {
   activity: PortfolioActivityReview | null;
-  cashWeightPct: number;
+  cashWeightPct: number | null;
   asOfDate: string;
 }) {
   if (!activity) {

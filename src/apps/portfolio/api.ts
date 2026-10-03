@@ -93,9 +93,9 @@ type PortfolioWorkspaceSummaryResponse = {
   profile: PortfolioWorkspace["profile"];
   summary: {
     assets_under_management_base: number;
-    invested_market_value_base: number;
-    cash_market_value_base: number;
-    cash_weight_pct: number;
+    invested_market_value_base: number | null;
+    cash_market_value_base: number | null;
+    cash_weight_pct: number | null;
     position_count: number;
     cash_balance_count: number;
   };
@@ -113,14 +113,7 @@ type PortfolioWorkspaceSummaryResponse = {
 export type PortfolioBookResponse = {
   as_of_date: string;
   portfolio: PortfolioWorkspace["portfolio"];
-  summary: {
-    assets_under_management_base: number;
-    invested_market_value_base: number;
-    cash_market_value_base: number;
-    cash_weight_pct: number;
-    position_count: number;
-    cash_balance_count: number;
-  };
+  summary: PortfolioWorkspaceSummaryResponse["summary"];
   cash_balances: NonNullable<PortfolioWorkspace["cash_balances"]>;
   allocation_views: NonNullable<PortfolioWorkspace["allocation_views"]>;
   top_positions: PortfolioWorkspace["top_positions"];

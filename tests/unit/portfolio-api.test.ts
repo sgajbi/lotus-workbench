@@ -17,8 +17,49 @@ import {
   resetAnalyticsUiMetricEvents,
 } from "../../src/features/analytics-observability/metrics";
 import { buildPortfolioWorkspace } from "../fixtures/portfolio-workspace-component-fixtures";
+import { getInvestedAssetWeight } from "../../src/apps/portfolio/view-model";
 
 describe("portfolio api", () => {
+  it.each([
+    { label: "qualified incomplete or mixed cash", cash: null, weight: null, invested: null, investedWeight: null },
+    { label: "legacy missing derived fields", cash: undefined, weight: undefined, invested: undefined, investedWeight: null },
+    { label: "complete positive or supplier legacy fallback", cash: 100, weight: 10, invested: 900, investedWeight: 90 },
+    { label: "measured zero cash", cash: 0, weight: 0, invested: 1000, investedWeight: 100 },
+    { label: "no cash positions", cash: 0, weight: 0, invested: 1000, investedWeight: 100 },
+    { label: "negative cash", cash: -100, weight: -10, invested: 1100, investedWeight: 110 },
+  ])("preserves $label through shell and dated book mapping", async ({ label, cash, weight, invested, investedWeight }) => {
+    const fixture = buildPortfolioWorkspace();
+    const summary = {
+      assets_under_management_base: 1000,
+      invested_market_value_base: invested,
+      cash_market_value_base: cash,
+      cash_weight_pct: weight,
+      position_count: 2,
+      cash_balance_count: label === "no cash positions" ? 0 : 1,
+    };
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
+      const url = input.toString();
+      if (url.includes("/workspace")) return jsonResponse({ ...fixture, summary, reporting: fixture.readiness.reporting });
+      if (url.includes("/book")) return jsonResponse({ ...fixture, summary });
+      return portfolioSummaryEvidenceResponse(url) ?? jsonResponse({ actions: [] });
+    }));
+    const shell = await getPortfolioWorkspaceShell(fixture.portfolio.portfolio_id);
+    expect(shell).not.toBeNull();
+    const details = await getPortfolioWorkspaceSummaryDetails(fixture.portfolio.portfolio_id, {
+      asOfDate: fixture.as_of_date, timeWindow: "YTD", reportStartDate: "2026-01-01", reportEndDate: fixture.as_of_date,
+    });
+    expect(details?.summary).toEqual(shell?.summary);
+    const merged = mergePortfolioWorkspace(shell!, details!);
+    expect(merged.summary).toEqual({
+      market_value_base: 1000, invested_market_value_base: invested, total_cash_base: cash,
+      cash_weight_pct: weight, position_count: 2, cash_balance_count: summary.cash_balance_count,
+    });
+    expect(merged.portfolio).toEqual(fixture.portfolio);
+    expect(merged.as_of_date).toBe(fixture.as_of_date);
+    if (investedWeight === null) expect(getInvestedAssetWeight(merged)).toBeNull();
+    else expect(getInvestedAssetWeight(merged)).toBeCloseTo(investedWeight, 10);
+  });
+
   beforeEach(() => {
     vi.stubEnv("LOTUS_ENVIRONMENT", "test");
   });

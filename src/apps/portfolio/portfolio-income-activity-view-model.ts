@@ -64,7 +64,7 @@ export type PortfolioActivityReview = {
 export type PortfolioIncomeActivityReview = {
   income: PortfolioIncomeReview | null;
   activity: PortfolioActivityReview | null;
-  cashWeightPct: number;
+  cashWeightPct: number | null;
   asOfDate: string;
 };
 

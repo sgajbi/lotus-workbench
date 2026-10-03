@@ -198,6 +198,11 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 
 ### Product-specific authority
 
+- Portfolio workspace/book summaries admit Gateway's nullable cash value, cash weight and invested
+  value. Preserve each unavailable field through the existing adapters and shared `N/A` formatters;
+  missing invested evidence cannot become zero invested weight. Independent AUM, counts, identity
+  and dated source evidence remain available. Known zero, negative cash and no-cash summaries retain
+  source values; Workbench does not aggregate cash rows or reproduce Gateway's legacy fallback.
 - DPM wave readiness requires explicit Manage supportability `READY` after case/whitespace
   normalization. `BLOCKED` stays blocked; every other absent, blank, adverse or unfamiliar value
   remains partial even when rows or a selected wave exist, including empty adverse responses.

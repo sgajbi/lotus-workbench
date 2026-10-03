@@ -5,6 +5,7 @@ import {
   buildPortfolioReadinessIndicators,
   filterTransactionsByDrilldown,
   getPositionsNeedingPricing,
+  getInvestedAssetWeight,
   getOrderedWorkflowCues,
   buildInitialPortfolioControls,
   buildPortfolioWorkspaceContext,
@@ -129,6 +130,33 @@ function buildWorkspace(): PortfolioWorkspace {
     partial_failures: [],
   };
 }
+
+describe("cash-derived invested weight", () => {
+  it.each([
+    ["positive cash", 900, 90],
+    ["zero or no cash", 1000, 100],
+    ["negative cash", 1100, 110],
+    ["zero invested", 0, 0],
+    ["unknown cash valuation", null, null],
+    ["omitted invested evidence", undefined, null],
+  ] as const)("preserves %s without substituting unknown invested value", (_label, invested, expected) => {
+    const workspace = buildWorkspace();
+    workspace.summary.market_value_base = 1000;
+    workspace.summary.invested_market_value_base = invested;
+    if (expected === null) expect(getInvestedAssetWeight(workspace)).toBeNull();
+    else expect(getInvestedAssetWeight(workspace)).toBeCloseTo(expected, 10);
+    expect(workspace.summary.market_value_base).toBe(1000);
+    expect(workspace.summary.invested_market_value_base).toBe(invested);
+  });
+
+  it("keeps invested amount independent when the AUM denominator is zero", () => {
+    const workspace = buildWorkspace();
+    workspace.summary.market_value_base = 0;
+    workspace.summary.invested_market_value_base = 100;
+    expect(getInvestedAssetWeight(workspace)).toBeNull();
+    expect(workspace.summary.invested_market_value_base).toBe(100);
+  });
+});
 
 function buildOperationalWorkspace(): PortfolioWorkspace {
   const workspace = buildWorkspace();
