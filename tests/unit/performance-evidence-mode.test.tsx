@@ -1,8 +1,11 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import PerformanceEvidenceMode from "../../src/apps/performance/components/performance-evidence-mode";
+import PerformanceReturnPathSummary from "../../src/apps/performance/components/performance-return-path-summary";
+import { getPerformanceReturnPathPresentation } from "../../src/apps/performance/components/performance-summary-context-helpers";
+import { buildReturnDecisionItems } from "../../src/apps/performance/components/performance-chart-panel-helpers";
 import {
   buildPartialEvidencePerformanceScenario,
   buildSupportedEvidencePerformanceScenario,
@@ -39,6 +42,136 @@ function renderEvidenceMode(
 }
 
 describe("PerformanceEvidenceMode", () => {
+  it("renders calculation-bound partial history and accessible source support details", () => {
+    const scenario = buildSupportedEvidencePerformanceScenario();
+    const source = scenario.workspace.evidence_view!;
+    const calculation = source.calculations[0];
+    scenario.workspace.net_performance.portfolio_return_pct = 5.0;
+    source.source_supportability = [{
+      key: "source_calculation", state: "partial", freshness_bucket: "fresh", source_service: "lotus-performance",
+      calculation_role: calculation.calculation_role, calculation_id: calculation.calculation_id,
+      period_keys: ["1Y"], metric_basis: source.basis,
+      history_coverage: {
+        status: "partial", calculation_basis: "available_window",
+        requested_start_date: "2025-01-10", requested_end_date: "2026-01-09",
+        covered_start_date: "2026-01-05", covered_end_date: "2026-01-09",
+        effective_start_date: "2026-01-05", effective_end_date: "2026-01-09",
+        calendar_basis: "natural_days", missing_required_observation_count: 360,
+        missing_required_observation_dates_sample: ["2025-01-10"], reason_codes: ["leading_history_missing"],
+      },
+    } as NonNullable<typeof source.source_supportability>[number]];
+    renderEvidenceMode(scenario);
+    const presentation = getPerformanceReturnPathPresentation({
+      summary: scenario.workspace.net_performance, capabilities: scenario.capabilities, reportingCurrency: "USD",
+    });
+    render(<PerformanceReturnPathSummary items={buildReturnDecisionItems(presentation, true).summaryItems} />);
+    expect(screen.getByRole("region", { name: "Return decision readout" })).toHaveTextContent("5.00%");
+    const region = screen.getByRole("region", { name: "Performance history" });
+    expect(within(region).getByText("Partial history")).toBeInTheDocument();
+    expect(region).toHaveTextContent("10 Jan 2025 – 09 Jan 2026");
+    expect(region).toHaveTextContent("05 Jan 2026 – 09 Jan 2026");
+    expect(region).toHaveTextContent("Missing observations360");
+    expect(region).toHaveTextContent("Available observations");
+    expect(region).not.toHaveTextContent(calculation.calculation_id);
+    const disclosure = screen.getByText("Technical support details").closest("details")!;
+    expect(disclosure).not.toHaveAttribute("open");
+    expect(within(disclosure).getByText("History reason codes")).toBeInTheDocument();
+    expect(disclosure).toHaveTextContent("leading_history_missing");
+    expect(disclosure).toHaveTextContent("Natural days; venue calendar not attested");
+    expect(disclosure.querySelector("summary")).toBeInTheDocument();
+    fireEvent.click(disclosure.querySelector("summary")!);
+    expect(disclosure).toHaveAttribute("open");
+  });
+
+  it.each([
+    ["complete", "Complete history", "requested_window", 0],
+    ["unknown", "History unknown", "available_window", 360],
+    ["unexpected", "History not confirmed", "available_window", 360],
+  ])("renders %s history independently of completed execution", (status, label, basis, missing) => {
+    const scenario = buildSupportedEvidencePerformanceScenario();
+    const source = scenario.workspace.evidence_view!;
+    source.source_supportability = [{
+      key: "source_calculation", state: "supported", freshness_bucket: "fresh", source_service: "lotus-performance",
+      calculation_role: source.calculations[0].calculation_role, calculation_id: source.calculations[0].calculation_id,
+      metric_basis: source.basis, period_keys: ["1Y"],
+      history_coverage: {
+        status, calculation_basis: basis, requested_start_date: "2025-01-10", requested_end_date: "2026-01-09",
+        covered_start_date: status === "unknown" ? null : "2025-01-10", covered_end_date: status === "unknown" ? null : "2026-01-09",
+        effective_start_date: status === "unknown" ? null : "2025-01-10", effective_end_date: status === "unknown" ? null : "2026-01-09",
+        calendar_basis: "natural_days", missing_required_observation_count: missing,
+        missing_required_observation_dates_sample: [], reason_codes: [],
+      },
+    } as NonNullable<typeof source.source_supportability>[number]];
+    renderEvidenceMode(scenario);
+    expect(within(screen.getByRole("region", { name: "Performance history" })).getByText(label)).toBeInTheDocument();
+    if (status !== "complete") expect(screen.queryByText("Complete history")).not.toBeInTheDocument();
+  });
+
+  it("renders distinct qualification for divergent calculations without sharing dates", () => {
+    const scenario = buildSupportedEvidencePerformanceScenario();
+    const source = scenario.workspace.evidence_view!;
+    source.calculations.push({ ...source.calculations[0], calculation_id: "calc-detail", calculation_role: "workspace_details" });
+    source.source_supportability = source.calculations.map((calculation, index) => ({
+      key: "source_calculation", state: "partial", freshness_bucket: "fresh", source_service: "lotus-performance",
+      calculation_role: calculation.calculation_role, calculation_id: calculation.calculation_id,
+      metric_basis: source.basis, period_keys: ["1Y"],
+      history_coverage: {
+        status: index ? "unknown" : "partial", calculation_basis: "available_window",
+        requested_start_date: "2025-01-10", requested_end_date: "2026-01-09",
+        covered_start_date: index ? null : "2026-01-05", covered_end_date: index ? null : "2026-01-09",
+        effective_start_date: index ? null : "2026-01-05", effective_end_date: index ? null : "2026-01-09",
+        calendar_basis: "natural_days", missing_required_observation_count: 360,
+        missing_required_observation_dates_sample: [], reason_codes: ["leading_history_missing"],
+      },
+    }));
+    renderEvidenceMode(scenario);
+    const items = within(screen.getByRole("region", { name: "Performance history" })).getAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveTextContent("Portfolio performance summary history");
+    expect(items[0]).toHaveTextContent("05 Jan 2026 – 09 Jan 2026");
+    expect(items[1]).toHaveTextContent("Performance analysis detail history");
+    expect(items[1]).toHaveTextContent("History unknown");
+    expect(items[1]).not.toHaveTextContent("05 Jan 2026");
+  });
+
+  it("renders legacy history explicitly without a complete-history badge", () => {
+    const scenario = buildSupportedEvidencePerformanceScenario();
+    scenario.workspace.evidence_view!.source_supportability = [{
+      key: "source_calculation", state: "supported", freshness_bucket: "fresh", source_service: "lotus-performance",
+    }];
+    renderEvidenceMode(scenario);
+    expect(screen.getByText("History not reported")).toBeInTheDocument();
+    expect(screen.queryByText("Complete history")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    { covered_start_date: "2020-01-01", covered_end_date: "2020-01-02", effective_start_date: "2020-01-01", effective_end_date: "2020-01-02" },
+    { reason_codes: ["no_observations_in_requested_window"] },
+  ])("renders contradictory complete history %# as unconfirmed", (contradiction) => {
+    const scenario = buildSupportedEvidencePerformanceScenario();
+    const source = scenario.workspace.evidence_view!;
+    source.source_supportability = [{
+      key: "source_calculation", state: "supported", freshness_bucket: "fresh", source_service: "lotus-performance",
+      calculation_role: source.calculations[0].calculation_role, calculation_id: source.calculations[0].calculation_id,
+      metric_basis: source.basis, period_keys: ["1Y"],
+      history_coverage: {
+        status: "complete", calculation_basis: "requested_window",
+        requested_start_date: "2025-01-10", requested_end_date: "2026-01-09",
+        covered_start_date: "2025-01-10", covered_end_date: "2026-01-09",
+        effective_start_date: "2025-01-10", effective_end_date: "2026-01-09",
+        calendar_basis: "natural_days", missing_required_observation_count: 0,
+        missing_required_observation_dates_sample: [], reason_codes: ["covered_window_matches_requested_window"],
+        ...contradiction,
+      },
+    } as NonNullable<typeof source.source_supportability>[number]];
+    renderEvidenceMode(scenario);
+    const region = screen.getByRole("region", { name: "Performance history" });
+    expect(within(region).getByText("History not confirmed")).toBeInTheDocument();
+    expect(within(region).queryByText("Complete history")).not.toBeInTheDocument();
+    expect(region).not.toHaveTextContent("2020");
+    expect(screen.getByText("Performance history needs qualification")).toBeInTheDocument();
+  });
+
   it("renders business-facing unavailable posture without a technical contract dump", () => {
     const scenario = buildUnavailableEvidencePerformanceScenario();
     renderEvidenceMode(scenario);
