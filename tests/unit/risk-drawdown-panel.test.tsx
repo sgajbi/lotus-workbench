@@ -43,6 +43,32 @@ function buildRiskViewModel({
 }
 
 describe("RiskDrawdownPanel", () => {
+  it.each([
+    { depth: 0, recovered: true, days: 0, relativeRecovered: false, relativeDays: 2, value: "No drawdown", duration: "0" },
+    { depth: -0.05, recovered: false, days: 2, relativeRecovered: true, relativeDays: 0, value: "Open", duration: "2" },
+    { depth: -0.05, recovered: true, days: 2, relativeRecovered: false, relativeDays: 4, value: "Recovered", duration: "2" },
+    { depth: -0.05, recovered: null, days: null, relativeRecovered: true, relativeDays: 0, value: "N/A", duration: "N/A" },
+    { depth: 0, recovered: false, days: 0, relativeRecovered: true, relativeDays: 0, value: "N/A", duration: "0" },
+  ])("renders portfolio recovery $value and duration $duration with matching accessible definitions", (control) => {
+    const scenario = buildSupportedPerformanceScenario();
+    const response = buildFixtureRiskDrawdown(scenario.workspace, "YTD", "NET");
+    Object.assign(response.payload!.periods[0].summary!, { max_drawdown: control.depth, is_recovered: control.recovered, time_under_water_days: control.days });
+    if (control.depth === 0 && control.recovered && control.days === 0) {
+      Object.assign(response.payload!.periods[0].summary!, { max_drawdown_peak_date: null, max_drawdown_trough_date: null, max_drawdown_recovery_date: null, days_to_trough: 0, days_to_recovery: 0 });
+      response.payload!.periods[0].episodes = [];
+    }
+    Object.assign(response.payload!.periods[0].relative_to_benchmark!, { max_drawdown: -0.07, is_recovered: control.relativeRecovered, time_under_water_days: control.relativeDays });
+    const model = buildPerformanceRiskViewModel({ workspace: scenario.workspace, period: "YTD", detailBasis: "NET", riskDrawdown: response });
+    render(<RiskDrawdownPanel viewModel={model} onViewUnderwater={() => {}} />);
+    const headlines = screen.getByLabelText("Risk drawdown headline metrics");
+    const recovery = within(headlines).getByRole("article", { name: `Recovery status: ${control.value}. Whether the portfolio had no drawdown, recovered its worst drawdown, or remained below its peak at period end.` });
+    expect(within(recovery).getByText(control.value)).toBeInTheDocument();
+    const duration = within(headlines).getByRole("article", { name: `Time under water: ${control.duration}. Number of business days the portfolio remained below its prior peak.` });
+    expect(within(duration).getByText(control.duration)).toBeInTheDocument();
+    expect(within(headlines).getByRole("article", { name: /Relative max drawdown: -7.00%/ })).toBeInTheDocument();
+    expect(screen.queryByText(model.drawdownHeadlineMetrics.find((card) => card.key === "recovery_status")!.support)).not.toBeInTheDocument();
+  });
+
   it("prioritizes front-office drawdown interpretation ahead of episode detail", () => {
     const viewModel = buildRiskViewModel();
     const { container } = render(

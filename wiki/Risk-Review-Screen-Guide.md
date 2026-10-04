@@ -96,6 +96,13 @@ mandate-waiver authority, investment advice, order approval, or client-publicati
   evidence. It is never treated as silent agreement.
 - Presents drawdown depth, duration, episodes, benchmark-relative context, and an on-demand
   underwater series only when the source contract supports them.
+- Portfolio recovery and time-under-water cards always use the portfolio summary, including
+  their accessible definitions and supporting explanations. Benchmark-relative max drawdown is
+  separately named and never substitutes for missing portfolio recovery or duration. Source-reported
+  zero drawdown with recovered status, zero underwater duration and no retained portfolio episodes
+  displays **No drawdown**;
+  a recovered loss displays **Recovered**, and an unrecovered loss displays **Open**. Unknown or
+  contradictory recovery evidence displays **N/A** without an invented recovery conclusion.
 - Retains an opening-loss episode whose source-owned opening peak is undated. Its peak and
   unknown duration display **N/A** alongside the actual depth, trough, and source-reported recovery.
   Workbench does not assign a date or zero duration to that opening baseline; real zero durations

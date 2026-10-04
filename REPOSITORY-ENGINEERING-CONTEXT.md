@@ -188,6 +188,11 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
   after success, because doing so would duplicate source reads.
 - A source response is displayable only after schema and identity admission. Missing, malformed,
   partial, stale, unsupported, blocked, and conflicting evidence remain distinct.
+- Portfolio drawdown recovery and time-under-water cards use only the absolute portfolio summary,
+  including their definitions and explanations. Benchmark-relative max drawdown remains separately
+  named; relative evidence never fills missing portfolio timing or recovery. Source-reported zero
+  drawdown with recovered status, zero underwater duration and no retained episodes is shown as no drawdown, distinct
+  from a recovered loss. Unknown or contradictory recovery evidence remains unavailable.
 - Risk drawdown admission permits an explicitly null opening peak from the source-owned
   unit-wealth baseline, while requiring a valid in-window trough and ordered known recovery.
   Missing or malformed peaks remain refused. Episode peak-derived durations stay nullable;
