@@ -214,6 +214,27 @@ export default function PerformanceEvidenceAssuranceWorkspace({
                 </Text>
               </div>
             )}
+            {view.history.length > 0 && (
+              <section className={styles.reviewSection} aria-labelledby="performance-history-heading">
+                <Text variant="panelTitle" as="h5" id="performance-history-heading">
+                  {PERFORMANCE_EVIDENCE_COPY.history.title}
+                </Text>
+                <Text variant="bodySmall">{PERFORMANCE_EVIDENCE_COPY.history.scope}</Text>
+                <div className={styles.calculationList} role="list">
+                  {view.history.map((history) => (
+                    <article key={history.key} className={styles.calculation} role="listitem">
+                      <Text variant="dataLabel" as="h6">{history.title}</Text>
+                      <SemanticBadge tone={history.tone}>{history.status}</SemanticBadge>
+                      <dl className={`${styles.calculationStates} ${styles.recordList}`}>
+                        {history.rows.map((row) => (
+                          <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>
+                        ))}
+                      </dl>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
           </section>
         </div>
 

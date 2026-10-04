@@ -96,6 +96,39 @@ investment suitability, client-publication authority, or supervisory approval.
   focus, and feature-owned responsive CSS with no page-level horizontal overflow at desktop,
   tablet, narrow, or phone widths.
 
+## Source-Owned Performance History
+
+**Performance history** keeps each supplied qualification with its matching calculation reference
+and role. It shows **Complete history**, **Partial history**, **History unknown**, **History not
+reported**, or **History not confirmed** independently of completed execution or fresh inputs.
+The requested window, effective window, calculation window basis and missing observation count
+remain visible. Expand **Technical support details** for covered bounds, source calendar basis,
+missing-date sample, reason codes, calculation reference, result period keys and metric basis.
+
+| Worked source example | What the reviewer sees | Interpretation |
+| --- | --- | --- |
+| Requested 10 Jan 2025–09 Jan 2026; effective/covered 05–09 Jan 2026; partial; available window; 360 missing natural-day observations; published return 5.0% | Partial history, requested and effective windows, Available observations, 360 missing observations; source reasons and reference in support detail | The existing return display retains the source's 5.0%. It is not a return computed from complete one-year observations. Workbench does not estimate the missing observations or recalculate the figure. |
+| Complete business-weekday history requested 03–09 Jan 2026; effective 05–09 Jan; covered 01–12 Jan; zero missing observations | Complete history; all three source windows retain their different bounds; Business weekdays in support detail | Covered observations may extend beyond the request. Weekend boundaries can differ from effective observation dates. Workbench does not derive its own calendar or require the three windows to be identical. |
+| Unknown history with null effective/covered bounds | History unknown and effective window Not reported | Completed execution does not establish complete history or fabricate dates. |
+| Optional absent/legacy history | History not reported | Existing calculation evidence remains reviewable; there is no new historical completeness claim. |
+| Malformed history, unmatched calculation reference/role, or mismatched metric basis | History not confirmed and a qualification review item | The history is not attributed to a different calculation; obtain matching source evidence. |
+| Complete status with effective dates outside the requested window, effective dates outside supplied covered bounds, or a no-observations/gap reason | History not confirmed; no complete-history badge | Effective observations must lie within the requested and covered windows. Explicit zero missing observations cannot override contradictory source reasons. Wider covered bounds and legitimate calendar, exclusion or baseline differences remain permitted. |
+| Two calculations or divergent entries for one calculation | Separate history entries and separate support references | A complete peer cannot hide partial or unknown history. |
+
+History describes the **aggregate calculation window**. Result period keys identify source results;
+they do not certify independent history for every period. Natural days or business weekdays are
+source calendar bases, not venue holiday or bank-calendar attestation. Source figures, missing
+counts, samples and reasons remain source-owned. Workbench performs only bounded validation and
+presentation; it supplies no financial calculation or historical completeness engine.
+Source-coherence checks compare published bounds and reasons only. They do not count required days,
+infer which dates should be observations, or require requested, covered and effective windows to be
+equal. Unknown history can legitimately contain supplied observations wholly outside the request
+when its effective window is null and its reason reports no observations in the requested window.
+
+The worked examples are covered by the owning view-model and rendered component tests. They are
+controlled source-contract examples, not fresh producer or canonical/live consumer certification.
+Joined Gateway-to-Workbench live acceptance requires separately allocated runtime evidence.
+
 ## Decisions And Actions
 
 | User decision or action | Required evidence or gate | Persisted business change |
@@ -117,6 +150,7 @@ trade, or execution action.
 | Evidence capability and package state | Admits only explicit states and fails closed on missing or unfamiliar values | Gateway over Performance authority |
 | Calculation lifecycle, execution mode, stage status, and calculation reason | Maps known values to bounded business status; does not infer completion | Performance evidence projected through Gateway |
 | Lineage, input freshness, upstream snapshots, methodology, coverage, fallback, limitation, and source availability | Prioritises exceptions and keeps raw values in support detail | Performance evidence projected through Gateway |
+| Calculation history, requested/covered/effective windows, missing observations, calendar and calculation basis | Binds each supplied qualification to matching calculation role/id and basis; retains absent, malformed and divergent evidence without recomputing it | Performance history qualification projected through Gateway; aggregate calculation window only |
 | Published evidence record and archive route | Labels and opens the returned Workbench/Gateway route | Gateway evidence or document boundary over the source-published reference |
 | Business status, ordered exception presentation, and disclosure state | Pure presentation derived from the returned package | Workbench over source-owned evidence; not a new assurance authority |
 

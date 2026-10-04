@@ -108,6 +108,25 @@ cross-service boundaries are in [API Surface](wiki/API-Surface.md),
 
 ## Runtime And Integration Boundaries
 
+Performance Evidence consumes optional source-owned `history_coverage` from Gateway summary/detail
+evidence. Each entry remains bound to matching calculation role/id and metric basis; divergent
+entries are not deduplicated or merged. Requested/effective windows, calculation basis and missing
+count appear in the assurance workspace. Covered windows, calendar basis, bounded samples/reasons,
+actual result period keys and raw references remain in its existing support disclosure.
+Partial/unknown history qualifies completed execution; absent legacy history makes no completeness
+claim, and malformed or unmatched evidence is not confirmed. Workbench neither recalculates returns
+nor attests per-period history or venue calendars. Covered observation bounds may extend outside the
+request, and complete business-weekday effective bounds may differ from weekend request boundaries.
+For the source-owned one-year request with five effective January observations, the existing 5.0%
+return stays numeric while 360 missing natural-day observations and available-window basis remain
+explicit. Owning view-model/rendered tests and the evidence screen guide cover these examples;
+controlled fixtures are not joined canonical/live consumer acceptance.
+Bounded source-coherence admission requires effective observations inside the published requested
+and covered bounds, and refuses complete status contradicted by no-observation/gap reasons. Missing
+samples must belong to the requested window and cannot outnumber the published missing count. This
+compares source claims without deriving dates, calendar coverage, counts or financial results;
+wider covered observations and business-weekday/exclusion/baseline differences remain permitted.
+
 ### Gateway and authority
 
 - Product/source reads and commands use the governed Workbench JSON transport through the

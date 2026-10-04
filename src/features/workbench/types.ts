@@ -381,7 +381,37 @@ export type PerformanceCalculationEvidenceView = {
   reason?: string | null;
 };
 
+export type PerformanceHistoryCoverageView = {
+  status: "complete" | "partial" | "unknown";
+  calculation_basis: "requested_window" | "available_window";
+  requested_start_date: string;
+  requested_end_date: string;
+  covered_start_date: string | null;
+  covered_end_date: string | null;
+  effective_start_date: string | null;
+  effective_end_date: string | null;
+  calendar_basis: "natural_days" | "business_weekdays";
+  missing_required_observation_count: number;
+  missing_required_observation_dates_sample: string[];
+  reason_codes: Array<
+    | "covered_window_matches_requested_window"
+    | "no_observations_in_requested_window"
+    | "leading_history_missing"
+    | "interior_history_missing"
+    | "trailing_history_missing"
+    | "venue_calendar_not_attested"
+    | "explicit_ignored_dates_applied"
+    | "beginning_market_value_baseline_applied"
+  >;
+};
+
 export type PerformanceSourceSupportabilityView = {
+  calculation_role?: string | null;
+  calculation_id?: string | null;
+  period_keys?: string[];
+  metric_basis?: string | null;
+  /** Aggregate source calculation window; absent history never implies complete history. */
+  history_coverage?: PerformanceHistoryCoverageView | null;
   key?: string | null;
   operation?: string | null;
   state: string;

@@ -6,6 +6,8 @@ import {
 } from "../../src/apps/performance/evidence/performance-evidence-assurance-view-model";
 import type { PerformanceEvidenceView } from "../../src/features/workbench/types";
 import type { WorkspaceCapability } from "../../src/shell/workspace-capabilities";
+import { getPerformanceReturnPathPresentation } from "../../src/apps/performance/components/performance-summary-context-helpers";
+import { buildSupportedEvidencePerformanceScenario } from "../fixtures/performance-workspace-fixtures";
 
 const supportedCapability: WorkspaceCapability = {
   state: "supported",
@@ -72,6 +74,184 @@ function evidence(overrides: Partial<PerformanceEvidenceView> = {}): Performance
 }
 
 describe("buildPerformanceEvidenceAssuranceViewModel", () => {
+  function historySource(history: unknown, overrides: Record<string, unknown> = {}) {
+    return evidence({ source_supportability: [{
+      key: "source_calculation", state: "supported", freshness_bucket: "fresh",
+      source_service: "lotus-performance", calculation_role: "workspace_summary",
+      calculation_id: "calc-1", period_keys: ["1Y"], metric_basis: "NET",
+      history_coverage: history, ...overrides,
+    } as NonNullable<PerformanceEvidenceView["source_supportability"]>[number]] });
+  }
+  const partialHistory = {
+    status: "partial", calculation_basis: "available_window",
+    requested_start_date: "2025-01-10", requested_end_date: "2026-01-09",
+    covered_start_date: "2026-01-05", covered_end_date: "2026-01-09",
+    effective_start_date: "2026-01-05", effective_end_date: "2026-01-09",
+    calendar_basis: "natural_days", missing_required_observation_count: 360,
+    missing_required_observation_dates_sample: ["2025-01-10"],
+    reason_codes: ["leading_history_missing"],
+  };
+
+  it("presents source-owned available-window history without changing source figures", () => {
+    const payload = buildSupportedEvidencePerformanceScenario();
+    payload.workspace.net_performance.portfolio_return_pct = 5.0;
+    payload.workspace.evidence_view = historySource(partialHistory);
+    const before = JSON.stringify(payload);
+    const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, payload.workspace.evidence_view);
+    expect(view.history).toHaveLength(1);
+    expect(view.history[0]).toMatchObject({
+      title: "Portfolio performance summary history", status: "Partial history", tone: "warn",
+      rows: expect.arrayContaining([
+        { label: "Requested window", value: "10 Jan 2025 – 09 Jan 2026" },
+        { label: "Effective window", value: "05 Jan 2026 – 09 Jan 2026" },
+        { label: "Calculation window", value: "Available observations" },
+        { label: "Missing observations", value: "360" },
+      ]),
+    });
+    expect(view.state).toBe("incomplete");
+    expect(JSON.stringify(payload)).toBe(before);
+    expect(payload.workspace.net_performance.portfolio_return_pct).toBe(5.0);
+    expect(getPerformanceReturnPathPresentation({
+      summary: payload.workspace.net_performance, capabilities: payload.capabilities, reportingCurrency: "USD",
+    }).portfolioReturnValue).toBe("5.00%");
+    expect(view.supportGroups.flatMap(({ rows }) => rows)).toEqual(expect.arrayContaining([
+      { label: "Calculation reference", value: "calc-1" },
+      { label: "Result periods", value: "1Y" },
+      { label: "Covered window", value: "05 Jan 2026 – 09 Jan 2026" },
+      { label: "Observation calendar", value: "Natural days; venue calendar not attested" },
+      { label: "Missing date sample", value: "10 Jan 2025" },
+      { label: "History reason codes", value: "leading_history_missing" },
+    ]));
+  });
+
+  it.each(["leading_history_missing", "interior_history_missing", "trailing_history_missing"])(
+    "retains source gap reason %s without estimating history", (reason) => {
+      const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability,
+        historySource({ ...partialHistory, reason_codes: [reason] }));
+      expect(view.history[0].status).toBe("Partial history");
+      expect(view.supportGroups.flatMap(({ rows }) => rows)).toContainEqual({ label: "History reason codes", value: reason });
+    });
+
+  it("keeps complete and unknown histories distinct from execution completion", () => {
+    const complete = { ...partialHistory, status: "complete", calculation_basis: "requested_window",
+      covered_start_date: "2025-01-10", effective_start_date: "2025-01-10",
+      missing_required_observation_count: 0, missing_required_observation_dates_sample: [],
+      reason_codes: ["covered_window_matches_requested_window"] };
+    const known = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, historySource(complete));
+    expect(known.history[0].status).toBe("Complete history");
+    expect(known.state).toBe("ready");
+    const unknown = buildPerformanceEvidenceAssuranceViewModel(supportedCapability,
+      historySource({ ...partialHistory, status: "unknown", covered_start_date: null, covered_end_date: null,
+        effective_start_date: null, effective_end_date: null }));
+    expect(unknown.history[0].status).toBe("History unknown");
+    expect(unknown.history[0].rows).toContainEqual({ label: "Effective window", value: "Not reported" });
+    expect(unknown.state).toBe("incomplete");
+  });
+
+  it.each([null, undefined])("never turns absent/legacy history %s into completeness", (history) => {
+    const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, historySource(history));
+    expect(view.history[0].status).toBe("History not reported");
+    expect(view.history[0].tone).not.toBe("success");
+  });
+
+  it.each([
+    { covered_start_date: "2020-01-01", covered_end_date: "2020-01-02", effective_start_date: "2020-01-01", effective_end_date: "2020-01-02" },
+    { reason_codes: ["no_observations_in_requested_window"] },
+    { effective_start_date: "2026-01-10", effective_end_date: "2026-01-11" },
+    { covered_start_date: "2026-01-05", covered_end_date: "2026-01-09" },
+    { reason_codes: ["interior_history_missing"] },
+    { reason_codes: ["venue_calendar_not_attested"] },
+  ])("refuses contradictory complete history %# without a complete badge", (contradiction) => {
+    const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, historySource({
+      ...partialHistory, status: "complete", calculation_basis: "requested_window",
+      covered_start_date: "2025-01-10", covered_end_date: "2026-01-09",
+      effective_start_date: "2025-01-10", effective_end_date: "2026-01-09",
+      missing_required_observation_count: 0, missing_required_observation_dates_sample: [],
+      reason_codes: ["covered_window_matches_requested_window"], ...contradiction,
+    }));
+    expect(view.history[0].status).toBe("History not confirmed");
+    expect(view.history[0].tone).toBe("warn");
+    expect(view.history[0].rows).toEqual([]);
+    expect(view.state).not.toBe("ready");
+    expect(view.exceptions).toContainEqual(expect.objectContaining({ key: "performance-history-qualified" }));
+  });
+
+  it("preserves complete business-weekday coverage with wider observations and a weekend request", () => {
+    const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, historySource({
+      ...partialHistory, status: "complete", calculation_basis: "requested_window", calendar_basis: "business_weekdays",
+      requested_start_date: "2026-01-03", requested_end_date: "2026-01-09",
+      covered_start_date: "2026-01-01", covered_end_date: "2026-01-12",
+      effective_start_date: "2026-01-05", effective_end_date: "2026-01-09",
+      missing_required_observation_count: 0, missing_required_observation_dates_sample: [],
+      reason_codes: ["covered_window_matches_requested_window", "explicit_ignored_dates_applied", "beginning_market_value_baseline_applied"],
+    }));
+    expect(view.history[0].status).toBe("Complete history");
+    expect(view.history[0].rows).toContainEqual({ label: "Requested window", value: "03 Jan 2026 – 09 Jan 2026" });
+    expect(view.history[0].rows).toContainEqual({ label: "Effective window", value: "05 Jan 2026 – 09 Jan 2026" });
+    expect(view.supportGroups.flatMap(({ rows }) => rows)).toContainEqual({ label: "Covered window", value: "01 Jan 2026 – 12 Jan 2026" });
+    expect(view.state).toBe("ready");
+  });
+
+  it("retains unknown history with wholly disjoint supplied observations and no effective observations", () => {
+    const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, historySource({
+      ...partialHistory, status: "unknown", covered_start_date: "2020-01-01", covered_end_date: "2020-01-02",
+      effective_start_date: null, effective_end_date: null, missing_required_observation_count: 365,
+      reason_codes: ["no_observations_in_requested_window"],
+    }));
+    expect(view.history[0].status).toBe("History unknown");
+    expect(view.history[0].rows).toContainEqual({ label: "Effective window", value: "Not reported" });
+    expect(view.supportGroups.flatMap(({ rows }) => rows)).toContainEqual({ label: "Covered window", value: "01 Jan 2020 – 02 Jan 2020" });
+    expect(view.state).toBe("incomplete");
+  });
+
+  it.each([
+    {}, { ...partialHistory, status: "COMPLETE" },
+    { ...partialHistory, status: ["complete"] },
+    { ...partialHistory, missing_required_observation_count: -1 },
+    { ...partialHistory, missing_required_observation_count: "360" },
+    { ...partialHistory, requested_start_date: "2025-02-30" },
+    { ...partialHistory, calendar_basis: "bank_attested" },
+    { ...partialHistory, reason_codes: ["invented_reason"] },
+    { ...partialHistory, missing_required_observation_dates_sample: ["bad-date"] },
+    { ...partialHistory, missing_required_observation_dates_sample: ["2020-01-01"] },
+    { ...partialHistory, missing_required_observation_count: 1, missing_required_observation_dates_sample: ["2025-01-10", "2025-01-11"] },
+    { ...partialHistory, status: "complete" },
+  ])("refuses malformed or contradictory history %#", (history) => {
+    const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, historySource(history));
+    expect(view.history[0].status).toBe("History not confirmed");
+    expect(view.state).not.toBe("ready");
+    expect(view.history[0].rows).toEqual([]);
+  });
+
+  it.each([{ calculation_id: "other" }, { calculation_role: "workspace_details" }, { metric_basis: "GROSS" }, { source_service: "other" }])(
+    "does not attach qualification to mismatched identity or basis %j", (identity) => {
+      const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, historySource(partialHistory, identity));
+      expect(view.history[0].status).toBe("History not confirmed");
+      expect(view.history[0].rows).toEqual([]);
+      expect(view.state).not.toBe("ready");
+    });
+
+  it("retains divergent history entries even for the same calculation", () => {
+    const source = historySource(partialHistory);
+    source.source_supportability!.push({ ...source.source_supportability![0],
+      history_coverage: { ...partialHistory, status: "unknown" } } as NonNullable<PerformanceEvidenceView["source_supportability"]>[number]);
+    const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, source);
+    expect(view.history.map(({ status }) => status)).toEqual(["Partial history", "History unknown"]);
+    expect(new Set(view.history.map(({ key }) => key)).size).toBe(2);
+  });
+
+  it("does not bind empty roles or malformed basis even when both sides are unconfirmed", () => {
+    const emptyRole = historySource(partialHistory, { calculation_role: "" });
+    emptyRole.calculations[0].calculation_role = "";
+    const malformedBasis = historySource(partialHistory, { metric_basis: 0 });
+    malformedBasis.basis = "";
+    for (const source of [emptyRole, malformedBasis]) {
+      const view = buildPerformanceEvidenceAssuranceViewModel(supportedCapability, source);
+      expect(view.history[0].status).toBe("History not confirmed");
+      expect(view.history[0].rows).toEqual([]);
+    }
+  });
+
   it("presents evidence-generation instants in disclosed UTC and fails closed without a zone", () => {
     const ready = buildPerformanceEvidenceAssuranceViewModel(
       supportedCapability,
@@ -102,7 +282,7 @@ describe("buildPerformanceEvidenceAssuranceViewModel", () => {
       expect.objectContaining({ label: "Calculation coverage", value: "1 of 1" }),
       expect.objectContaining({ label: "Review items", value: "0" }),
       expect.objectContaining({ label: "Supporting records", value: "1" }),
-    ]);
+  ]);
     expect(view.calculations[0]).toMatchObject({
       title: "Portfolio performance summary",
       calculationStatus: "Confirmed",

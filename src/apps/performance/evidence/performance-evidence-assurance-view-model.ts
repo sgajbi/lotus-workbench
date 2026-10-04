@@ -3,11 +3,12 @@ import {
   PERFORMANCE_EVIDENCE_COPY,
   PERFORMANCE_EVIDENCE_LABELS,
 } from "@/apps/performance/performance-terminology";
-import { formatTimestampValue } from "@/design-system/utils/financial-formatters";
+import { formatBusinessDateValue, formatTimestampValue } from "@/design-system/utils/financial-formatters";
 import type {
   PerformanceCalculationEvidenceView,
   PerformanceEvidenceArtifactView,
   PerformanceEvidenceView,
+  PerformanceHistoryCoverageView,
 } from "@/features/workbench/types";
 import type { WorkspaceCapability } from "@/shell/workspace-capabilities";
 
@@ -68,6 +69,7 @@ export type PerformanceEvidenceAssuranceViewModel = {
   calculations: PerformanceCalculationAssurance[];
   methodologyCount: number;
   supportGroups: PerformanceEvidenceSupportGroup[];
+  history: PerformanceHistoryAssurance[];
 };
 
 const CALCULATION_ROLE_PRESENTATION: Record<string, { title: string; purpose: string }> = {
@@ -124,8 +126,9 @@ export function buildPerformanceEvidenceAssuranceViewModel(
   evidence: PerformanceEvidenceView,
   selection: PerformanceEvidenceSelectionContext
 ): PerformanceEvidenceAssuranceViewModel {
-  const calculations = safeArray(evidence.calculations).map(buildCalculationAssurance);
-  const exceptions = buildExceptions(capability, evidence, selection);
+  const calculations = safeArray(evidence.calculations).map(buildCalculationAssurance),
+    history = buildHistoryAssurance(evidence);
+  const exceptions = withHistoryExceptions(buildExceptions(capability, evidence, selection), history);
   const completeCalculations = calculations.filter(
     (calculation) =>
       calculation.calculationTone === "success" && calculation.evidenceTone === "success"
@@ -176,7 +179,8 @@ export function buildPerformanceEvidenceAssuranceViewModel(
     exceptions,
     calculations,
     methodologyCount: safeStrings(evidence.methodology_references).length,
-    supportGroups: buildSupportGroups(capability, evidence),
+    supportGroups: [...buildSupportGroups(capability, evidence), ...history.map((item) => item.support)],
+    history,
   };
 }
 
@@ -1121,3 +1125,132 @@ function dedupeByKey(items: PerformanceEvidenceException[]) {
 }
 
 export { PERFORMANCE_EVIDENCE_COPY };
+
+type PerformanceHistoryAssurance = {
+  key: string;
+  title: string;
+  status: string;
+  tone: PerformanceEvidenceTone;
+  rows: PerformanceEvidenceSupportGroup["rows"];
+  support: PerformanceEvidenceSupportGroup;
+  needsReview: boolean;
+};
+
+function withHistoryExceptions(exceptions: PerformanceEvidenceException[], history: PerformanceHistoryAssurance[]) {
+  if (!history.some((item) => item.needsReview)) return exceptions;
+  return [...exceptions, {
+    key: "performance-history-qualified",
+    title: PERFORMANCE_EVIDENCE_COPY.history.exception,
+    detail: PERFORMANCE_EVIDENCE_COPY.history.detail,
+    action: PERFORMANCE_EVIDENCE_COPY.history.action,
+    tone: "warn" as const,
+  }];
+}
+
+const HISTORY_REASON_CODES: readonly string[] = [
+  "covered_window_matches_requested_window", "no_observations_in_requested_window",
+  "leading_history_missing", "interior_history_missing", "trailing_history_missing",
+  "venue_calendar_not_attested", "explicit_ignored_dates_applied", "beginning_market_value_baseline_applied",
+];
+
+function isHistoryDate(value: unknown): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    formatBusinessDateValue(value, { nullDisplay: "" }) !== "";
+}
+
+function isHistoryCoverage(value: unknown): value is PerformanceHistoryCoverageView {
+  if (!value || typeof value !== "object") return false;
+  const history = value as Record<string, unknown>;
+  if (typeof history.status !== "string" || !["complete", "partial", "unknown"].includes(history.status) ||
+      typeof history.calculation_basis !== "string" || !["requested_window", "available_window"].includes(history.calculation_basis) ||
+      typeof history.calendar_basis !== "string" || !["natural_days", "business_weekdays"].includes(history.calendar_basis) ||
+      !isHistoryDate(history.requested_start_date) || !isHistoryDate(history.requested_end_date) ||
+      history.requested_start_date > history.requested_end_date ||
+      !Number.isSafeInteger(history.missing_required_observation_count) ||
+      (history.missing_required_observation_count as number) < 0 ||
+      !Array.isArray(history.missing_required_observation_dates_sample) ||
+      history.missing_required_observation_dates_sample.length > 10 ||
+      !history.missing_required_observation_dates_sample.every(isHistoryDate) ||
+      !Array.isArray(history.reason_codes) ||
+      !history.reason_codes.every((code) => typeof code === "string" && HISTORY_REASON_CODES.includes(code))) return false;
+  for (const [start, end] of [[history.covered_start_date, history.covered_end_date],
+    [history.effective_start_date, history.effective_end_date]]) {
+    if (start === null && end === null) continue;
+    if (!isHistoryDate(start) || !isHistoryDate(end) || start > end) return false;
+  }
+  const effectiveStart = history.effective_start_date;
+  const effectiveEnd = history.effective_end_date;
+  const requestedStart = history.requested_start_date;
+  const requestedEnd = history.requested_end_date;
+  // Covered observations may be wider; effective observations belong to both source windows.
+  if (isHistoryDate(effectiveStart) && isHistoryDate(effectiveEnd) &&
+      (effectiveStart < requestedStart || effectiveEnd > requestedEnd ||
+       !isHistoryDate(history.covered_start_date) || !isHistoryDate(history.covered_end_date) ||
+       effectiveStart < history.covered_start_date || effectiveEnd > history.covered_end_date)) return false;
+  if (history.reason_codes.includes("no_observations_in_requested_window") && effectiveStart !== null) return false;
+  if (history.missing_required_observation_dates_sample.length > (history.missing_required_observation_count as number) ||
+      history.missing_required_observation_dates_sample.some((date) =>
+        date < requestedStart || date > requestedEnd)) return false;
+  return history.status !== "complete" ||
+    (history.missing_required_observation_count === 0 &&
+      history.calculation_basis === "requested_window" &&
+      history.missing_required_observation_dates_sample.length === 0 &&
+      !history.reason_codes.some((code) => ["no_observations_in_requested_window", "leading_history_missing",
+        "interior_history_missing", "trailing_history_missing", "venue_calendar_not_attested"].includes(code)) &&
+      history.covered_start_date !== null && history.effective_start_date !== null);
+}
+
+function historyWindow(start: string | null, end: string | null): string {
+  const copy = PERFORMANCE_EVIDENCE_COPY.history;
+  return start && end
+    ? `${formatBusinessDateValue(start)} – ${formatBusinessDateValue(end)}`
+    : copy.notReported;
+}
+
+function buildHistoryAssurance(evidence: PerformanceEvidenceView): PerformanceHistoryAssurance[] {
+  const copy = PERFORMANCE_EVIDENCE_COPY.history;
+  const calculations = safeArray(evidence.calculations);
+  return safeArray(evidence.source_supportability).map((source, index) => {
+    const matches = calculations.filter((calculation) =>
+      typeof source.calculation_id === "string" && source.calculation_id.trim() !== "" &&
+      typeof source.calculation_role === "string" && source.calculation_role.trim() !== "" &&
+      source.calculation_id === calculation.calculation_id && source.calculation_role === calculation.calculation_role);
+    const matched = matches.length === 1 && normalise(source.source_service) === "lotus-performance" &&
+      (source.metric_basis == null || (typeof source.metric_basis === "string" && source.metric_basis.trim() !== "" &&
+        normalise(source.metric_basis) === normalise(evidence.basis))) &&
+      (source.period_keys == null || (Array.isArray(source.period_keys) &&
+        source.period_keys.every((key) => typeof key === "string" && key.trim() !== "")));
+    const title = matched
+      ? copy.titleFor(calculationRolePresentation(matches[0], calculations.indexOf(matches[0])).title)
+      : copy.unmatched;
+    const absent = source.history_coverage == null;
+    const history = matched && isHistoryCoverage(source.history_coverage) ? source.history_coverage : null;
+    const status = absent ? copy.absent : history ? copy.status[history.status] : copy.invalid;
+    const tone: PerformanceEvidenceTone = history?.status === "complete" ? "success" : absent ? "default" : "warn";
+    const rows = history ? [
+      { label: copy.requested, value: historyWindow(history.requested_start_date, history.requested_end_date) },
+      { label: copy.effective, value: historyWindow(history.effective_start_date, history.effective_end_date) },
+      { label: copy.calculationWindow, value: copy.basis[history.calculation_basis] },
+      { label: copy.missing, value: String(history.missing_required_observation_count) },
+    ] : [];
+    return {
+      key: `history-${index}`, title, status, tone, rows,
+      needsReview: !absent && (!history || history.status !== "complete"),
+      support: {
+        key: `history-support-${index}`, title: PERFORMANCE_EVIDENCE_COPY.history.supportTitle,
+        rows: [
+          { label: copy.reference, value: displayValue(source.calculation_id) },
+          { label: copy.role, value: displayValue(source.calculation_role) },
+          { label: copy.periods, value: safeStrings(source.period_keys).join(", ") || copy.notReported },
+          { label: copy.metricBasis, value: displayValue(source.metric_basis) },
+          ...(history ? [
+            { label: copy.covered, value: historyWindow(history.covered_start_date, history.covered_end_date) },
+            { label: copy.observationCalendar, value: copy.calendar[history.calendar_basis] },
+            { label: copy.sample, value: history.missing_required_observation_dates_sample.map((date) => formatBusinessDateValue(date)).join(", ") || copy.notReported },
+            { label: copy.reasons, value: history.reason_codes.join(", ") || copy.notReported },
+          ] : []),
+        ],
+      },
+    };
+  });
+}
