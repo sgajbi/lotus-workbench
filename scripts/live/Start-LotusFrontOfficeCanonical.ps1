@@ -158,17 +158,23 @@ function Test-HttpReady {
 function Get-GitRepositoryIdentity {
   param([string]$RepoPath, [switch]$RequireCleanPrebuiltSource)
 
-  $commitSha = (& git -C $RepoPath rev-parse HEAD).Trim()
-  if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($commitSha)) {
+  $commitOutput = @(& git -C $RepoPath rev-parse HEAD)
+  $commitExitCode = $LASTEXITCODE
+  $commitSha = ($commitOutput -join "`n").Trim()
+  if ($commitExitCode -ne 0 -or [string]::IsNullOrWhiteSpace($commitSha)) {
     throw "Unable to resolve Git commit for $RepoPath."
   }
-  $branch = (& git -C $RepoPath branch --show-current).Trim()
-  if ($LASTEXITCODE -ne 0) {
+  $branchOutput = @(& git -C $RepoPath branch --show-current)
+  $branchExitCode = $LASTEXITCODE
+  $branch = ($branchOutput -join "`n").Trim()
+  if ($branchExitCode -ne 0) {
     throw "Unable to resolve Git branch for $RepoPath."
   }
   if ([string]::IsNullOrWhiteSpace($branch)) {
-    $originMainCommitSha = (& git -C $RepoPath rev-parse refs/remotes/origin/main).Trim()
-    if ($LASTEXITCODE -ne 0 -or $commitSha -ne $originMainCommitSha) {
+    $originMainOutput = @(& git -C $RepoPath rev-parse refs/remotes/origin/main)
+    $originMainExitCode = $LASTEXITCODE
+    $originMainCommitSha = ($originMainOutput -join "`n").Trim()
+    if ($originMainExitCode -ne 0 -or $commitSha -ne $originMainCommitSha) {
       throw "Detached Git checkout for $RepoPath is not exactly at origin/main."
     }
     $branch = "main"
