@@ -3,6 +3,26 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 describe("canonical Core image provenance", () => {
+  it("executes canonical Git identity success and failure controls", () => {
+    const shell = process.platform === "win32" ? "powershell.exe" : "pwsh";
+    const result = spawnSync(
+      shell,
+      [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        join(
+          process.cwd(),
+          "scripts/quality/Test-CanonicalGitRepositoryIdentity.ps1",
+        ),
+      ],
+      { cwd: process.cwd(), encoding: "utf8" },
+    );
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    expect(result.stdout).toContain('"passed":true');
+  }, 30_000);
+
   it("accepts exact metadata and rejects version/OCI mutations in PowerShell", () => {
     const shell = process.platform === "win32" ? "powershell.exe" : "pwsh";
     const result = spawnSync(
