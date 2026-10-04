@@ -1907,16 +1907,10 @@ function mapDrawdownHeadlineMetrics(
     return [];
   }
   const relative = period.relative_to_benchmark;
-  const recoveryStatus =
-    relative?.is_recovered === true
-      ? "Recovered"
-      : relative?.is_recovered === false
-        ? "Open"
-        : summary.is_recovered === true
-          ? "Recovered"
-          : summary.is_recovered === false
-            ? "Open"
-            : "N/A";
+  const recovery = describePortfolioDrawdownRecovery(
+    summary,
+    Array.isArray(period.episodes) && period.episodes.length === 0
+  );
   return [
     {
       key: "max_drawdown",
@@ -1938,7 +1932,7 @@ function mapDrawdownHeadlineMetrics(
     {
       key: "time_under_water_days",
       label: "Time under water",
-      value: formatInteger(relative?.time_under_water_days ?? summary.time_under_water_days),
+      value: formatInteger(summary.time_under_water_days),
       support: describeDrawdownHeadlineMetric("time_under_water_days", response, period),
       definition: "Number of business days the portfolio remained below its prior peak.",
       state: resolveModuleState(response.state),
@@ -1946,9 +1940,10 @@ function mapDrawdownHeadlineMetrics(
     {
       key: "recovery_status",
       label: "Recovery status",
-      value: recoveryStatus,
-      support: describeDrawdownHeadlineMetric("recovery_status", response, period),
-      definition: "Whether the worst drawdown had recovered by the end of the selected window.",
+      value: recovery.value,
+      support: recovery.support,
+      definition:
+        "Whether the portfolio had no drawdown, recovered its worst drawdown, or remained below its peak at period end.",
       state: resolveModuleState(response.state),
     },
   ];
@@ -2286,7 +2281,7 @@ function formatSignedRiskPercentValue(value: number | null | undefined) {
 }
 
 function describeDrawdownHeadlineMetric(
-  key: "max_drawdown" | "relative_max_drawdown" | "time_under_water_days" | "recovery_status",
+  key: "max_drawdown" | "relative_max_drawdown" | "time_under_water_days",
   response: WorkbenchRiskDrawdownResponse,
   period: NonNullable<WorkbenchRiskDrawdownResponse["payload"]>["periods"][number]
 ): string {
@@ -2305,10 +2300,6 @@ function describeDrawdownHeadlineMetric(
             "Benchmark-relative review unavailable.";
     case "time_under_water_days":
       return "Business days the portfolio remained below its prior peak.";
-    case "recovery_status":
-      return summary.is_recovered
-        ? "Worst drawdown recovered before period end."
-        : "Worst drawdown was still open at period end.";
   }
 }
 
@@ -3166,4 +3157,39 @@ function resolveAttributionState({
 
 function isKnownAttributionState(state: unknown): state is WorkbenchRiskAttributionResponse["state"] {
   return state === "ready" || state === "partial" || state === "blocked" || state === "unavailable";
+}
+
+function describePortfolioDrawdownRecovery(
+  summary: WorkbenchRiskDrawdownSummary,
+  hasNoRetainedEpisodes: boolean
+) {
+  if (typeof summary.max_drawdown === "number" && Number.isFinite(summary.max_drawdown)) {
+    if (
+      summary.max_drawdown === 0 &&
+      summary.is_recovered === true &&
+      summary.time_under_water_days === 0 &&
+      hasNoRetainedEpisodes
+    ) {
+      return {
+        value: "No drawdown",
+        support: "No portfolio drawdown was reported over the selected window.",
+      };
+    }
+    if (summary.max_drawdown < 0 && summary.is_recovered === true) {
+      return {
+        value: "Recovered",
+        support: "The worst portfolio drawdown recovered before period end.",
+      };
+    }
+    if (summary.max_drawdown < 0 && summary.is_recovered === false) {
+      return {
+        value: "Open",
+        support: "The worst portfolio drawdown was still open at period end.",
+      };
+    }
+  }
+  return {
+    value: "N/A",
+    support: "Portfolio recovery status is unavailable or inconsistent in the source evidence.",
+  };
 }

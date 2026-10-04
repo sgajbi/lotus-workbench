@@ -12,6 +12,72 @@ import type { WorkbenchRiskAttributionResponse } from "../../src/features/workbe
 import { buildBenchmarkUnassignedPerformanceScenario, buildSupportedPerformanceScenario } from "../fixtures/performance-workspace-fixtures";
 
 describe("buildPerformanceRiskViewModel", () => {
+  it.each([
+    { name: "portfolio zero versus relative open", depth: 0, recovered: true, days: 0, relativeRecovered: false, relativeDays: 2, recovery: "No drawdown", duration: "0" },
+    { name: "portfolio open versus relative recovered", depth: -0.05, recovered: false, days: 2, relativeRecovered: true, relativeDays: 0, recovery: "Open", duration: "2" },
+    { name: "recovered portfolio loss", depth: -0.05, recovered: true, days: 2, relativeRecovered: false, relativeDays: 4, recovery: "Recovered", duration: "2" },
+    { name: "unknown recovery and duration", depth: -0.05, recovered: null, days: null, relativeRecovered: true, relativeDays: 0, recovery: "N/A", duration: "N/A" },
+    { name: "omitted recovery and duration", depth: -0.05, recovered: undefined, days: undefined, relativeRecovered: true, relativeDays: 0, recovery: "N/A", duration: "N/A" },
+    { name: "zero reported open", depth: 0, recovered: false, days: 0, relativeRecovered: true, relativeDays: 0, recovery: "N/A", duration: "0" },
+    { name: "zero with underwater duration", depth: 0, recovered: true, days: 2, relativeRecovered: true, relativeDays: 0, recovery: "N/A", duration: "2" },
+    { name: "unknown drawdown", depth: null, recovered: true, days: 0, relativeRecovered: true, relativeDays: 0, recovery: "N/A", duration: "0" },
+    { name: "positive drawdown", depth: 0.05, recovered: true, days: 2, relativeRecovered: false, relativeDays: 4, recovery: "N/A", duration: "2" },
+  ])("keeps portfolio cards truthful for $name", (control) => {
+    const scenario = buildSupportedPerformanceScenario();
+    const response = buildFixtureRiskDrawdown(scenario.workspace, "YTD", "NET");
+    const period = response.payload!.periods[0];
+    Object.assign(period.summary!, { max_drawdown: control.depth, is_recovered: control.recovered, time_under_water_days: control.days });
+    if (control.depth === 0 && control.recovered && control.days === 0) {
+      Object.assign(period.summary!, { max_drawdown_peak_date: null, max_drawdown_trough_date: null, max_drawdown_recovery_date: null, days_to_trough: 0, days_to_recovery: 0 });
+      period.episodes = [];
+    }
+    Object.assign(period.relative_to_benchmark!, { max_drawdown: -0.07, is_recovered: control.relativeRecovered, time_under_water_days: control.relativeDays });
+    const original = structuredClone(response);
+    const model = buildPerformanceRiskViewModel({ workspace: scenario.workspace, period: "YTD", detailBasis: "NET", riskDrawdown: response });
+    const recovery = model.drawdownHeadlineMetrics.find((card) => card.key === "recovery_status")!;
+    expect(recovery.value).toBe(control.recovery);
+    expect(recovery.definition).toContain("portfolio");
+    expect(recovery.support).toBe(control.recovery === "No drawdown"
+      ? "No portfolio drawdown was reported over the selected window."
+      : control.recovery === "Recovered"
+        ? "The worst portfolio drawdown recovered before period end."
+        : control.recovery === "Open"
+          ? "The worst portfolio drawdown was still open at period end."
+          : "Portfolio recovery status is unavailable or inconsistent in the source evidence.");
+    expect(model.drawdownHeadlineMetrics.find((card) => card.key === "time_under_water_days")!.value).toBe(control.duration);
+    expect(model.drawdownHeadlineMetrics.find((card) => card.key === "relative_max_drawdown")!.value).toBe("-7.00%");
+    expect(response).toEqual(original);
+    expect(model.supportability).toEqual(expect.arrayContaining(response.supportability.map(({ key, label, state, reason }) => ({ key: `drawdown:${key}`, label, state, reason }))));
+  });
+
+  it("keeps portfolio recovery and duration unchanged when the benchmark is absent", () => {
+    const scenario = buildBenchmarkUnassignedPerformanceScenario();
+    const response = buildFixtureRiskDrawdown(scenario.workspace, "YTD", "NET", { includeBenchmarkRelative: false });
+    Object.assign(response.payload!.periods[0].summary!, { max_drawdown: -0.05, is_recovered: false, time_under_water_days: 2 });
+    const model = buildPerformanceRiskViewModel({ workspace: scenario.workspace, period: "YTD", detailBasis: "NET", riskDrawdown: response });
+    expect(model.drawdownHeadlineMetrics.find((card) => card.key === "recovery_status")!.value).toBe("Open");
+    expect(model.drawdownHeadlineMetrics.find((card) => card.key === "time_under_water_days")!.value).toBe("2");
+    expect(model.drawdownHeadlineMetrics.find((card) => card.key === "relative_max_drawdown")).toMatchObject({ value: "N/A", state: "unavailable" });
+  });
+
+  it("does not claim no drawdown when a zero summary contradicts retained portfolio episodes", () => {
+    const scenario = buildSupportedPerformanceScenario();
+    const response = buildFixtureRiskDrawdown(scenario.workspace, "YTD", "NET");
+    Object.assign(response.payload!.periods[0].summary!, {
+      max_drawdown: 0,
+      is_recovered: true,
+      time_under_water_days: 0,
+    });
+    const model = buildPerformanceRiskViewModel({
+      workspace: scenario.workspace,
+      period: "YTD",
+      detailBasis: "NET",
+      riskDrawdown: response,
+    });
+    expect(model.drawdownHeadlineMetrics.find((card) => card.key === "recovery_status"))
+      .toMatchObject({ value: "N/A", support: "Portfolio recovery status is unavailable or inconsistent in the source evidence." });
+  });
+
   it("builds a stateful contract-shaped risk view model with supportability evidence", () => {
     const scenario = buildSupportedPerformanceScenario();
 
