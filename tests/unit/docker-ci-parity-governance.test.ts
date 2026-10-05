@@ -86,7 +86,7 @@ describe("Docker CI parity governance", () => {
       "ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/pwsh",
     );
     expect(runner).toContain(
-      "apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u1",
+      "apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u2",
     );
     expect(runner).not.toContain("apt-get install --no-install-recommends --yes git");
     expect(runner).not.toContain("python3");
