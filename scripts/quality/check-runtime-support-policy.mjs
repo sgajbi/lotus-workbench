@@ -62,7 +62,7 @@ const RUNNER_PACKAGE_MANAGER_REMOVAL = [
   "/opt/yarn-v1.22.22",
 ].join(" ");
 const RUNNER_OS_SECURITY_UPDATE =
-  "apt-get update && apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u1 && rm -rf /var/lib/apt/lists/*";
+  "apt-get update && apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u2 && rm -rf /var/lib/apt/lists/*";
 
 export function validateRuntimeSupportPolicy({
   packageJson,

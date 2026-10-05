@@ -45,7 +45,9 @@ the July fixes. The new official Bookworm slim image uses multi-platform index
 `sha256:43ac6c60b8f89723f746e8a92ce91abd5017e627ce1ddfe4238355d3a30b772c`, from
 docker-node commit `81f419144a1251854c6d9afb09eaa39928e724e8`. An isolated read-only,
 network-disabled qualification ran Node 22.23.3/npm 10.9.9 as UID 1000 and observed
-PCRE2 `10.42-1+deb12u1`; the existing fail-closed PCRE2 upgrade clause remains.
+PCRE2 `10.42-1+deb12u1` in the original base qualification. Issue #1126 refreshes
+the final runner's exact PCRE2 upgrade to `10.42-1+deb12u2` for CVE-2026-103111;
+the immutable base and existing fail-closed upgrade clause remain.
 
 The accountable review owner is `workbench-architecture-maintainers`. Runtime-state ownership and
 manifest/lock/source parity remain enforced by the existing validators. Next 15 is Maintenance

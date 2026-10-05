@@ -879,7 +879,7 @@ describe("runtime support policy", () => {
     );
     const unpinnedPcre2SecurityUpdate = loadEvidence();
     unpinnedPcre2SecurityUpdate.dockerfile = unpinnedPcre2SecurityUpdate.dockerfile.replace(
-      "libpcre2-8-0=10.42-1+deb12u1",
+      "libpcre2-8-0=10.42-1+deb12u2",
       "libpcre2-8-0"
     );
 
@@ -893,6 +893,25 @@ describe("runtime support policy", () => {
       expect.arrayContaining([expect.stringContaining("pinned PCRE2 security update")])
     );
     expect(validateRuntimeSupportPolicy(unpinnedPcre2SecurityUpdate)).toEqual(
+      expect.arrayContaining([expect.stringContaining("pinned PCRE2 security update")])
+    );
+  });
+
+  it("accepts the exact Debian security PCRE2 update", () => {
+    const evidence = loadEvidence();
+    evidence.dockerfile = evidence.dockerfile.replace("libpcre2-8-0=10.42-1+deb12u1", "libpcre2-8-0=10.42-1+deb12u2");
+    expect(validateRuntimeSupportPolicy(evidence)).toEqual([]);
+  });
+
+  it.each([
+    "libpcre2-8-0=10.42-1+deb12u1",
+    "libpcre2-8-0",
+    "",
+  ])("rejects vulnerable, floating or missing PCRE2 updates: %s", (replacement) => {
+    const evidence = loadEvidence();
+    evidence.dockerfile = evidence.dockerfile.replace("libpcre2-8-0=10.42-1+deb12u1", "libpcre2-8-0=10.42-1+deb12u2")
+      .replace("libpcre2-8-0=10.42-1+deb12u2", replacement);
+    expect(validateRuntimeSupportPolicy(evidence)).toEqual(
       expect.arrayContaining([expect.stringContaining("pinned PCRE2 security update")])
     );
   });
