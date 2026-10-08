@@ -916,6 +916,25 @@ describe("runtime support policy", () => {
     );
   });
 
+  it("accepts the exact Debian Perl base security update", () => {
+    const evidence = loadEvidence();
+    expect(evidence.dockerfile).toContain("perl-base=5.36.0-7+deb12u4");
+    expect(validateRuntimeSupportPolicy(evidence)).toEqual([]);
+  });
+
+  it.each([
+    "perl-base=5.36.0-7+deb12u3",
+    "perl-base",
+    "",
+    "perl-base=5.36.0-7+deb12u4 && apt-get upgrade --yes",
+  ])("rejects vulnerable, floating, missing or widened Perl updates: %s", (replacement) => {
+    const evidence = loadEvidence();
+    evidence.dockerfile = evidence.dockerfile.replace("perl-base=5.36.0-7+deb12u4", replacement);
+    expect(validateRuntimeSupportPolicy(evidence)).toEqual(
+      expect.arrayContaining([expect.stringContaining("Perl base security update")])
+    );
+  });
+
   it("requires the governed runner to be the image-producing final stage", () => {
     const evidence = loadEvidence();
     evidence.dockerfile += "\nFROM ci-base AS diagnostic\nUSER root\n";

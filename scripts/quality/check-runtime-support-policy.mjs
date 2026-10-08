@@ -62,7 +62,7 @@ const RUNNER_PACKAGE_MANAGER_REMOVAL = [
   "/opt/yarn-v1.22.22",
 ].join(" ");
 const RUNNER_OS_SECURITY_UPDATE =
-  "apt-get update && apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u2 && rm -rf /var/lib/apt/lists/*";
+  "apt-get update && apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u2 perl-base=5.36.0-7+deb12u4 && rm -rf /var/lib/apt/lists/*";
 
 export function validateRuntimeSupportPolicy({
   packageJson,
@@ -353,7 +353,7 @@ export function validateRuntimeSupportPolicy({
       !normalizedRunnerRunInstructions.includes(RUNNER_PACKAGE_MANAGER_REMOVAL)
     ) {
       failures.push(
-        "The final runner must retain only the exact pinned PCRE2 security update and npm, npx, Corepack, and Yarn toolchain removal RUN instructions."
+        "The final runner must retain only the exact pinned PCRE2 security update and Perl base security update and npm, npx, Corepack, and Yarn toolchain removal RUN instructions."
       );
     }
   }

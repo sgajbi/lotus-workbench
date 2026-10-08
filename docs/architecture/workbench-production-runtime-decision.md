@@ -52,7 +52,11 @@ docker-node commit `81f419144a1251854c6d9afb09eaa39928e724e8`. An isolated read-
 network-disabled qualification ran Node 22.23.3/npm 10.9.9 as UID 1000 and observed
 PCRE2 `10.42-1+deb12u1` in the original base qualification. Issue #1126 refreshes
 the final runner's exact PCRE2 upgrade to `10.42-1+deb12u2` for CVE-2026-103111;
-the immutable base and existing fail-closed upgrade clause remain.
+the immutable base and existing fail-closed upgrade clause remain. Issue
+[#1130](https://github.com/sgajbi/lotus-workbench/issues/1130) adds exact `perl-base`
+`5.36.0-7+deb12u4` to that runner-only clause for the seven fixable HIGH/CRITICAL findings
+recorded by the protected image gate. Debian's
+[DLA-4821-1](https://security-tracker.debian.org/tracker/DLA-4821-1) identifies the security fix.
 
 The accountable review owner is `workbench-architecture-maintainers`. Runtime-state ownership and
 manifest/lock/source parity remain enforced by the existing validators. Next 15 is Maintenance
