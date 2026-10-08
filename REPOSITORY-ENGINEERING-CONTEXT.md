@@ -456,6 +456,12 @@ concise; route detail to its purpose-owned document and execution state to GitHu
 
 ## Canonical Runtime Practice
 
+Canonical startup source-manifest hashing uses a shared PowerShell .NET SHA256 helper, exercised
+on the generated preflight before Docker/seed phases and reused for the post-start raw-byte
+comparison. It rejects unreadable or invalid JSON files without replacing Node's participant
+provenance validator. Supported PowerShell 5/7 tests inject the recorded unavailable-command
+condition; the original command-disappearance trigger remains unproved (#1127).
+
 Canonical `npm run live:*` entrypoints use the Windows-only Node launcher and built-in Windows
 PowerShell; PowerShell 7 remains available for direct script invocation. Start, stop, and the Idea
 capacity producer resolve the workspace from the executing Workbench checkout, with

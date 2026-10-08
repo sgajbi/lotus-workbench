@@ -209,7 +209,13 @@ and after its build. The build receives that checkout's exact commit, branch, UT
 time, source URL and image version; startup verifies the running query service's `/version` values
 against the built image's OCI labels before any seed. Missing or mismatched image identity refuses
 the run rather than treating a clean source checkout as proof of the image. Startup then regenerates
-source provenance after startup and fails if it changed.
+source provenance after startup and fails if it changed. The shared PowerShell manifest helper
+reads literal file bytes, checks JSON syntax and hashes those same bytes using .NET SHA256; the
+Node provenance validator remains the sole participant/admission authority. Startup exercises the
+helper on the generated preflight before Docker or seeding, then compares both raw-byte digests
+after startup. Missing, unreadable, empty or corrupt files fail before validation. This avoids a
+late ambient `Get-FileHash` function lookup in either supported shell. The original #1127 failure
+recorded an unavailable command; successful import controls did not establish why it disappeared.
 The live validator also binds Lotus Idea's `/version` commit and branch to that manifest before it
 records mainline-source certification posture. Source manifests are written to a per-run Local
 AppData directory outside every checked source worktree, so the second preflight cannot reject its

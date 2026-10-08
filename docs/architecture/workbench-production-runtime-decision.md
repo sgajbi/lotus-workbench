@@ -23,7 +23,7 @@ runtime, a minimal immutable production container, and a Gateway-first product b
 1. Node `22.23.3` and its bundled npm `10.9.9` are the exact CI and container build toolchain.
 2. Developers may use the governed Node 22/npm 10 compatibility range; protected CI proves the
    exact release used to produce deployable evidence.
-3. Next.js `15.5.25` remains temporarily accepted while it is in Maintenance LTS. Its support
+3. Next.js `15.5.27` remains temporarily accepted while it is in Maintenance LTS. Its support
    posture must be reviewed by 2026-10-14. Its two-year upstream maintenance boundary is
    2026-10-21; a major upgrade requires its own compatibility evidence under #624.
 4. React `19.1.0` and TypeScript `5.9.3` remain exact-version application foundations.
@@ -36,6 +36,11 @@ runtime, a minimal immutable production container, and a Gateway-first product b
    assistive-technology matrix.
 
 ## Why this stack is retained
+
+Issue [#1128](https://github.com/sgajbi/lotus-workbench/issues/1128) applies compatible security
+patches: Next `15.5.27`, sharp `0.35.5`, postcss-selector-parser `7.1.6`, and
+source-map-js `1.2.2`. The source-map override fixes both the PostCSS and coverage-tool paths.
+The maintained Next ESLint fork retains its independent upstream `15.5.25` provenance.
 
 The 2026-10-03 review checked the primary [Node release schedule](https://nodejs.org/en/about/previous-releases),
 [July security release](https://nodejs.org/en/blog/vulnerability/july-2026-security-releases),

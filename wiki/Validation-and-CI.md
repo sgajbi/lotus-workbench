@@ -392,7 +392,12 @@ CODEOWNERS when a second accepted reviewer exists.
   before Docker, seeding, or screenshots when any canonical participant is dirty or not exactly at
   `origin/main`. Certification startup forces image builds and container recreation, compares
   preflight and post-start source manifests, and binds Lotus Idea runtime `/version` provenance
-  before recording the mainline-source posture. Its manifests are written to a per-run Local
+  before recording the mainline-source posture. The shared PowerShell hash helper exercises
+  literal-file JSON/read/SHA256 prerequisites before costly mutation and compares exact bytes
+  after startup without ambient `Get-FileHash` discovery. Missing/unreadable/corrupt files refuse
+  validation; Node retains source-participant admission. The missing-command regression is an
+  injected representation of #1127's observed condition, not a module-reload diagnosis.
+  Its manifests are written to a per-run Local
   AppData directory outside checked source worktrees, so generated evidence cannot make the source
   preflight appear dirty. Standard and `-LocalApps` runtime runs remain branch-local development evidence.
   When the shared Workbench checkout is owned by another agent, platform automation may pass an

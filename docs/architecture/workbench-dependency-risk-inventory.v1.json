@@ -528,7 +528,7 @@
     },
     {
       "name": "next",
-      "version": "15.5.25",
+      "version": "15.5.27",
       "technologyState": "approved_default",
       "purpose": "Provides the governed application framework, server rendering, routing, BFF endpoints, and standalone runtime packaging.",
       "ownershipBoundary": "Workbench owns product routes and BFF policy; Next.js owns framework execution, rendering, and packaging behavior.",
@@ -542,7 +542,7 @@
       },
       "license": {
         "spdx": "MIT",
-        "evidenceUrl": "https://www.npmjs.com/package/next/v/15.5.25"
+        "evidenceUrl": "https://www.npmjs.com/package/next/v/15.5.27"
       },
       "stewardship": {
         "steward": "Vercel Next.js maintainers",
