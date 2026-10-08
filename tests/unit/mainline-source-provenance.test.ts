@@ -1,4 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
+
+describe("canonical startup manifest hashing", () => {
+  const shells = process.platform === "win32" ? ["powershell.exe", "pwsh"] : ["pwsh"];
+  it.each(shells)("executes the actual late gate and hashing controls in %s", (shell) => {
+    const result = spawnSync(shell, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+      "scripts/quality/Test-CanonicalSourceManifestHash.ps1"], { cwd: process.cwd(), encoding: "utf8" });
+    expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+    const controls = JSON.parse(result.stdout) as { name: string; passed: boolean }[];
+    expect(controls.length).toBeGreaterThanOrEqual(11);
+    expect(controls.every((control) => control.passed)).toBe(true);
+  }, 30_000);
+});
 
 import { CANONICAL_REPOSITORIES, bindMainlineSourceManifestToRuntime, buildMainlineSourceManifest, canonicalRepositoryPath, evaluateRepository, repositoryOriginMatchesName, validateMainlineSourceManifest } from "../../scripts/live/validation/mainline-source-provenance.mjs";
 

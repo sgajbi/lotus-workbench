@@ -16,7 +16,7 @@ evidence deterministic. This is not a claim that a bank has approved the stack.
 | --- | --- | --- |
 | Build and server runtime | Node `22.23.3` Maintenance LTS | Exact declarations and isolated official-image qualification; protected release proof required |
 | Package manager | npm `10.9.9`, bundled with the governed Node release | Exact declaration; npm 10 compatibility range for developers |
-| Application framework | Next.js `15.5.25` Maintenance LTS | Review by 2026-10-14; upstream maintenance boundary 2026-10-21; #624 compatibility tranche open |
+| Application framework | Next.js `15.5.27` Maintenance LTS | Review by 2026-10-14; upstream maintenance boundary 2026-10-21; #624 compatibility tranche open |
 | UI foundation | React `19.1.0` and TypeScript `5.9.3` | Exact manifest and policy reconciliation |
 | Production container | Official Debian Bookworm slim Node image | Immutable digest, standalone output, non-root runtime |
 | Browser automation | Playwright `1.58.2`, Chromium project | Protected smoke evidence; wider browser certification open |
@@ -50,6 +50,11 @@ security-old Node 22.23.1 baseline is not an accepted production rollback.
 from the inherited Next ESLint dependency chain through the maintained tool below. The changed
 installed graph must pass full audit; image scan/SBOM, protected main and wiki publication remain
 required. No review-date extension, supported major line or fixture test waives those controls.
+
+Issue [#1128](https://github.com/sgajbi/lotus-workbench/issues/1128) pins compatible security
+patches for Next `15.5.27`, sharp `0.35.5`, postcss-selector-parser `7.1.6`, and
+source-map-js `1.2.2`. The source-map override covers both PostCSS and coverage tooling.
+The maintained Next ESLint fork keeps its independent upstream `15.5.25` provenance.
 
 ## Governed Typography Delivery
 

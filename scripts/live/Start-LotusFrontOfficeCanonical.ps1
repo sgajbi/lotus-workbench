@@ -96,6 +96,24 @@ if ($RequireMainlineSources) {
   }
 }
 
+function Get-CanonicalSourceManifestHash {
+  param([Parameter(Mandatory)][string]$Path)
+  try { $bytes = [IO.File]::ReadAllBytes($Path) }
+  catch { throw "Cannot read canonical mainline source manifest '$Path'. Validation was not started." }
+  try {
+    $text = [Text.UTF8Encoding]::new($false, $true).GetString($bytes)
+    if ([string]::IsNullOrWhiteSpace($text) -or -not $text.TrimStart().StartsWith('{')) { throw 'Expected JSON object.' }
+    $null = $text | ConvertFrom-Json -ErrorAction Stop
+  } catch { throw "Invalid canonical mainline source manifest '$Path'. Validation was not started." }
+  $hasher = $null
+  try {
+    # Avoid late PowerShell function discovery; hash exactly the bytes parsed above.
+    $hasher = [Security.Cryptography.SHA256]::Create()
+    return ([BitConverter]::ToString($hasher.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
+  } catch { throw "Cannot hash canonical mainline source manifest '$Path' with SHA256. Validation was not started." }
+  finally { if ($null -ne $hasher) { $hasher.Dispose() } }
+}
+
 function Invoke-MainlineSourceProvenancePreflight {
   $mainlineProvenanceRunId = [guid]::NewGuid().ToString("N")
   $mainlineProvenanceRoot = Join-Path `
@@ -109,6 +127,8 @@ function Invoke-MainlineSourceProvenancePreflight {
   if ($LASTEXITCODE -ne 0) {
     throw "Canonical mainline source provenance preflight failed. No Docker build, seed, or validation was started."
   }
+  # Exercise the same read/parse/hash prerequisite before any costly Docker or seed phase.
+  $null = Get-CanonicalSourceManifestHash -Path $preflightPath
 
   return [ordered]@{
     EvidenceRoot = $mainlineProvenanceRoot
@@ -1185,8 +1205,8 @@ if ($RequireMainlineSources) {
   if ($LASTEXITCODE -ne 0) {
     throw "Canonical mainline source provenance changed during Docker startup. Validation was not started."
   }
-  $preflightHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $mainlineSourcePreflightPath).Hash
-  $runtimeHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $mainlineSourceRuntimePath).Hash
+  $preflightHash = Get-CanonicalSourceManifestHash -Path $mainlineSourcePreflightPath
+  $runtimeHash = Get-CanonicalSourceManifestHash -Path $mainlineSourceRuntimePath
   if ($preflightHash -ne $runtimeHash) {
     throw "Canonical mainline sources changed during Docker startup. Validation was not started."
   }

@@ -30,7 +30,7 @@
   },
   "applicationStack": {
     "next": {
-      "version": "15.5.25",
+      "version": "15.5.27",
       "supportStatus": "maintenance-lts",
       "evidence": "https://nextjs.org/support-policy"
     },
