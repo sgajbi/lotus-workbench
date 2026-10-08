@@ -40,7 +40,7 @@ ENV WORKBENCH_DEPLOYMENT_ID=${WORKBENCH_DEPLOYMENT_ID}
 ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 RUN apt-get update \
-    && apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u2 \
+    && apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u2 perl-base=5.36.0-7+deb12u4 \
     && rm -rf /var/lib/apt/lists/*
 COPY --chown=node:node --from=builder /app/.next-build/standalone ./
 COPY --chown=node:node --from=builder /app/.next-build/static ./.next-build/static

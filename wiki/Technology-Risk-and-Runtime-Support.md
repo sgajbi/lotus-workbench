@@ -56,6 +56,12 @@ patches for Next `15.5.27`, sharp `0.35.5`, postcss-selector-parser `7.1.6`, and
 source-map-js `1.2.2`. The source-map override covers both PostCSS and coverage tooling.
 The maintained Next ESLint fork keeps its independent upstream `15.5.25` provenance.
 
+Issue [#1130](https://github.com/sgajbi/lotus-workbench/issues/1130) upgrades the runner's exact
+`perl-base` package to `5.36.0-7+deb12u4` for the protected image gate's seven fixable
+HIGH/CRITICAL findings. The existing fail-closed runner clause keeps the exact PCRE2 pin
+and immutable base; it admits these two package upgrades rather than a broad OS upgrade.
+Debian's [DLA-4821-1](https://security-tracker.debian.org/tracker/DLA-4821-1) records the Perl fix.
+
 ## Governed Typography Delivery
 
 Workbench does not contact a public font service at runtime. The browser receives the governed

@@ -19,7 +19,7 @@ function localToolPathClosed(source: string): boolean {
 }
 
 function readRepositoryFile(...segments: string[]): string {
-  return readFileSync(resolve(process.cwd(), ...segments), "utf8");
+  return readFileSync(resolve(process.cwd(), ...segments), "utf8").replaceAll("\r\n", "\n");
 }
 
 interface ComposeWorkflowJob {
@@ -86,7 +86,7 @@ describe("Docker CI parity governance", () => {
       "ln -s /opt/microsoft/powershell/7/pwsh /usr/local/bin/pwsh",
     );
     expect(runner).toContain(
-      "apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u2",
+      "apt-get install --no-install-recommends --only-upgrade --yes libpcre2-8-0=10.42-1+deb12u2 perl-base=5.36.0-7+deb12u4",
     );
     expect(runner).not.toContain("apt-get install --no-install-recommends --yes git");
     expect(runner).not.toContain("python3");
