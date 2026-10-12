@@ -25,7 +25,7 @@ function Assert-CanonicalRunningIdeaIdentity {
   $source = @($Manifest.repositories | Where-Object { $_.repository -ceq 'lotus-idea' })
   if ($Manifest.schemaVersion -cne 'lotus.canonical-front-office.mainline-source-provenance.v1' -or
       $Manifest.passed -isnot [bool] -or $Manifest.passed -cne $true -or $source.Count -ne 1 -or
-      $source[0].passed -cne $true -or $source[0].branch -cne 'main' -or
+      $source[0].passed -cne $true -or ($null -ne $source[0].branch -and $source[0].branch -cne 'main') -or
       $source[0].headSha -cnotmatch '\A[0-9a-f]{40}\z' -or
       $source[0].headSha -cne $source[0].expectedMainSha) {
     throw 'Running validation requires current mainline Idea source evidence.'
