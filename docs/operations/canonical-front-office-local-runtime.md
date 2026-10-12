@@ -523,16 +523,18 @@ checked-out Docker-backed service sources rather than a previously built Gateway
 or Workbench image.
 
 One runner has two explicit proof profiles. `full` is the default and fails if its Idea integration
-artifact is absent. Run `full` through the one-command startup-and-validation entry point so its
-per-run trusted caller marker remains scoped in memory across browser validation and the final
-probe. For a bounded diagnostic recheck, use standalone `client-demo`; it still validates Idea's
+artifact is absent. Use the one-command startup-and-validation entry for a fresh stack, or the
+running-stack entry below for an already admitted current-source runtime. Both scope their local
+Idea capacity capability in process memory across browser validation and the final probe.
+For a bounded diagnostic recheck, use standalone `client-demo`; it still validates Idea's
 actual candidate and visible Workbench journey, but it is not demo-ready evidence:
 
 ```powershell
 npm run live:validate:client-demo
 ```
 
-Reacquire and run `npm run live:stack:up:validate` before demo or release claims.
+Complete the full profile through the supported fresh-stack or running-stack entry before demo or
+release claims. A passing fixture or admission receipt alone is not runtime acceptance.
 
 ## One-command teardown
 
@@ -550,6 +552,55 @@ That script:
 
 ## Canonical validation
 
+### Full validation of a retained running stack
+
+Working directory: the selected canonical `lotus-workbench` checkout. On Windows, set
+`LOTUS_WORKSPACE_ROOT` to the directory containing the sibling checkouts and
+`LOTUS_CANONICAL_RUNTIME_HOLDER` to the explicitly acquired, unexpired holder, then run:
+
+```powershell
+npm run live:validate:running
+```
+
+The equivalent direct entry supports Windows PowerShell 5 and PowerShell 7:
+
+```powershell
+pwsh -NoProfile -File scripts/live/Validate-LotusFrontOfficeRunning.ps1 -ProjectsRoot $env:LOTUS_WORKSPACE_ROOT -RuntimeHolder $env:LOTUS_CANONICAL_RUNTIME_HOLDER
+```
+
+This entry does not start, rebuild, restart or reseed services. It holds one Platform operation
+fence, fetches and checks the complete clean mainline source vector, validates retained v4 Idea
+candidate seed evidence, and binds Idea's exact admitted API container/checkout/port, immutable
+image revision/branch/build/run labels and direct `/version` to that source and seed. Idea's
+readiness must explicitly report `local` or `test` and `processLocalRepositoryAllowed=true`;
+`demo`, `staging`, `production` and incomplete or degraded posture refuse. The generated local
+capability is admission to the existing capacity producer, not an Idea authentication credential.
+It is replaced only for the synchronous full-validator invocation and restored or removed in
+`finally`; no Docker environment or credential is inspected or persisted.
+
+The unchanged full validator still runs Idea readiness, retained candidate/queue/detail proof,
+the complete API/calculation/browser/panel journey and Idea's presentation-backed capacity proof.
+It may perform the existing browser workflow and bounded downstream submission; this is not a
+read-only product probe. A previously accepted submission follows Idea's retained-resource path.
+The entry repeats source/seed/image/run and reservation checks afterward. Browser artifacts remain
+diagnostic until those checks and Platform outcome publication succeed. Unique
+`running-validation-*/running-stack-validation.json` receipts retain the source manifest and seed
+paths/digests plus safe image/run identity, preserving older runs. Refused preflight evidence and
+failed diagnostic browser directories must be retained; they do not establish readiness.
+
+Reservation admission remains authoritative. A targeted refresh must first be permitted by the
+Platform-owned reservation and service-refresh workflow. The current reservation implementation
+pins exact sources and refuses later checkout revisions; this Workbench entry cannot renew or
+replace that authority. The separately owned Platform #901 source-handover transition is required
+before a retained stack can adopt a changed source vector without teardown. Never edit the book,
+inject a marker, reuse a stale mainline manifest or label an old image as the new checkout.
+
+`-CanonicalEvidenceDirectory`, `-IdeaCandidateSeedEvidencePath` and `-ScreenshotDirectory` select
+existing seed evidence and output destinations; generated output must remain ignored or outside
+guarded checkouts. Missing, malformed, foreign-portfolio or prior-run seed evidence refuses.
+
+### Bounded diagnostic validation
+
 To validate an already-running canonical stack in the `client-demo` profile:
 
 ```powershell
@@ -557,8 +608,9 @@ npm run live:validate:client-demo
 ```
 
 The standalone command is suitable for `client-demo`, which does not invoke the downstream probe.
-For the default `full` profile, use `npm run live:stack:up:validate`; its trusted caller marker is
-intentionally ephemeral and is not written to disk for a later command.
+Direct `live:validate` still refuses full validation without the startup capability. Use the
+supported `live:validate:running` preflight for a retained local/test stack or
+`live:stack:up:validate` for fresh startup; neither writes its capability to disk for later use.
 
 To write demo screenshots to a temporary directory outside the repository from Windows
 PowerShell:
