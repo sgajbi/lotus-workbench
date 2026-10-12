@@ -350,6 +350,7 @@ the documented sibling-checkout layout without relying on the scripts' personal 
 | Scale regression                          | `npm run scale:proof` then `npm run scale:proof:down`                                                                                            |
 | Canonical stack (Windows PowerShell)      | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Start-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot`              |
 | Canonical full validation (Windows PowerShell) | `npm run live:stack:up:validate`                                                                                                                 |
+| Retained-stack full validation (Windows PowerShell) | `npm run live:validate:running`                                                                                                              |
 | Canonical teardown (Windows PowerShell)   | `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/live/Stop-LotusFrontOfficeCanonical.ps1 -ProjectsRoot $workspaceRoot`               |
 
 Use the narrowest focused test during development, then run repository-native gates proportionate
@@ -495,6 +496,20 @@ downstream-capacity probe only after the real browser journey has created a curr
 presentation-backed conversion intent. Its explicit `client-demo` profile records exclusion of
 only that probe; it never relaxes Idea readiness, current-run candidate/queue, API, browser, panel,
 or teardown proof. Platform's QA wrapper owns forwarding of the selected profile.
+
+`npm run live:validate:running` invokes the unchanged full validator against an already running
+local/test canonical stack without build, restart or reseed. Its one original Platform operation
+fence covers fresh complete mainline source proof, retained v4 seed validation and exact admitted
+Idea container/checkout/8330, immutable OCI source/build/run identity, direct version and explicit
+local/test caller-authority readiness. Only then does it scope a fresh local admission capability
+to the nested validator, restoring absence/value even on failure. It never reads Docker environment
+or claims protected-profile authentication. Source, seed and runtime identity are checked afterward;
+browser evidence stays diagnostic until checks and operation publication pass. Unique receipts
+retain safe provenance and seed/source digests. The native fixture in
+`scripts/quality/Test-CanonicalRunningValidation.ps1` exercises success and refusal in PowerShell 5/7.
+The existing reservation still pins the acquired source vector: changed-source targeted refreshes
+require the separately owned Platform #901 handover transition. Workbench cannot silently replace
+reservation authority, relax source/image gates or promote fixture evidence to live acceptance.
 
 Canonical image scheduling defaults to serial. Full Docker-backed builds may explicitly select
 `-BuildConcurrency 2`; only independent image construction overlaps in process-isolated children.

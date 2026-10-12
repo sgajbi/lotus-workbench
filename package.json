@@ -99,6 +99,7 @@
     "live:stack:up:workbench-local": "node scripts/live/run-canonical-powershell.mjs scripts/live/Start-LotusFrontOfficeCanonical.ps1 -LocalApps workbench",
     "live:stack:up:validate": "node scripts/live/run-canonical-powershell.mjs scripts/live/Start-LotusFrontOfficeCanonical.ps1 -RunValidation -BuildImages",
     "live:validate": "node scripts/live/run-canonical-powershell.mjs scripts/live/Validate-LotusFrontOfficeCanonical.ps1",
+    "live:validate:running": "node scripts/live/run-canonical-powershell.mjs scripts/live/Validate-LotusFrontOfficeRunning.ps1",
     "live:validate:client-demo": "node scripts/live/run-canonical-powershell.mjs scripts/live/Validate-LotusFrontOfficeCanonical.ps1 -ValidationProfile client-demo",
     "live:validate:construction": "playwright test tests/live/construction-alternatives.live.spec.ts --config playwright.live.config.ts",
     "live:validate:ui": "node scripts/live/validate-canonical-workbench-live.mjs",

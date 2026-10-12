@@ -12,6 +12,7 @@ replace source-service recovery procedures or turn diagnostic screenshots into r
 | Data appears partial or stale | Inspect Gateway source-supportability and owning-service posture | Correlation-safe API evidence and source freshness state |
 | Metrics or dashboards missing | Check Workbench metrics, Prometheus targets, and Grafana health | Same-run evidence pack with target and query results |
 | Demo preparation | Validate `PB_SG_GLOBAL_BAL_001` before capture | Passing validation and same-run screenshots/manifest |
+| Revalidate a retained canonical stack | Run `npm run live:validate:running` under the admitted current-source reservation; see the [running-stack flow](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md#full-validation-of-a-retained-running-stack) | Full API/calculation/browser/Idea proof and source/image/run/retained-seed receipt; local/test only, no startup/rebuild/reseed |
 | Slow canonical bring-up | Compare unique `runtime-phases-*.json` and `build-plan-*.json` receipts using the [bounded-build runbook](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md#bounded-image-construction-and-timing) | Separate build/start, Core materialization, DPM/Idea seed and validation; default remains serial until full measured comparison |
 | Build fails after some canonical containers start | Keep the failed receipt and inspect the active reservation; retry only under the same unchanged source/holder or use governed teardown before a new lease | Repeat preflight must admit exact owned containers and reject foreign project/checkout labels; a partial stack is not demo-ready |
 | Core `/version` or OCI revision says `unknown` after a canonical rebuild | Inspect the [exact-source Core build and image check](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md#canonical-local-prerequisites) and rerun under the same governed reservation after source repair | A clean Git checkout alone does not qualify the built image; the launcher fails before seeding on metadata mismatch |
@@ -55,6 +56,19 @@ npm run live:stack:up:validate
 npm run live:evidence
 npm run live:stack:down
 ```
+
+For an already running stack, `npm run live:validate:running` performs the same full validation
+under one original operation fence, using retained current-run seed evidence and a fresh transient
+local admission capability. It qualifies the admitted Idea container and immutable image against
+current mainline source/run identity before invoking the unchanged validator, then rechecks drift
+before publishing browser evidence. Protected Idea runtime profiles refuse. No Docker environment
+or credential is read or persisted. This remains the full existing product workflow, including
+browser mutations and bounded Idea submission; it is not a read-only probe.
+
+The reservation must already admit the current exact source vector and resources. Changed-source
+targeted refresh needs the separately owned Platform #901 source-handover transition; the Workbench
+entry cannot renew authority or make a stale image current. Keep failed diagnostic evidence and
+unique `running-validation-*` receipts. Fixture passes alone do not establish canonical readiness.
 
 The normal teardown preserves source databases. Invoke the shipped PowerShell teardown entry point
 directly with `-RemoveVolumes -KeepReservation` only when a clean canonical fixture is intentional,
