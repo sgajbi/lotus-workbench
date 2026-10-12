@@ -172,6 +172,7 @@ function Invoke-RunningCase {
 }
 try {
   Invoke-RunningCase 'valid-local'
+  Invoke-RunningCase 'valid-detached-source' -Mutate { $global:runningManifest.repositories[0].branch = $null }
   Invoke-RunningCase 'valid-test' -PriorContext -Mutate { $global:runningReadiness.runtimeProfile = 'test' }
   Invoke-RunningCase 'wrong-holder' 'reservation refused' -Holder 'foreign-owner'
   Invoke-RunningCase 'expired-reservation' 'reservation refused'
@@ -180,6 +181,7 @@ try {
   Invoke-RunningCase 'malformed-source' 'Invalid|JSON'
   Invoke-RunningCase 'reservation-source' 'source differs' -Mutate { $global:runningScope.sources.'lotus-idea' = 'e' * 40 }
   Invoke-RunningCase 'dirty-source' 'current mainline' -Mutate { $global:runningManifest.passed = $false }
+  Invoke-RunningCase 'non-main-source' 'current mainline' -Mutate { $global:runningManifest.repositories[0].branch = 'feature/foreign' }
   Invoke-RunningCase 'wrong-image-source' 'provenance mismatch' -Mutate { $global:runningImage.labels.'org.opencontainers.image.revision' = 'e' * 40 }
   Invoke-RunningCase 'wrong-image-id' 'provenance mismatch' -Mutate { $global:runningImage.id = 'sha256:' + ('e' * 64) }
   Invoke-RunningCase 'wrong-runtime-source' 'provenance mismatch' -Mutate { $global:runningVersion.build.gitCommitSha = 'e' * 40 }
