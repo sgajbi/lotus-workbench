@@ -76,6 +76,24 @@ function Assert-CanonicalRunningIdeaIdentity {
   }
 }
 
+function ConvertFrom-CanonicalMetadataRecords {
+  param([AllowEmptyCollection()][object[]]$Lines, [int]$Count, [string]$Kind)
+  try {
+    if ($Lines.Count -ne $Count -or @($Lines | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -ne 0) {
+      throw 'Unexpected metadata record count.'
+    }
+    # A property wrapper preserves scalar types, nulls and nested arrays on both
+    # shells. Decode records independently; one line cannot supply two fields.
+    $records = New-Object object[] $Count
+    for ($index = 0; $index -lt $Count; $index++) {
+      $record = ConvertFrom-Json -InputObject ('{"value":' + $Lines[$index] + '}') -ErrorAction Stop
+      if (@($record.PSObject.Properties).Count -ne 1) { throw 'Unexpected metadata fields.' }
+      $records[$index] = $record.value
+    }
+    return ,$records
+  } catch { throw "Running validation received malformed Idea $Kind metadata." }
+}
+
 function Read-CanonicalRunningIdeaIdentity {
   param(
     [Parameter(Mandatory)]$Manifest,
@@ -88,14 +106,34 @@ function Read-CanonicalRunningIdeaIdentity {
   if ($LASTEXITCODE -ne 0 -or $ids.Count -ne 1 -or $ids[0] -cnotmatch '\A[0-9a-f]{64}\z') {
     throw 'Running validation cannot resolve one canonical Idea API container.'
   }
-  $containerFormat = '{"id":{{json .Id}},"image":{{json .Image}},"running":{{json .State.Running}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"checkout":{{json (index .Config.Labels "com.docker.compose.project.working_dir")}},"ports":{{json .NetworkSettings.Ports}}}'
-  $containerJson = & docker inspect --format $containerFormat $ids[0] 2>$null
+  # Go raw-string label keys avoid double quotes stripped by Windows PowerShell 5.
+  # JSON strings escape embedded newlines, so each selected value is one record.
+  $containerFormat = '{{json .Id}}{{println}}{{json .Image}}{{println}}{{json .State.Running}}{{println}}{{json (index .Config.Labels `com.docker.compose.project`)}}{{println}}{{json (index .Config.Labels `com.docker.compose.service`)}}{{println}}{{json (index .Config.Labels `com.docker.compose.project.working_dir`)}}{{println}}{{json .NetworkSettings.Ports}}'
+  $containerLines = @(& docker inspect --format $containerFormat $ids[0] 2>$null)
   if ($LASTEXITCODE -ne 0) { throw 'Running validation cannot inspect Idea container metadata.' }
-  try { $container = $containerJson | ConvertFrom-Json -ErrorAction Stop }
+  try {
+    $fields = ConvertFrom-CanonicalMetadataRecords -Lines $containerLines -Count 7 -Kind 'container'
+    if ($fields[0] -isnot [string] -or $fields[1] -isnot [string] -or $fields[2] -isnot [bool] -or
+        $fields[3] -isnot [string] -or $fields[4] -isnot [string] -or $fields[5] -isnot [string] -or
+        $null -eq $fields[6] -or $fields[6].GetType() -ne [System.Management.Automation.PSCustomObject]) { throw 'Invalid container field types.' }
+    $container = [pscustomobject]@{
+      id = $fields[0]; image = $fields[1]; running = $fields[2]
+      project = $fields[3]; service = $fields[4]; checkout = $fields[5]; ports = $fields[6]
+    }
+  }
   catch { throw 'Running validation received malformed Idea container metadata.' }
-  $imageJson = & docker image inspect --format '{"id":{{json .Id}},"labels":{{json .Config.Labels}}}' $container.image 2>$null
+  $imageLines = @(& docker image inspect --format '{{json .Id}}{{println}}{{json .Config.Labels}}' $container.image 2>$null)
   if ($LASTEXITCODE -ne 0) { throw 'Running validation cannot inspect immutable Idea image metadata.' }
-  try { $image = $imageJson | ConvertFrom-Json -ErrorAction Stop }
+  try {
+    $fields = ConvertFrom-CanonicalMetadataRecords -Lines $imageLines -Count 2 -Kind 'image'
+    if ($fields[0] -isnot [string] -or $null -eq $fields[1] -or
+        $fields[1].GetType() -ne [System.Management.Automation.PSCustomObject]) { throw 'Invalid image field types.' }
+    foreach ($label in @('org.opencontainers.image.revision', 'io.lotus.image.git.branch',
+        'org.opencontainers.image.source', 'io.lotus.image.ci.run_id', 'io.lotus.image.build.id')) {
+      if ($fields[1].$label -isnot [string]) { throw 'Invalid image label types.' }
+    }
+    $image = [pscustomobject]@{ id = $fields[0]; labels = $fields[1] }
+  }
   catch { throw 'Running validation received malformed Idea image metadata.' }
   $version = Invoke-RestMethod -Uri 'http://127.0.0.1:8330/version' -TimeoutSec 30
   $readiness = Invoke-RestMethod -Uri 'http://127.0.0.1:8330/health/ready' -TimeoutSec 30
