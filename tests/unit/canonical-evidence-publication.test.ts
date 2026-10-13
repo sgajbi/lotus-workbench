@@ -38,6 +38,14 @@ afterEach(() => {
 });
 
 describe("canonical evidence publication", () => {
+  for (const shell of process.platform === "win32" ? ["powershell.exe", "pwsh"] : ["pwsh"]) {
+    it(`publishes nested evidence at deep paths without losing diagnostics in ${shell}`, () => {
+      const result = spawnSync(shell, ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+        join(process.cwd(), "scripts/quality/Test-CanonicalEvidencePublication.ps1")], { encoding: "utf8" });
+      expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+      expect(result.stdout).toContain('"passed":true');
+    }, 30_000);
+  }
   it("keeps prior and pending full-profile evidence diagnostic until publication", () => {
     const root = mkdtempSync(join(tmpdir(), "lotus-evidence-publication-"));
     roots.push(root);
@@ -58,9 +66,9 @@ describe("canonical evidence publication", () => {
     );
     const staged = publication.staged as string;
     expect(publication.publishedAbsentBeforePublication).toBe(true);
-    expect(staged).toContain("diagnostic-live-canonical-pending-");
+    expect(staged).toContain("diagnostic-pending-");
     const superseded = readdirSync(root).find((name) =>
-      name.startsWith("diagnostic-live-canonical-superseded-"),
+      name.startsWith("diagnostic-superseded-"),
     );
     expect(superseded).toBeDefined();
     expect(
@@ -106,7 +114,7 @@ describe("canonical evidence publication", () => {
         `New-CanonicalEvidencePublicationWorkspace -PublishedDirectory '${published}' -Diagnostic`,
     );
 
-    expect(diagnostic).toContain("diagnostic-live-canonical-client-demo-");
+    expect(diagnostic).toContain("diagnostic-client-demo-");
     expect(
       readFileSync(join(published, "live-validation-summary.json"), "utf8"),
     ).toBe("certified");

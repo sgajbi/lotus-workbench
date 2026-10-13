@@ -80,7 +80,7 @@ export function assertFullValidationOutputBoundary({
 }) {
   if (validationProfile !== "full") return;
   const leaf = path.basename(outputDir);
-  if (!/^diagnostic-.+-pending-[a-f0-9]{32}$/.test(leaf)) {
+  if (!/^diagnostic-pending-[a-f0-9]{32}$/.test(leaf)) {
     throw new Error(
       "Full browser validation may write only to the governed diagnostic staging directory; " +
         "canonical publication requires the post-browser capacity probe.",

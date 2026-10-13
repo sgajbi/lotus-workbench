@@ -1423,9 +1423,9 @@ describe("canonical live validation script", () => {
       ),
       "utf8",
     );
-    expect(publicationModule).toContain("diagnostic-$leaf-pending-");
-    expect(publicationModule).toContain("diagnostic-$leaf-superseded-");
-    expect(publicationModule).toContain("diagnostic-$leaf-client-demo-");
+    expect(publicationModule).toContain("diagnostic-$kind-");
+    expect(publicationModule).toContain("diagnostic-superseded-");
+    expect(publicationModule).toContain("$kind = if ($Diagnostic) { 'client-demo' } else { 'pending' }");
     expect(publicationModule).toContain(
       "Canonical browser evidence destination was recreated before full-profile publication",
     );
