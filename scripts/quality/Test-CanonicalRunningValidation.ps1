@@ -7,6 +7,9 @@ $live = Join-Path $workbench 'scripts/live'
 $platform = Join-Path $fixtureRoot 'lotus-platform/automation'
 $evidence = Join-Path $fixtureRoot 'evidence'
 $idea = Join-Path $fixtureRoot 'lotus-idea'
+$global:runningNativeNode = @(Get-Command node -CommandType Application)[0].Source
+$global:runningNativeFixture = Join-Path $PSScriptRoot 'canonical-running-native-fixture.mjs'
+$global:runningNativeState = Join-Path $fixtureRoot 'native-state.json'
 foreach ($path in @($live, $platform, $evidence, $idea)) { New-Item -ItemType Directory -Path $path -Force | Out-Null }
 foreach ($name in @('Validate-LotusFrontOfficeRunning.ps1', 'CanonicalRunningValidation.psm1', 'CanonicalWorkspace.psm1', 'CanonicalIdeaEvidence.psm1', 'CanonicalPortOwnership.psm1', 'CanonicalEvidencePublication.psm1')) {
   Copy-Item -LiteralPath (Join-Path $repoRoot "scripts/live/$name") -Destination $live
@@ -81,17 +84,12 @@ function global:node {
 }
 function global:docker {
   $global:runningDockerCalls++
-  $command = $args -join ' '
-  if ($command -match 'Config.Env' -or $args[0] -cnotin @('ps', 'inspect', 'image')) { throw 'forbidden Docker operation' }
-  $global:LASTEXITCODE = 0
-  if ($args[0] -ceq 'ps') { return $global:runningContainer.id }
-  if ($args[0] -ceq 'inspect') {
-    if ($global:runningCase -eq 'docker-native-failure') { $global:LASTEXITCODE = 7; return }
-    if ($global:runningCase -eq 'malformed-container') { return '{' }
-    return $global:runningContainer | ConvertTo-Json -Depth 10 -Compress
-  }
-  if ($args[0] -ceq 'image' -and $args[1] -ceq 'inspect') { return $global:runningImage | ConvertTo-Json -Depth 10 -Compress }
-  throw 'unexpected Docker command'
+  @{ name = $global:runningCase; container = $global:runningContainer; image = $global:runningImage } |
+    ConvertTo-Json -Depth 10 -Compress | Set-Content -LiteralPath $global:runningNativeState -Encoding UTF8
+  # A real native executable receives the exact format argument. A function-only
+  # mock cannot detect Windows PowerShell 5 stripping its embedded quotes.
+  & $global:runningNativeNode $global:runningNativeFixture $global:runningNativeState @args
+  $global:LASTEXITCODE = $LASTEXITCODE
 }
 function global:Invoke-RestMethod {
   param($Uri, $TimeoutSec)
@@ -171,6 +169,19 @@ function Invoke-RunningCase {
   $cases.Add($Name)
 }
 try {
+  $legacyFormats = @(
+    '{"id":{{json .Id}},"image":{{json .Image}},"running":{{json .State.Running}},"project":{{json (index .Config.Labels "com.docker.compose.project")}},"service":{{json (index .Config.Labels "com.docker.compose.service")}},"checkout":{{json (index .Config.Labels "com.docker.compose.project.working_dir")}},"ports":{{json .NetworkSettings.Ports}}}',
+    '{"id":{{json .Id}},"labels":{{json .Config.Labels}}}'
+  )
+  $legacyIntact = $true
+  foreach ($legacyFormat in $legacyFormats) {
+    $received = & $global:runningNativeNode $global:runningNativeFixture echo-format $legacyFormat
+    if ($LASTEXITCODE -ne 0) { throw 'Native argument probe failed.' }
+    $decoded = ConvertFrom-Json -InputObject ('{"args":' + $received + '}')
+    $intact = [bool]($decoded.args.Count -eq 1 -and $decoded.args[0] -ceq $legacyFormat)
+    if ($PSVersionTable.PSVersion.Major -eq 5 -and $intact) { throw 'Expected legacy Windows native quote corruption was not reproduced.' }
+    $legacyIntact = $legacyIntact -and $intact
+  }
   Invoke-RunningCase 'valid-local'
   Invoke-RunningCase 'valid-detached-source' -Mutate { $global:runningManifest.repositories[0].branch = $null }
   Invoke-RunningCase 'valid-test' -PriorContext -Mutate { $global:runningReadiness.runtimeProfile = 'test' }
@@ -197,7 +208,16 @@ try {
   Invoke-RunningCase 'unadmitted-container' 'exact admitted' -Mutate { $global:runningBindings[0].id = 'e' * 64 }
   Invoke-RunningCase 'stopped-container' 'exact admitted' -Mutate { $global:runningContainer.running = $false }
   Invoke-RunningCase 'docker-native-failure' 'cannot inspect Idea'
-  Invoke-RunningCase 'malformed-container' 'malformed Idea'
+  foreach ($kind in @('container', 'image')) {
+    Invoke-RunningCase "native-failure-$kind" 'cannot inspect'
+    foreach ($fault in @('malformed', 'invalid-json', 'truncated', 'extra', 'blank', 'wrong-type', 'wrong-labels')) {
+      Invoke-RunningCase "$fault-$kind" 'malformed Idea'
+    }
+  }
+  Invoke-RunningCase 'wrong-running-type' 'malformed Idea' -Mutate { $global:runningContainer.running = 'true' }
+  Invoke-RunningCase 'wrong-ports-type' 'malformed Idea' -Mutate { $global:runningContainer.ports = @() }
+  Invoke-RunningCase 'wrong-project-type' 'malformed Idea' -Mutate { $global:runningContainer.project = @('lotus-idea') }
+  Invoke-RunningCase 'wrong-revision-type' 'malformed Idea' -Mutate { $global:runningImage.labels.'org.opencontainers.image.revision' = @($global:runningSha) }
   foreach ($profile in @('demo', 'staging', 'production')) {
     Invoke-RunningCase "protected-$profile" 'protected profiles are unsupported' -Mutate { $global:runningReadiness.runtimeProfile = $profile }
   }
@@ -217,7 +237,7 @@ try {
       throw 'Capability or environment data entered persisted evidence.'
     }
   }
-  @{ contract = 'canonical-running-stack-validation'; passed = $true; cases = @($cases); runtimeAcceptance = $false } | ConvertTo-Json -Depth 4 -Compress
+  @{ contract = 'canonical-running-stack-validation'; passed = $true; cases = @($cases); nativeBoundary = $true; legacyFormatIntact = $legacyIntact; runtimeAcceptance = $false } | ConvertTo-Json -Depth 4 -Compress
 } finally {
   if ($null -eq $originalContext) { [Environment]::SetEnvironmentVariable($contextName, [NullString]::Value, 'Process') }
   else { [Environment]::SetEnvironmentVariable($contextName, $originalContext, 'Process') }

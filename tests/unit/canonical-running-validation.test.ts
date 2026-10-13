@@ -13,6 +13,10 @@ describe("canonical running-stack full validation", () => {
       expect(result.stdout).toContain('"contract":"canonical-running-stack-validation"');
       expect(result.stdout).toContain('"passed":true');
       expect(result.stdout).toContain('"runtimeAcceptance":false');
+      expect(result.stdout).toContain('"nativeBoundary":true');
+      if (shell === "powershell.exe") {
+        expect(result.stdout).toContain('"legacyFormatIntact":false');
+      }
     }, 60_000);
   }
 

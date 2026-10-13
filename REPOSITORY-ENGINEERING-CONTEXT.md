@@ -511,6 +511,12 @@ The existing reservation still pins the acquired source vector: changed-source t
 require the separately owned Platform #901 handover transition. Workbench cannot silently replace
 reservation authority, relax source/image gates or promote fixture evidence to live acceptance.
 
+Docker metadata formats passed through native executables must preserve argument boundaries in
+Windows PowerShell 5 and PowerShell 7. Running validation selects newline-separated JSON values
+without literal template quotes, checks exact record counts and types, then projects identity.
+Its regression passes formats through a real native executable; a PowerShell function mock alone
+cannot detect native quote stripping. Selected labels and ports are metadata, never `Config.Env`.
+
 Canonical image scheduling defaults to serial. Full Docker-backed builds may explicitly select
 `-BuildConcurrency 2`; only independent image construction overlaps in process-isolated children.
 The original parent operation fence and repeated source/lease admission cover all children, which
