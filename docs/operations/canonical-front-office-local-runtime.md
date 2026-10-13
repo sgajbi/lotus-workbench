@@ -696,10 +696,18 @@ stable file name, absolute path, route, panel identifier, portfolio ID, benchmar
 and demo readiness state. The validator also writes `SHOT-INDEX.md` in the screenshot directory so
 demo reviewers can quickly identify the captured product surfaces.
 
-For `full`, browser artifacts remain under a `diagnostic-*-pending-*` directory until the Idea
+For `full`, browser artifacts remain under a `diagnostic-pending-<id>` directory until the Idea
 downstream integration proof succeeds. Any earlier published directory is preserved with a
-`diagnostic-*-superseded-*` name. Only the completed same-run pack is moved to the requested
+`diagnostic-superseded-<id>` name. Only the completed same-run pack is moved to the requested
 canonical directory, so a failed probe cannot leave demo-ready filenames behind.
+
+Generated diagnostic names have a fixed size even when running-stack validation stages the full
+validator's destination a second time. Client-demo paths use `diagnostic-client-demo-<id>`.
+Windows PowerShell 5 and 7 share a conservative supported path boundary: directory paths must
+fit within 247 characters and files within 259. Before retaining or publishing an existing tree,
+the publisher checks its descendant paths at the destination. A path-limit refusal leaves prior
+evidence in place; select a shorter absolute `-ScreenshotDirectory` and retain the diagnostic
+evidence. This does not change reservation, source, identity or validation requirements.
 
 The machine-readable summary also records `workflowPackChecks` for the advisor-brief live path and
 RFC-0023 proposal narrative proof. Advisor-brief checks prove initial workflow-pack run visibility

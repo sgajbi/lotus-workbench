@@ -517,6 +517,13 @@ without literal template quotes, checks exact record counts and types, then proj
 Its regression passes formats through a real native executable; a PowerShell function mock alone
 cannot detect native quote stripping. Selected labels and ports are metadata, never `Config.Env`.
 
+Evidence publication uses fixed-size diagnostic names so running-wrapper and nested-validator
+staging cannot recursively grow destination leaves. Native PowerShell 5/7 regressions exercise
+deep nested publication, retained prior evidence, and path refusals before directory moves.
+Windows directory/file limits are checked consistently across both shells; operator guidance is
+in the canonical runtime runbook. Publication uses a directory rename that refuses an existing
+destination instead of nesting evidence inside it.
+
 Canonical image scheduling defaults to serial. Full Docker-backed builds may explicitly select
 `-BuildConcurrency 2`; only independent image construction overlaps in process-isolated children.
 The original parent operation fence and repeated source/lease admission cover all children, which

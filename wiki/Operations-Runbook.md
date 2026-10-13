@@ -24,6 +24,10 @@ replace source-service recovery procedures or turn diagnostic screenshots into r
 - use `workbench.dev.lotus` and `gateway.dev.lotus` for canonical product proof
 - use seeded portfolio `PB_SG_GLOBAL_BAL_001` unless the slice explicitly targets another dataset
 - keep diagnostic screenshots separate from final demo evidence
+- If evidence publication refuses a Windows path limit, retain the prior evidence and choose a
+  shorter absolute `-ScreenshotDirectory`. Generated pending, superseded and client-demo names
+  stay bounded across nested validation. See the [canonical evidence path contract](https://github.com/sgajbi/lotus-workbench/blob/main/docs/operations/canonical-front-office-local-runtime.md)
+  for supported path lengths; validation and reservation requirements still apply.
 - validate the canonical stack before treating screenshots as review-ready
 - treat capability-disabled shell entries as contract truth, not as something to work around in
   demo documentation

@@ -1,9 +1,11 @@
+import { spawnSync } from "node:child_process";
 import {
   mkdtempSync,
   mkdirSync,
   readFileSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -131,11 +133,11 @@ describe("live validation contract modules", () => {
     const tempDir = mkdtempSync(join(tmpdir(), "lotus-full-staging-"));
     const stagingDir = join(
       tempDir,
-      "diagnostic-live-canonical-pending-0123456789abcdef0123456789abcdef",
+      "diagnostic-pending-0123456789abcdef0123456789abcdef",
     );
     const linkedDir = join(
       tempDir,
-      "diagnostic-live-canonical-pending-fedcba9876543210fedcba9876543210",
+      "diagnostic-pending-fedcba9876543210fedcba9876543210",
     );
     const linkTarget = join(tempDir, "published-target");
     try {
@@ -159,10 +161,14 @@ describe("live validation contract modules", () => {
           validationProfile: "full",
           outputDir: join(
             tempDir,
-            "diagnostic-live-canonical-pending-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "diagnostic-pending-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
           ),
         }),
       ).toThrow("orchestration-created staging directory");
+      const filePath = join(tempDir, "diagnostic-pending-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+      writeFileSync(filePath, "not a directory");
+      expect(() => assertFullValidationOutputBoundary({ validationProfile: "full", outputDir: filePath }))
+        .toThrow("refuses linked or non-directory");
     } finally {
       rmSync(tempDir, { recursive: true, force: true });
     }
@@ -178,6 +184,50 @@ describe("live validation contract modules", () => {
       }),
     ).not.toThrow();
   });
+
+  it.each([
+    "live-canonical",
+    "diagnostic-live-canonical-pending-0123456789abcdef0123456789abcdef",
+    "diagnostic-superseded-0123456789abcdef0123456789abcdef",
+    "diagnostic-client-demo-0123456789abcdef0123456789abcdef",
+    "diagnostic-pending-0123456789abcdef0123456789abcde",
+    "diagnostic-pending-0123456789abcdef0123456789abcdef0",
+    "diagnostic-pending-0123456789abcdef0123456789abcdeg",
+    "diagnostic-pending-0123456789ABCDEF0123456789ABCDEF",
+    "foreign-diagnostic-pending-0123456789abcdef0123456789abcdef",
+    "diagnostic-pending-0123456789abcdef0123456789abcdef-extra",
+  ])("refuses unrelated existing full-output directory %s", (leaf) => {
+    const tempDir = mkdtempSync(join(tmpdir(), "lotus-staging-refusal-"));
+    try {
+      const outputDir = join(tempDir, leaf);
+      mkdirSync(outputDir);
+      expect(() => assertFullValidationOutputBoundary({ validationProfile: "full", outputDir }))
+        .toThrow("governed diagnostic staging directory");
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  for (const shell of process.platform === "win32" ? ["powershell.exe", "pwsh"] : ["pwsh"]) {
+    it(`admits the actual nested PowerShell publication workspace in ${shell}`, () => {
+      const tempDir = mkdtempSync(join(tmpdir(), "lotus-staging-consumer-"));
+      const quote = (value: string) => `'${value.replaceAll("'", "''")}'`;
+      try {
+        const modulePath = join(process.cwd(), "scripts/live/CanonicalEvidencePublication.psm1");
+        const published = join(tempDir, "nested", "live-canonical");
+        const result = spawnSync(shell, ["-NoProfile", "-NonInteractive", "-Command",
+          `$ErrorActionPreference = 'Stop'; Import-Module ${quote(modulePath)} -Force; ` +
+          `$outer = New-CanonicalEvidencePublicationWorkspace -PublishedDirectory ${quote(published)} -Stage; ` +
+          `$inner = New-CanonicalEvidencePublicationWorkspace -PublishedDirectory $outer -Stage; ` +
+          `@{ outputDir = $inner } | ConvertTo-Json -Compress`], { encoding: "utf8" });
+        expect(result.status, `${result.stdout}\n${result.stderr}`).toBe(0);
+        const { outputDir } = JSON.parse(result.stdout);
+        expect(() => assertFullValidationOutputBoundary({ validationProfile: "full", outputDir })).not.toThrow();
+      } finally {
+        rmSync(tempDir, { recursive: true, force: true });
+      }
+    }, 30_000);
+  }
 
   it("builds governed summary evidence with registry metadata and writable artifacts", async () => {
     const tempDir = mkdtempSync(join(tmpdir(), "lotus-validation-"));
