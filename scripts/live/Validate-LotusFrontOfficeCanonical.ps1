@@ -80,6 +80,7 @@ $canonicalCallerContextHeaders = @{
   "X-Actor-Id" = "workbench-system"
   "X-Tenant-Id" = "tenant-sg"
   "X-Region" = "APAC"
+  "X-Role" = "PORTFOLIO_MANAGER"
 }
 function Test-CanonicalHost {
   param(
