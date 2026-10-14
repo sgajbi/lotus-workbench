@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import compositeCatalogue from "../fixtures/report-ordering-catalogue-composite.v1.json";
+import compositeProvenance from "../fixtures/report-ordering-catalogue-composite.v1.provenance.json";
 
 import {
   parseReportBatchHandle,
@@ -10,11 +14,128 @@ import {
 import {
   buildReportBatchHandle,
   buildReportBatchStatus,
+  buildCompositeReportOrderingResponse,
   buildReportJobListResponse,
   buildReportOrderingResponse,
 } from "../fixtures/report-ordering-fixtures";
 
+function expectCanonicalCompositeFixture(text: string) {
+  const bytes = Buffer.from(text.replace(/\r\n/g, "\n"), "utf8");
+  expect(bytes.length).toBe(compositeProvenance.fixtureStorage.fixtureBytes);
+  expect(createHash("sha256").update(bytes).digest("hex")).toBe(compositeProvenance.fixtureStorage.fixtureSha256);
+}
+
 describe("report ordering contracts", () => {
+  it("pins the real Gateway service fixture and honest offline/capture provenance without external dependencies", () => {
+    expectCanonicalCompositeFixture(readFileSync(compositeProvenance.fixtureStorage.path, "utf8"));
+    expect(compositeCatalogue.schemaVersion).toBe("gateway-841-public-service-fixture.v2");
+    expect(compositeCatalogue.catalogueProvenance).toMatchObject({ sourceBodyBytes: 13837, sourceBodySha256: compositeProvenance.retainedProducerCapture.bodySha256 });
+    expect(compositeCatalogue.generation).toMatchObject({ method: "offline_report_ordering_service", httpRequestCount: 0, catalogueSourceInvocationCount: 1, availabilitySourceInvocationCount: 1 });
+    expect(compositeCatalogue.availabilityProvenance).toMatchObject({ provenancePosture: "offline_source_valid_contract_input", sourceContract: { state: "unavailable", reason_code: "advisor_brief_not_reviewed", accepted_brief: null } });
+    expect(compositeProvenance.observedReportRuntime.imageContentsVerified).toBe(false);
+    expect(compositeCatalogue.requestContext).toMatchObject({ callerHeaders: { "X-Role": "portfolio_manager", "X-Caller-Portfolio-Ids": "PB_SG_GLOBAL_BAL_001" }, selection: { scopeType: "portfolio", scopeId: "PB_SG_GLOBAL_BAL_001" } });
+  });
+
+  it.each(["LF", "CRLF"])("accepts the canonical fixture with %s checkout line endings", (lineEnding) => {
+    const canonical = readFileSync(compositeProvenance.fixtureStorage.path, "utf8").replace(/\r\n/g, "\n");
+    expect(canonical.endsWith("\n")).toBe(true);
+    expectCanonicalCompositeFixture(lineEnding === "CRLF" ? canonical.replace(/\n/g, "\r\n") : canonical);
+  });
+
+  it.each(["changed content", "missing trailing newline", "extra trailing newline"])("refuses fixture %s after declared line-ending normalization", (alteration) => {
+    const canonical = readFileSync(compositeProvenance.fixtureStorage.path, "utf8").replace(/\r\n/g, "\n");
+    const altered = alteration === "changed content"
+      ? canonical.replace("Composite calculated review", "Composite calculated revieX")
+      : alteration === "missing trailing newline" ? canonical.slice(0, -1) : `${canonical}\n`;
+    expect(altered).not.toBe(canonical);
+    expect(() => expectCanonicalCompositeFixture(altered.replace(/\n/g, "\r\n"))).toThrow();
+  });
+
+  it("admits the known composite metadata without treating pinned fields as section editors", () => {
+    const response = buildCompositeReportOrderingResponse();
+    const parsed = parseReportOrderingResponse(response);
+    expect(parsed).toEqual(response);
+    expect(parsed.reportFamilies.map((family) => family.reportFamilyId)).toEqual([
+      "portfolio_review", "proof_pack", "rebalance_wave", "outcome_review", "composite_review",
+    ]);
+    const composite = parsed.reportFamilies[4];
+    expect(composite.configurationFields.map((field) => [field.fieldId, field.inputType, field.valueSource])).toEqual([
+      "composite_selection", "composite_linked_selection", "composite_source_products", "composite_source_context",
+      "composite_eligibility_selection", "composite_pooled_selection", "composite_notice_selection",
+    ].map((fieldId) => [fieldId, "pinned_source_selection", "caller"]));
+    expect(composite.orderingModes[0]).toMatchObject({ modeId: "single_composite", interactive: false, eligibility: { state: "unsupported", reasonCode: "gateway_submission_not_supported" }, submission: null });
+    expect(composite.outputFormats).toContainEqual(expect.objectContaining({ formatId: "xlsx", state: "ready", reasonCode: "render_supportability_ready" }));
+  });
+
+  it.each([
+    "unknown mode", "unknown default format", "unknown output", "unknown input", "unknown value source",
+    "extra response field", "extra family field", "extra mode field", "extra output field", "extra configuration field",
+    "wrong contract version", "wrong source version", "missing metadata", "unknown state", "duplicate pinned field",
+    "unknown pinned identity", "pinned options", "wrong pinned requirement", "wrong pinned policy", "wrong family binding",
+    "interactive composite", "ready composite mode", "workflow composite mode", "composite submission", "composite section",
+    "missing pinned field", "text editor substitution", "stripped composite portfolio metadata", "stripped composite workflow metadata",
+  ])("refuses %s without weakening known composite admission", (scenario) => {
+    const response = buildCompositeReportOrderingResponse(true);
+    const family = response.reportFamilies[0];
+    const mode = family.orderingModes[0];
+    const field = family.configurationFields[0];
+    switch (scenario) {
+      case "unknown mode": mode.modeId = "invented"; break;
+      case "unknown default format": mode.defaultOutputFormat = "invented"; break;
+      case "unknown output": family.outputFormats[0].formatId = "invented"; break;
+      case "unknown input": field.inputType = "invented"; break;
+      case "unknown value source": field.valueSource = "pinned_source_selection"; break;
+      case "extra response field": Object.assign(response, { authority: "invented" }); break;
+      case "extra family field": Object.assign(family, { selection: {} }); break;
+      case "extra mode field": Object.assign(mode, { selector: {} }); break;
+      case "extra output field": Object.assign(family.outputFormats[0], { download: "/invented" }); break;
+      case "extra configuration field": Object.assign(field, { selection: {} }); break;
+      case "wrong contract version": response.contractVersion = "workbench-report-ordering.v2"; break;
+      case "wrong source version": response.sourceContractVersion = "report-ordering-catalogue.v2"; break;
+      case "missing metadata": field.businessLabel = ""; break;
+      case "unknown state": mode.eligibility.state = "invented"; break;
+      case "duplicate pinned field": family.configurationFields[1] = structuredClone(field); break;
+      case "unknown pinned identity": field.fieldId = "composite_invented_selection"; break;
+      case "pinned options": field.options.push({ value: "invented", businessLabel: "Invented" }); break;
+      case "wrong pinned requirement": field.requirement = "optional"; break;
+      case "wrong pinned policy": field.defaultingPolicy = "omitted_preserves_legacy_contract"; break;
+      case "wrong family binding": family.reportFamilyId = "portfolio_review"; break;
+      case "interactive composite": mode.interactive = true; break;
+      case "ready composite mode": mode.eligibility.state = "ready"; break;
+      case "workflow composite mode": mode.eligibility.reasonCode = "source_workflow_only"; break;
+      case "composite submission": mode.submission = structuredClone(buildCompositeReportOrderingResponse().reportFamilies[0].orderingModes[0].submission); break;
+      case "composite section": family.sections.push(structuredClone(buildCompositeReportOrderingResponse().reportFamilies[0].sections[0])); break;
+      case "missing pinned field": family.configurationFields.pop(); break;
+      case "text editor substitution": field.inputType = "text"; break;
+      case "stripped composite portfolio metadata":
+        family.orderingModes = [structuredClone(buildCompositeReportOrderingResponse().reportFamilies[0].orderingModes[0])];
+        family.configurationFields = [];
+        break;
+      case "stripped composite workflow metadata":
+        family.orderingModes = [structuredClone(buildCompositeReportOrderingResponse().reportFamilies[1].orderingModes[0])];
+        family.configurationFields = [];
+        break;
+    }
+    expect(() => parseReportOrderingResponse(response)).toThrow();
+  });
+
+  it("preserves explicit scope refusal on composite metadata", () => {
+    const response = buildCompositeReportOrderingResponse(true);
+    response.scopeEligibility = { state: "permission_blocked", reasonCode: "scope_denied", message: "Access denied." };
+    response.reportFamilies[0].eligibility = response.scopeEligibility;
+    response.reportFamilies[0].orderingModes[0].eligibility = response.scopeEligibility;
+    expect(parseReportOrderingResponse(response)).toEqual(response);
+  });
+
+  it.each(["partial", "unavailable"])("retains %s composite source evidence without converting it to ready", (state) => {
+    const response = buildCompositeReportOrderingResponse(true);
+    const composite = response.reportFamilies[0];
+    composite.availability = { state, reasonCode: "source_limit", message: "Exact source limit." };
+    composite.outputFormats[1].state = state;
+    composite.outputFormats[1].reasonCode = "source_workbook_limit";
+    expect(parseReportOrderingResponse(response).reportFamilies[0]).toEqual(composite);
+  });
+
   it("accepts the governed Workbench ordering shape and independent format states", () => {
     const parsed = parseReportOrderingResponse(buildReportOrderingResponse());
 

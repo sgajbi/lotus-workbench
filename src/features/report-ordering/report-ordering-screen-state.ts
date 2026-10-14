@@ -178,7 +178,9 @@ function buildWorkspaceState(
   }
   if (
     !model ||
-    (model.eligibleFamilies.length === 0 && model.workflowManagedFamilies.length === 0)
+    (model.eligibleFamilies.length === 0 &&
+      model.workflowManagedFamilies.length === 0 &&
+      model.nonOrderableFamilies.length === 0)
   ) {
     return {
       kind: "empty",
@@ -269,6 +271,18 @@ function configuredReadinessState({
     showActions: true,
     showValidationSummary: false,
   };
+  if (model.eligibleFamilies.length === 0 && model.nonOrderableFamilies.length > 0) {
+    return {
+      ...common,
+      kind: "setup_required",
+      badgeLabel: "Not orderable here",
+      tone: "warn",
+      title: "Report creation is not available here",
+      detail: "Reporting publishes these report details without a supported ordering action in Report centre.",
+      showRequestSummary: false,
+      showActions: false,
+    };
+  }
   if (submissionState === "error") {
     return {
       ...common,

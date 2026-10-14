@@ -6,7 +6,7 @@ import {
   createReportOrderingConfiguration,
 } from "@/features/report-ordering/view-model";
 import { parseReportOrderingResponse } from "@/features/report-ordering/contracts";
-import { buildReportOrderingResponse } from "../fixtures/report-ordering-fixtures";
+import { buildCompositeReportOrderingResponse, buildReportOrderingResponse } from "../fixtures/report-ordering-fixtures";
 
 const sourceContext = {
   asOfDate: "2026-04-22",
@@ -26,6 +26,21 @@ function readyModel() {
 }
 
 describe("report ordering screen state", () => {
+  it.each(["published", "source unavailable", "restricted"])("keeps composite-only %s truth distinct from an empty catalogue", (scenario) => {
+    const payload = buildCompositeReportOrderingResponse(true);
+    if (scenario === "source unavailable") payload.catalogueAvailability.state = "unavailable";
+    if (scenario === "restricted") payload.scopeEligibility.state = "permission_blocked";
+    const response = parseReportOrderingResponse(payload);
+    const model = buildReportOrderingViewModel(response, createReportOrderingConfiguration(response, sourceContext), sourceContext);
+    const state = buildReportOrderingScreenState({ catalogueState: "ready", catalogueError: null, model, preflightReviewed: true, submissionState: "idle", submissionError: null });
+    if (scenario === "published") {
+      expect(state.workspace.kind).toBe("configuration");
+      expect(state.readiness).toMatchObject({ badgeLabel: "Not orderable here", showActions: false, showRequestSummary: false });
+    } else {
+      expect(state.workspace.kind).toBe(scenario === "restricted" ? "permission_blocked" : "error");
+      expect(state.readiness.kind).toBe(scenario === "restricted" ? "restricted" : "unavailable");
+    }
+  });
   it.each((["submitting", "accepted"] as const).flatMap((submissionState) =>
     (["loading", "unavailable", "empty", "permission", "transport"] as const).map((sourceState) => ({ submissionState, sourceState })),
   ))("preserves $submissionState lifecycle with $sourceState catalogue independently", ({ submissionState, sourceState }) => {

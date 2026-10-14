@@ -10,10 +10,12 @@ import {
 } from "@/features/report-ordering/api";
 import { parseReportOrderingResponse, parseReportBatchHandle, parseReportBatchStatus, type ReportOrderingResponse, type ReportJobHandle, type ReportBatchHandle } from "@/features/report-ordering/contracts";
 import { useReportOrderingWorkflow as useReportOrderingWorkflowSource } from "@/features/report-ordering/use-report-ordering-workflow";
+import type { ReportOrderingConfiguration } from "@/features/report-ordering/view-model";
 import { WorkbenchApiError } from "@/features/workbench/api-client";
 import {
   buildReportJobListResponse,
   buildReportOrderingResponse,
+  buildCompositeReportOrderingResponse,
   buildReportBatchHandle,
   buildReportBatchStatus,
 } from "../fixtures/report-ordering-fixtures";
@@ -77,10 +79,85 @@ describe("useReportOrderingWorkflow", () => {
     batchStatusMock.mockResolvedValue(parseReportBatchStatus(buildReportBatchStatus()));
   });
 
+  it.each(["single_composite", "unknown_mode"])("refuses a stale or malicious %s mode before the actual submission boundary", async (modeId) => {
+    const { result } = renderHook(() => useReportOrderingWorkflow({
+      portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD",
+    }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    act(() => result.current.updateConfiguration({ modeId }));
+    expect(result.current.preflightReviewed).toBe(false);
+    expect(result.current.model?.canSubmit).toBe(false);
+    act(() => expect(result.current.reviewRequest()).toBe(false));
+    await act(() => result.current.submitRequest());
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["xlsx", "pinned field"])("refuses injected %s after review at the actual submission boundary", async (scenario) => {
+    const { result } = renderHook(() => useReportOrderingWorkflow({ portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD" }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    act(() => result.current.updateConfiguration(scenario === "xlsx"
+      ? { outputFormat: "xlsx" } as unknown as Partial<ReportOrderingConfiguration>
+      : { configurationValues: { composite_selection: "invented-selection" } }));
+    expect(result.current.preflightReviewed).toBe(false);
+    expect(result.current.model?.canSubmit).toBe(false);
+    act(() => expect(result.current.reviewRequest()).toBe(false));
+    await act(() => result.current.submitRequest());
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a reviewed portfolio request when refreshed publication contains only unsupported composite metadata", async () => {
+    const { result } = renderHook(() => useReportOrderingWorkflow({ portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD" }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    optionsMock.mockResolvedValueOnce(parseReportOrderingResponse(buildCompositeReportOrderingResponse(true)));
+    await act(() => result.current.refreshCatalogue());
+    expect(result.current.preflightReviewed).toBe(false);
+    expect(result.current.model?.family).toBeNull();
+    act(() => result.current.updateConfiguration({ familyId: "composite_review", modeId: "single_composite", configurationValues: { composite_selection: "invented-selection" } }));
+    act(() => expect(result.current.reviewRequest()).toBe(false));
+    await act(() => result.current.submitRequest());
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it.each(
+    (["single_portfolio", "explicit_portfolio_batch"] as const).flatMap((scopeMode) =>
+      (["portfolio", "workflow"] as const).map((substitution) => ({ scopeMode, substitution })),
+    ),
+  )("refuses unchecked stripped Composite $substitution metadata at the actual $scopeMode submit boundary", async ({ scopeMode, substitution }) => {
+    const { result } = renderHook(() => useReportOrderingWorkflow({
+      portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD",
+      scopeMode, selectedPortfolioIds: ["PB_SG_GLOBAL_BAL_001", "PB_SG_INCOME_002"],
+    }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    const unchecked = parseReportOrderingResponse(buildCompositeReportOrderingResponse(true));
+    const ordinary = parseReportOrderingResponse(buildCompositeReportOrderingResponse());
+    const composite = unchecked.reportFamilies[0];
+    composite.configurationFields = [];
+    composite.orderingModes = [ordinary.reportFamilies[substitution === "portfolio" ? 0 : 1].orderingModes[0]];
+    expect(() => parseReportOrderingResponse(unchecked)).toThrow();
+    optionsMock.mockResolvedValueOnce(unchecked);
+    await act(() => result.current.refreshCatalogue());
+    expect(result.current.preflightReviewed).toBe(false);
+    expect(result.current.model?.family).toBeNull();
+    expect(result.current.model?.nonOrderableFamilies).toEqual([composite]);
+    expect(result.current.model?.workflowManagedFamilies).toEqual([]);
+    act(() => result.current.updateConfiguration({
+      familyId: "composite_review", modeId: composite.orderingModes[0].modeId,
+      configurationValues: { composite_selection: "invented-selection" },
+    }));
+    act(() => expect(result.current.reviewRequest()).toBe(false));
+    await act(async () => expect(await result.current.submitRequest()).toBe(false));
+    expect(submitMock).not.toHaveBeenCalled();
+    expect(submitBatchMock).not.toHaveBeenCalled();
+  });
+
   it.each(
     (["single_portfolio", "explicit_portfolio_batch"] as const).flatMap((scopeMode) =>
       (["catalogue first", "receipt first"] as const).flatMap((completionOrder) =>
-        (["unavailable", "permission", "transport"] as const).map((refusal) => ({ scopeMode, completionOrder, refusal })),
+        (["unavailable", "permission", "transport", "composite only"] as const).map((refusal) => ({ scopeMode, completionOrder, refusal })),
       ),
     ),
   )("preserves $scopeMode transaction through $completionOrder / $refusal catalogue completion", async ({ scopeMode, completionOrder, refusal }) => {
@@ -109,10 +186,14 @@ describe("useReportOrderingWorkflow", () => {
       await act(async () => {
         if (refusal === "transport") read.reject(new Error("catalogue unavailable"));
         else {
-          const payload = buildReportOrderingResponse();
-          payload.reportFamilies = [];
-          if (refusal === "permission") payload.scopeEligibility.state = "permission_blocked";
-          else payload.catalogueAvailability.state = "unavailable";
+          const payload = refusal === "composite only"
+            ? buildCompositeReportOrderingResponse(true)
+            : buildReportOrderingResponse();
+          if (refusal !== "composite only") {
+            payload.reportFamilies = [];
+            if (refusal === "permission") payload.scopeEligibility.state = "permission_blocked";
+            else payload.catalogueAvailability.state = "unavailable";
+          }
           read.resolve(parseReportOrderingResponse(payload));
         }
         await read.promise.catch(() => undefined);
@@ -145,6 +226,10 @@ describe("useReportOrderingWorkflow", () => {
     expect(result.current.supportReference).toBe(scopeMode === "single_portfolio" ? "rjob_deferred" : "rbch_1");
     if (scopeMode === "explicit_portfolio_batch") expect(result.current.batchStatus?.batch_id).toBe("rbch_1");
     expect(result.current.canSubmitReviewedRequest).toBe(false);
+    if (refusal === "composite only") {
+      expect(result.current.model?.nonOrderableFamilies).toHaveLength(1);
+      expect(result.current.screenState.readiness.canStartAnother).toBe(false);
+    }
     act(() => expect(result.current.reviewRequest()).toBe(false));
     await act(async () => expect(await result.current.submitRequest()).toBe(false));
     expect(submitMock.mock.calls.length + submitBatchMock.mock.calls.length).toBe(1);

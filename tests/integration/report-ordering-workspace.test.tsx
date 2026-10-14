@@ -31,6 +31,7 @@ import {
   buildReportBatchStatus,
   buildReportJobListResponse,
   buildReportOrderingResponse,
+  buildCompositeReportOrderingResponse,
 } from "../fixtures/report-ordering-fixtures";
 import { expectReviewContextOwns } from "../review-context-census";
 
@@ -227,6 +228,40 @@ describe("ReportOrderingWorkspace", () => {
     batchStatusMock.mockResolvedValue(
       parseReportBatchStatus(buildReportBatchStatus()),
     );
+  });
+
+  it("presents composite as non-orderable metadata beside genuine workflow reports and ordinary portfolio controls", async () => {
+    optionsMock.mockResolvedValue(parseReportOrderingResponse(buildCompositeReportOrderingResponse()));
+    render(<ReportOrderingWorkspace portfolio={portfolio} />);
+    const composite = (await screen.findByText("Composite calculated review")).closest("article");
+    if (!composite) throw new Error("Composite metadata article missing");
+    expect(within(composite).getByText("No report creation or workbook download is available here.")).toBeVisible();
+    expect(within(composite).queryByRole("radio")).not.toBeInTheDocument();
+    expect(within(composite).queryByRole("button")).not.toBeInTheDocument();
+    expect(within(composite).queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByText("Created through business workflows")).toBeVisible();
+    expect(screen.getByRole("radio", { name: /Portfolio review report/i })).toBeEnabled();
+    expect(screen.queryByRole("radio", { name: /workbook|xlsx/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /Pinned/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("No approved reports available")).not.toBeInTheDocument();
+    expect(submitMock).not.toHaveBeenCalled();
+    expect(submitBatchMock).not.toHaveBeenCalled();
+  });
+
+  it("shows composite-only publication without editors, output actions or an empty/source-failure claim", async () => {
+    optionsMock.mockResolvedValue(parseReportOrderingResponse(buildCompositeReportOrderingResponse(true)));
+    render(<ReportOrderingWorkspace portfolio={portfolio} />);
+    expect(await screen.findByText("Composite calculated review")).toBeVisible();
+    expect(screen.getByText("Reports not orderable here")).toBeVisible();
+    expect(screen.queryByText("Created through business workflows")).not.toBeInTheDocument();
+    expect(screen.queryByText("No approved reports available")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approved reports are unavailable")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("radio")).toEqual([]);
+    expect(screen.queryByLabelText("Report date")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /Pinned/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Review Request|Submit Request/i })).not.toBeInTheDocument();
+    expect(submitMock).not.toHaveBeenCalled();
+    expect(submitBatchMock).not.toHaveBeenCalled();
   });
 
   it.each((["single", "batch"] as const).flatMap((scope) =>

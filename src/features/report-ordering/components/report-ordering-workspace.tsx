@@ -296,7 +296,7 @@ function ReportOrderingWorkspaceSession({
                       aria-label="Report configuration"
                       className={styles.focusTarget}
                     >
-                      <ReportPortfolioScopePanel
+                      {workspaceState.model.eligibleFamilies.length > 0 ? <ReportPortfolioScopePanel
                         currentPortfolioId={portfolio.portfolioId}
                         asOfDate={workflow.configuration.asOfDate}
                         scopeMode={scopeMode}
@@ -330,7 +330,7 @@ function ReportOrderingWorkspaceSession({
                             setSelectedPortfolioIds(portfolioIds);
                         }}
                         onBookStateChange={setPortfolioSelectionState}
-                      />
+                      /> : null}
                       <ReportConfigurationPanel
                         ref={configurationPanelRef}
                         model={workspaceState.model}

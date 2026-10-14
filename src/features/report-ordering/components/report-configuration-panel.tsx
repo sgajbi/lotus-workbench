@@ -188,8 +188,30 @@ export function ReportConfigurationPanel({
             </div>
           </div>
         ) : null}
+        {model.nonOrderableFamilies.length ? (
+          <div className={styles.workflowManagedGroup}>
+            <div className={styles.workflowManagedHeading}>
+              <div>
+                <strong>Reports not orderable here</strong>
+                <p>Reporting publishes these report details without a supported ordering action in Report centre.</p>
+              </div>
+              <SemanticBadge tone="warn">Not orderable here</SemanticBadge>
+            </div>
+            <div className={styles.workflowManagedGrid}>
+              {model.nonOrderableFamilies.map((family) => (
+                <article key={family.reportFamilyId} className={styles.workflowManagedCard}>
+                  <strong>{family.businessLabel}</strong>
+                  <span>{family.description}</span>
+                  <small>{family.availability.message}</small>
+                  <span>No report creation or workbook download is available here.</span>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </SectionBlock>
 
+      {model.family ? <>
       <SectionBlock
         title="Report setup"
         subtitle="Set the business date and portfolio-level reporting context."
@@ -540,6 +562,7 @@ export function ReportConfigurationPanel({
           </div>
         </fieldset>
       </SectionBlock>
+      </> : null}
     </div>
   );
 }
