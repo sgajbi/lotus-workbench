@@ -45,6 +45,8 @@ export type ReportOrderingReadiness = {
 };
 
 export type ReportOrderingViewModel = {
+  catalogueAvailability: ReportOrderingResponse["catalogueAvailability"];
+  scopeEligibility: ReportOrderingResponse["scopeEligibility"];
   family: ReportFamily | null;
   mode: ReportOrderingMode | null;
   configuration: ReportOrderingConfiguration;
@@ -247,6 +249,8 @@ export function buildReportOrderingViewModel(
       (readiness.issues.length > 0 &&
         readiness.issues.every((issue) => formIssues.includes(issue))),
     formIssues,
+    catalogueAvailability: response.catalogueAvailability,
+    scopeEligibility: response.scopeEligibility,
   };
 }
 

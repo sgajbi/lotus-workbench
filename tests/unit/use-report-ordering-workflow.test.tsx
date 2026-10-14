@@ -89,6 +89,79 @@ describe("useReportOrderingWorkflow", () => {
     );
   });
 
+  it("invalidates reviewed authority across source unavailability and recovery", async () => {
+    const { result } = renderHook(() => useReportOrderingWorkflow({
+      portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD",
+    }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    expect(result.current.preflightReviewed).toBe(true);
+    const unavailable = buildReportOrderingResponse();
+    unavailable.catalogueAvailability = {
+      state: "unavailable", reasonCode: "report_catalogue_contract_invalid",
+      message: "Report choices are temporarily unavailable.",
+    };
+    optionsMock.mockResolvedValueOnce(parseReportOrderingResponse(unavailable));
+    await act(() => result.current.refreshCatalogue());
+    expect(result.current.screenState.workspace.kind).toBe("error");
+    expect(result.current.screenState.readiness.kind).toBe("unavailable");
+    expect(result.current.preflightReviewed).toBe(false);
+    expect(result.current.canSubmitReviewedRequest).toBe(false);
+    act(() => expect(result.current.reviewRequest()).toBe(false));
+    await act(() => result.current.submitRequest());
+    expect(submitMock).not.toHaveBeenCalled();
+    await act(() => result.current.refreshCatalogue());
+    expect(result.current.screenState.workspace.kind).toBe("configuration");
+    expect(result.current.preflightReviewed).toBe(false);
+    expect(result.current.canSubmitReviewedRequest).toBe(false);
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    expect(result.current.canSubmitReviewedRequest).toBe(true);
+  });
+
+  it.each(["missing", "unknown", "permission"])("keeps %s contract/context refusal terminal", async (failure) => {
+    optionsMock.mockImplementation(async () => {
+      if (failure === "permission") throw new WorkbenchApiError("report ordering options", 403);
+      const payload = buildReportOrderingResponse();
+      return parseReportOrderingResponse({
+        ...payload,
+        catalogueAvailability: failure === "missing" ? undefined : {
+          ...payload.catalogueAvailability, state: "invented",
+        },
+      });
+    });
+    const { result } = renderHook(() => useReportOrderingWorkflow({
+      portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD",
+    }));
+    await waitFor(() => expect(result.current.catalogueState).toBe(failure === "permission" ? "permission_blocked" : "error"));
+    expect(result.current.screenState.readiness.kind).toBe(failure === "permission" ? "restricted" : "unavailable");
+    expect(result.current.canSubmitReviewedRequest).toBe(false);
+    act(() => expect(result.current.reviewRequest()).toBe(false));
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it("recovers an absent family in the currently requested date and currency", async () => {
+    const unavailable = buildReportOrderingResponse();
+    unavailable.catalogueAvailability.state = "unavailable";
+    unavailable.reportFamilies = [];
+    optionsMock.mockResolvedValueOnce(parseReportOrderingResponse(unavailable));
+    const { result } = renderHook(() => useReportOrderingWorkflow({
+      portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD",
+    }));
+    await waitFor(() => expect(result.current.screenState.workspace.kind).toBe("error"));
+    act(() => result.current.updateConfiguration({
+      asOfDate: "2026-04-21", reportingCurrency: "USD",
+    }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    expect(optionsMock).toHaveBeenLastCalledWith("PB_SG_GLOBAL_BAL_001", {
+      asOfDate: "2026-04-21", reportingCurrency: "USD",
+    });
+    expect(result.current.configuration).toEqual(expect.objectContaining({
+      familyId: "portfolio_review", asOfDate: "2026-04-21", reportingCurrency: "USD",
+    }));
+    expect(result.current.preflightReviewed).toBe(false);
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
   it("keeps the newest request history when refreshes complete out of order", async () => {
     const { result } = renderHook(() =>
       useReportOrderingWorkflow({

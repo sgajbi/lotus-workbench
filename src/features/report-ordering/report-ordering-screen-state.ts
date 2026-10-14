@@ -108,7 +108,10 @@ function buildWorkspaceState(
       actionLabel: null,
     };
   }
-  if (catalogueState === "permission_blocked") {
+  if (
+    catalogueState === "permission_blocked" ||
+    model?.scopeEligibility.state === "permission_blocked"
+  ) {
     return {
       kind: "permission_blocked",
       title: "Report ordering is restricted",
@@ -117,7 +120,12 @@ function buildWorkspaceState(
       actionLabel: "Check Again",
     };
   }
-  if (catalogueState === "error") {
+  if (
+    catalogueState === "error" ||
+    model?.catalogueAvailability.state === "unavailable" ||
+    model?.scopeEligibility.state === "unavailable" ||
+    model?.scopeEligibility.state === "unsupported"
+  ) {
     return {
       kind: "error",
       title: "Approved reports are unavailable",

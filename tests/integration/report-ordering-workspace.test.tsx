@@ -2733,6 +2733,29 @@ describe("ReportOrderingWorkspace", () => {
     ).not.toBeInTheDocument();
   });
 
+  it.each([false, true])("renders unavailable source with retained families=%s and recovers through retry", async (retainFamilies) => {
+    const payload = buildReportOrderingResponse();
+    payload.catalogueAvailability = {
+      state: "unavailable", reasonCode: "report_catalogue_contract_invalid",
+      message: "Report choices are temporarily unavailable.",
+    };
+    if (!retainFamilies) payload.reportFamilies = [];
+    optionsMock.mockResolvedValueOnce(parseReportOrderingResponse(payload));
+    render(<ReportOrderingWorkspace portfolio={portfolio} />);
+    expect(await screen.findByText("Approved reports are unavailable")).toBeInTheDocument();
+    expect(screen.getByText(payload.catalogueAvailability.message)).toBeInTheDocument();
+    expect(within(screen.getByRole("status")).getByLabelText("Status Unavailable")).toBeInTheDocument();
+    expect(screen.queryByText("No approved reports available")).not.toBeInTheDocument();
+    expect(screen.queryByText("Complete before review")).not.toBeInTheDocument();
+    expect(screen.queryByText("report_catalogue_contract_invalid")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review Request" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit Report Request" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try Again" }));
+    expect(await screen.findByRole("heading", { name: "Approved report" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Review Request" })).toBeEnabled();
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
   it("distinguishes incomplete setup from source availability", async () => {
     render(
       <ReportOrderingWorkspace
