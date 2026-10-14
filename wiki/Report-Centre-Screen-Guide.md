@@ -90,6 +90,14 @@ controls and do not occur on this screen.
 
 - Presents Gateway-published report families, configuration fields, section choices, output
   readiness, audience, limitations, and supported submission mode.
+- Separates reports created through their published business workflows from **Reports not orderable
+  here**. Composite calculated review remains visible as Reporting catalogue information, including
+  its availability message, without claiming a workflow creates it. A composite-only catalogue
+  shows that explicit limit instead of an empty or unavailable catalogue.
+- Keeps Composite's pinned calculation selections as metadata. Report centre provides no pinned
+  selection editor, composite creation action, or XLSX workbook download. Published format readiness
+  does not grant an ordering capability. Ordinary portfolio-review JSON/PDF controls remain bound to
+  the supported submission contract.
 - Bounds the report date to the source-confirmed portfolio history and offers only reporting
   currencies published for the active workspace; unsupported free-text values never enter a
   reviewed request.

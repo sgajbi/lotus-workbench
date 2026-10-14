@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "workbench-report-ordering-fixture-provenance.v1",
+  "consumerIssue": "https://github.com/sgajbi/lotus-workbench/issues/1138",
+  "producerIssue": "https://github.com/sgajbi/lotus-gateway/issues/841",
+  "handoff": "https://github.com/sgajbi/lotus-workbench/issues/1138#issuecomment-6162010539",
+  "fixtureStorage": {
+    "path": "tests/fixtures/report-ordering-catalogue-composite.v1.json",
+    "upstreamFileSha256": "b64225a1ec5dcfb79fed0f56efb7db752951ddf1cb3b5e830c63d89b8b967ed2",
+    "upstreamFileBytes": 26753,
+    "normalization": "UTF-8 text, replace CRLF with LF only; preserve all fields and trailing newline",
+    "fixtureSha256": "0ad40da08101e4c18d4c2eb05abf6baa5ca82210b567ed851f70282d2e9a9c2b",
+    "fixtureBytes": 26089,
+    "canonicalGitBlob": "10baf7c846a90ce9ebb277d3bbd8028aabf53784"
+  },
+  "generation": {
+    "method": "offline_report_ordering_service",
+    "serviceClass": "app.services.report_ordering_service.ReportOrderingService",
+    "gatewayBaseCommit": "f117339f663e6429bf3570982d8587e1ae998d7e",
+    "sourcePosture": "reviewed uncommitted Gateway #841 handoff, not deployed runtime",
+    "generatorScriptSha256": "1bb167deff59cd5f0ca4d4d9316de2723c624c0e70fdfe419d82dbdeb4a50c1d",
+    "gatewayCanonicalSourceBlobs": {
+      "src/app/contracts/report_ordering.py": "56639c0ad5b4787b761c52980d3f29451cd53c50",
+      "src/app/contracts/report_ordering_source.py": "10e35879b2a76e8efe77d21c3db8bb7258102db3",
+      "src/app/services/report_ordering_eligibility.py": "48d9c2200cafc238718d502268323b23fc775da1",
+      "src/app/services/report_ordering_projection.py": "2b46d1e6c849b9bf7691b8c9d30a79af5864ad72",
+      "src/app/services/report_ordering_service.py": "08fcbf260d8ded6437b6798630f04d74a1212627"
+    },
+    "httpRequestCount": 0,
+    "catalogueSourceInvocationCount": 1,
+    "availabilitySourceInvocationCount": 1
+  },
+  "retainedProducerCapture": {
+    "sourceAuthority": "lotus-report",
+    "contractVersion": "report-ordering-catalogue.v1",
+    "route": "/integration/report-ordering-catalogue",
+    "capturedAtUtc": "2026-10-14T05:22:41.052385+00:00",
+    "httpStatus": 200,
+    "requestCount": 1,
+    "retryCount": 0,
+    "bodyBytes": 13837,
+    "bodySha256": "adbdcb811a8fd5d3d254837eb411a17b8714f9fe3186ebde70a9bd258c84e88a"
+  },
+  "observedReportRuntime": {
+    "imageId": "sha256:6980cd814850a18177d4952ac12d3fe6b138db677cd63b449ce392dba02cf7a7",
+    "revisionLabel": "11fe4981a856a078cd0ed0ada881935cc803a214",
+    "imageContentsVerified": false
+  },
+  "limitations": [
+    "Commentary availability is an explicit offline source-valid unavailable/not-reviewed contract input, not observed live accepted-brief evidence.",
+    "Caller context is a deterministic fixture input and grants no production entitlement.",
+    "The fixture pins current source compatibility; it does not automatically detect future producer drift. Platform issue #962 owns that enforcement follow-up.",
+    "Observed Report revision metadata does not verify image contents, native financial output, composite ordering or end-to-end readiness."
+  ]
+}

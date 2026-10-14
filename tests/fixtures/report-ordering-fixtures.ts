@@ -1,3 +1,15 @@
+import compositeCatalogue from "./report-ordering-catalogue-composite.v1.json";
+
+export function buildCompositeReportOrderingResponse(compositeOnly = false) {
+  const response = structuredClone(compositeCatalogue.response);
+  if (compositeOnly) {
+    response.reportFamilies = response.reportFamilies.filter(
+      (family) => family.reportFamilyId === "composite_review",
+    );
+  }
+  return response;
+}
+
 export function buildReportOrderingResponse() {
   return {
     contractVersion: "workbench-report-ordering.v1",

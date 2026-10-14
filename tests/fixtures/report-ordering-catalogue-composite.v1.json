@@ -1,0 +1,664 @@
+{
+  "availabilityProvenance": {
+    "provenancePosture": "offline_source_valid_contract_input",
+    "sourceCall": {
+      "as_of_date": "2026-04-22",
+      "correlation_id": "gateway-841-public-fixture-v2",
+      "portfolio_id": "PB_SG_GLOBAL_BAL_001",
+      "reporting_currency": "USD",
+      "tenant_id": "tenant-sg"
+    },
+    "sourceContract": {
+      "accepted_brief": null,
+      "contract_version": "advisor-commentary-availability.v1",
+      "message": "No accepted Advisor Brief is available for this reporting context.",
+      "reason_code": "advisor_brief_not_reviewed",
+      "section_id": "ADVISOR_COMMENTARY",
+      "source_service": "lotus-report",
+      "state": "unavailable"
+    },
+    "sourceStatus": 200
+  },
+  "catalogueProvenance": {
+    "sourceBodyBytes": 13837,
+    "sourceBodySha256": "adbdcb811a8fd5d3d254837eb411a17b8714f9fe3186ebde70a9bd258c84e88a",
+    "sourceFixture": "contracts/upstream/lotus-report-ordering-catalogue.v1.json"
+  },
+  "generation": {
+    "availabilitySourceInvocationCount": 1,
+    "catalogueSourceInvocationCount": 1,
+    "httpRequestCount": 0,
+    "method": "offline_report_ordering_service",
+    "serviceClass": "app.services.report_ordering_service.ReportOrderingService"
+  },
+  "requestContext": {
+    "asOfDate": "2026-04-22",
+    "callerHeaders": {
+      "X-Actor-Id": "portfolio-manager-841",
+      "X-Caller-Application": "lotus-workbench",
+      "X-Caller-Portfolio-Ids": "PB_SG_GLOBAL_BAL_001",
+      "X-Region": "APAC",
+      "X-Role": "portfolio_manager",
+      "X-Tenant-Id": "tenant-sg"
+    },
+    "correlationId": "gateway-841-public-fixture-v2",
+    "reportingCurrency": "USD",
+    "selection": {
+      "scopeId": "PB_SG_GLOBAL_BAL_001",
+      "scopeType": "portfolio"
+    }
+  },
+  "response": {
+    "catalogueAvailability": {
+      "message": "All published report families are available in their supported workflows.",
+      "reasonCode": "report_catalogue_ready",
+      "state": "ready"
+    },
+    "contractVersion": "workbench-report-ordering.v1",
+    "reportFamilies": [
+      {
+        "audienceRoles": [
+          "client_advisor",
+          "portfolio_manager"
+        ],
+        "availability": {
+          "message": "Available within its supported reporting workflow.",
+          "reasonCode": "report_family_ready",
+          "state": "ready"
+        },
+        "businessLabel": "Portfolio review report",
+        "clientReleasePosture": "advisor_review_required_distribution_not_supported",
+        "configurationFields": [
+          {
+            "businessLabel": "Report date",
+            "defaultingPolicy": "caller_required",
+            "description": "Business date used for holdings, activity, performance, and risk evidence.",
+            "fieldId": "as_of_date",
+            "inputType": "business_date",
+            "options": [],
+            "requirement": "required",
+            "valueSource": "caller"
+          },
+          {
+            "businessLabel": "Accepted Advisor Brief run",
+            "defaultingPolicy": "caller_required",
+            "description": "Identity of the accepted Performance Advisor Brief run whose reviewed narrative the Advisor commentary section reproduces. Required when that section is selected; lotus-report never chooses a brief implicitly.",
+            "fieldId": "advisor_brief_run_id",
+            "inputType": "text",
+            "options": [],
+            "requirement": "conditional",
+            "valueSource": "caller"
+          },
+          {
+            "businessLabel": "Reporting currency",
+            "defaultingPolicy": "portfolio_currency_when_omitted",
+            "description": "Currency used for portfolio-level monetary values.",
+            "fieldId": "reporting_currency",
+            "inputType": "currency",
+            "options": [],
+            "requirement": "optional",
+            "valueSource": "portfolio_context_or_caller"
+          },
+          {
+            "businessLabel": "Comparison benchmark",
+            "defaultingPolicy": "portfolio_benchmark_when_omitted",
+            "description": "Approved benchmark used for relative performance and risk measures.",
+            "fieldId": "benchmark_code",
+            "inputType": "benchmark",
+            "options": [],
+            "requirement": "optional",
+            "valueSource": "gateway_eligible_benchmark"
+          },
+          {
+            "businessLabel": "Allocation views",
+            "defaultingPolicy": "asset_class_when_omitted",
+            "description": "Business dimensions used to group portfolio allocation.",
+            "fieldId": "allocation_dimensions",
+            "inputType": "multi_select",
+            "options": [
+              {
+                "businessLabel": "Asset class",
+                "value": "asset_class"
+              },
+              {
+                "businessLabel": "Currency",
+                "value": "currency"
+              },
+              {
+                "businessLabel": "Sector",
+                "value": "sector"
+              },
+              {
+                "businessLabel": "Country",
+                "value": "country"
+              },
+              {
+                "businessLabel": "Region",
+                "value": "region"
+              },
+              {
+                "businessLabel": "Product type",
+                "value": "product_type"
+              },
+              {
+                "businessLabel": "Credit rating",
+                "value": "rating"
+              }
+            ],
+            "requirement": "optional",
+            "valueSource": "report_catalogue"
+          }
+        ],
+        "description": "Advisor review pack for a client portfolio and selected business date.",
+        "eligibility": {
+          "message": "This report family is available for the caller and selected scope.",
+          "reasonCode": "report_family_eligible",
+          "state": "ready"
+        },
+        "intendedUse": "advisor_client_portfolio_review",
+        "orderingModes": [
+          {
+            "businessLabel": "Single portfolio",
+            "defaultOutputFormat": "json",
+            "description": "Create one report for the selected portfolio.",
+            "eligibility": {
+              "message": "This portfolio can be submitted for report creation.",
+              "reasonCode": "single_portfolio_ordering_ready",
+              "state": "ready"
+            },
+            "interactive": true,
+            "modeId": "single_portfolio",
+            "submission": {
+              "capabilityId": "reporting.portfolio_review.single",
+              "method": "POST",
+              "path": "/api/v1/reports/portfolio-reviews",
+              "reasonCode": "single_portfolio_ordering_ready",
+              "state": "ready"
+            }
+          },
+          {
+            "businessLabel": "Selected portfolio batch",
+            "defaultOutputFormat": "pdf",
+            "description": "Create the same report for an explicit portfolio list.",
+            "eligibility": {
+              "message": "Select the entitled portfolios to include before submitting the report batch.",
+              "reasonCode": "explicit_portfolio_selection_required",
+              "state": "partial"
+            },
+            "interactive": false,
+            "modeId": "explicit_portfolio_batch",
+            "submission": {
+              "capabilityId": "reporting.portfolio_review.explicit_batch",
+              "method": "POST",
+              "path": "/api/v1/report-batches",
+              "reasonCode": "explicit_portfolio_selection_required",
+              "state": "partial"
+            }
+          },
+          {
+            "businessLabel": "Governed reporting schedule",
+            "defaultOutputFormat": "pdf",
+            "description": "Create reports from an operations-managed reporting schedule.",
+            "eligibility": {
+              "message": "This report is created from an operations-managed reporting schedule.",
+              "reasonCode": "operations_managed_schedule",
+              "state": "unsupported"
+            },
+            "interactive": false,
+            "modeId": "governed_schedule",
+            "submission": null
+          }
+        ],
+        "outputFormats": [
+          {
+            "businessLabel": "Structured data package",
+            "formatId": "json",
+            "reasonCode": "report_data_ready",
+            "state": "ready",
+            "usePosture": "system_integration"
+          },
+          {
+            "businessLabel": "Governed PDF document",
+            "formatId": "pdf",
+            "reasonCode": "render_supportability_ready",
+            "state": "ready",
+            "usePosture": "governed_document"
+          }
+        ],
+        "reportFamilyId": "portfolio_review",
+        "sections": [
+          {
+            "availability": null,
+            "businessLabel": "Client and mandate profile",
+            "defaultSelected": true,
+            "dependencyFieldIds": [],
+            "description": "Client, relationship, booking centre, portfolio, and mandate context.",
+            "displayOrder": 10,
+            "sectionId": "CLIENT_PROFILE",
+            "selectionPosture": "required"
+          },
+          {
+            "availability": null,
+            "businessLabel": "Portfolio overview",
+            "defaultSelected": true,
+            "dependencyFieldIds": [],
+            "description": "Headline portfolio value, cash, investment, and review context.",
+            "displayOrder": 20,
+            "sectionId": "OVERVIEW",
+            "selectionPosture": "optional"
+          },
+          {
+            "availability": {
+              "acceptedBrief": null,
+              "message": "No accepted Advisor Brief is available for this reporting context.",
+              "reasonCode": "advisor_brief_not_reviewed",
+              "state": "unavailable"
+            },
+            "businessLabel": "Advisor commentary",
+            "defaultSelected": false,
+            "dependencyFieldIds": [
+              "advisor_brief_run_id"
+            ],
+            "description": "Reviewed advisor narrative from an accepted Performance Advisor Brief, with the accepting reviewer, run identity, and AI-assistance disclosure. Requires the accepted brief run id; the section is truthfully omitted when the named run is not accepted or its context does not match the report.",
+            "displayOrder": 25,
+            "sectionId": "ADVISOR_COMMENTARY",
+            "selectionPosture": "optional"
+          },
+          {
+            "availability": null,
+            "businessLabel": "Allocation and portfolio construction",
+            "defaultSelected": true,
+            "dependencyFieldIds": [
+              "allocation_dimensions"
+            ],
+            "description": "Portfolio allocation across the selected business dimensions.",
+            "displayOrder": 30,
+            "sectionId": "ALLOCATION",
+            "selectionPosture": "optional"
+          },
+          {
+            "availability": null,
+            "businessLabel": "Performance review",
+            "defaultSelected": true,
+            "dependencyFieldIds": [
+              "benchmark_code"
+            ],
+            "description": "Portfolio returns, benchmark comparison, and performance contribution.",
+            "displayOrder": 40,
+            "sectionId": "PERFORMANCE",
+            "selectionPosture": "optional"
+          },
+          {
+            "availability": null,
+            "businessLabel": "Performance attribution",
+            "defaultSelected": false,
+            "dependencyFieldIds": [
+              "benchmark_code"
+            ],
+            "description": "Benchmark-relative return attribution: allocation, selection, and interaction effects by asset class.",
+            "displayOrder": 45,
+            "sectionId": "PERFORMANCE_ATTRIBUTION",
+            "selectionPosture": "optional"
+          },
+          {
+            "availability": null,
+            "businessLabel": "Risk review",
+            "defaultSelected": true,
+            "dependencyFieldIds": [
+              "benchmark_code"
+            ],
+            "description": "Portfolio risk, drawdown, tail risk, and benchmark-relative measures.",
+            "displayOrder": 50,
+            "sectionId": "RISK_ANALYTICS",
+            "selectionPosture": "optional"
+          },
+          {
+            "availability": null,
+            "businessLabel": "Risk attribution",
+            "defaultSelected": false,
+            "dependencyFieldIds": [
+              "benchmark_code"
+            ],
+            "description": "What risk was taken for the result: total and benchmark-relative risk decomposed by sector, reconciled with a visible residual.",
+            "displayOrder": 55,
+            "sectionId": "RISK_ATTRIBUTION",
+            "selectionPosture": "optional"
+          },
+          {
+            "availability": null,
+            "businessLabel": "Income, cash and activity",
+            "defaultSelected": true,
+            "dependencyFieldIds": [],
+            "description": "Income, fees, cash flow, realised results, and portfolio activity.",
+            "displayOrder": 60,
+            "sectionId": "INCOME_AND_ACTIVITY",
+            "selectionPosture": "optional"
+          },
+          {
+            "availability": null,
+            "businessLabel": "Holdings detail",
+            "defaultSelected": true,
+            "dependencyFieldIds": [],
+            "description": "Position-level holdings, weights, valuation, and source-backed results.",
+            "displayOrder": 70,
+            "sectionId": "HOLDINGS",
+            "selectionPosture": "optional"
+          },
+          {
+            "availability": null,
+            "businessLabel": "Transaction activity",
+            "defaultSelected": true,
+            "dependencyFieldIds": [],
+            "description": "Transaction history, settlement context, and realised activity evidence.",
+            "displayOrder": 80,
+            "sectionId": "TRANSACTIONS",
+            "selectionPosture": "optional"
+          }
+        ]
+      },
+      {
+        "audienceRoles": [
+          "portfolio_manager",
+          "investment_control",
+          "audit"
+        ],
+        "availability": {
+          "message": "Available within its supported reporting workflow.",
+          "reasonCode": "report_family_ready",
+          "state": "ready"
+        },
+        "businessLabel": "Pre-trade decision evidence",
+        "clientReleasePosture": "internal_control_only",
+        "configurationFields": [],
+        "description": "Governed evidence pack created from an approved portfolio-management review.",
+        "eligibility": {
+          "message": "This report family is available for the caller and selected scope.",
+          "reasonCode": "report_family_eligible",
+          "state": "ready"
+        },
+        "intendedUse": "portfolio_management_pre_trade_control",
+        "orderingModes": [
+          {
+            "businessLabel": "Portfolio-management workflow",
+            "defaultOutputFormat": "pdf",
+            "description": "Created from a source-owned pre-trade decision workflow.",
+            "eligibility": {
+              "message": "This report is created from its governed business workflow.",
+              "reasonCode": "source_workflow_only",
+              "state": "unsupported"
+            },
+            "interactive": false,
+            "modeId": "source_workflow",
+            "submission": null
+          }
+        ],
+        "outputFormats": [
+          {
+            "businessLabel": "Structured data package",
+            "formatId": "json",
+            "reasonCode": "report_data_ready",
+            "state": "ready",
+            "usePosture": "system_integration"
+          },
+          {
+            "businessLabel": "Governed PDF document",
+            "formatId": "pdf",
+            "reasonCode": "render_supportability_ready",
+            "state": "ready",
+            "usePosture": "governed_document"
+          }
+        ],
+        "reportFamilyId": "proof_pack",
+        "sections": []
+      },
+      {
+        "audienceRoles": [
+          "portfolio_manager",
+          "operations",
+          "audit"
+        ],
+        "availability": {
+          "message": "Available within its supported reporting workflow.",
+          "reasonCode": "report_family_ready",
+          "state": "ready"
+        },
+        "businessLabel": "Rebalance wave evidence",
+        "clientReleasePosture": "internal_control_only",
+        "configurationFields": [],
+        "description": "Governed evidence for a managed portfolio rebalance wave.",
+        "eligibility": {
+          "message": "This report family is available for the caller and selected scope.",
+          "reasonCode": "report_family_eligible",
+          "state": "ready"
+        },
+        "intendedUse": "portfolio_management_rebalance_control",
+        "orderingModes": [
+          {
+            "businessLabel": "Portfolio-management workflow",
+            "defaultOutputFormat": "pdf",
+            "description": "Created from a source-owned rebalance-wave workflow.",
+            "eligibility": {
+              "message": "This report is created from its governed business workflow.",
+              "reasonCode": "source_workflow_only",
+              "state": "unsupported"
+            },
+            "interactive": false,
+            "modeId": "source_workflow",
+            "submission": null
+          }
+        ],
+        "outputFormats": [
+          {
+            "businessLabel": "Structured data package",
+            "formatId": "json",
+            "reasonCode": "report_data_ready",
+            "state": "ready",
+            "usePosture": "system_integration"
+          },
+          {
+            "businessLabel": "Governed PDF document",
+            "formatId": "pdf",
+            "reasonCode": "render_supportability_ready",
+            "state": "ready",
+            "usePosture": "governed_document"
+          }
+        ],
+        "reportFamilyId": "rebalance_wave",
+        "sections": []
+      },
+      {
+        "audienceRoles": [
+          "portfolio_manager",
+          "investment_control",
+          "audit"
+        ],
+        "availability": {
+          "message": "Available within its supported reporting workflow.",
+          "reasonCode": "report_family_ready",
+          "state": "ready"
+        },
+        "businessLabel": "Post-trade outcome review",
+        "clientReleasePosture": "internal_control_only",
+        "configurationFields": [],
+        "description": "Governed review of realised outcomes against approved pre-trade evidence.",
+        "eligibility": {
+          "message": "This report family is available for the caller and selected scope.",
+          "reasonCode": "report_family_eligible",
+          "state": "ready"
+        },
+        "intendedUse": "portfolio_management_post_trade_control",
+        "orderingModes": [
+          {
+            "businessLabel": "Portfolio-management workflow",
+            "defaultOutputFormat": "pdf",
+            "description": "Created from a source-owned post-trade outcome workflow.",
+            "eligibility": {
+              "message": "This report is created from its governed business workflow.",
+              "reasonCode": "source_workflow_only",
+              "state": "unsupported"
+            },
+            "interactive": false,
+            "modeId": "source_workflow",
+            "submission": null
+          }
+        ],
+        "outputFormats": [
+          {
+            "businessLabel": "Structured data package",
+            "formatId": "json",
+            "reasonCode": "report_data_ready",
+            "state": "ready",
+            "usePosture": "system_integration"
+          },
+          {
+            "businessLabel": "Governed PDF document",
+            "formatId": "pdf",
+            "reasonCode": "render_supportability_ready",
+            "state": "ready",
+            "usePosture": "governed_document"
+          }
+        ],
+        "reportFamilyId": "outcome_review",
+        "sections": []
+      },
+      {
+        "audienceRoles": [
+          "portfolio_manager",
+          "investment_control",
+          "audit"
+        ],
+        "availability": {
+          "message": "Available within its supported reporting workflow.",
+          "reasonCode": "report_family_ready",
+          "state": "ready"
+        },
+        "businessLabel": "Composite calculated review",
+        "clientReleasePosture": "internal_control_only",
+        "configurationFields": [
+          {
+            "businessLabel": "Pinned calculated source",
+            "defaultingPolicy": "caller_required",
+            "description": "Exact composite vector, fee, currency, method and response identity.",
+            "fieldId": "composite_selection",
+            "inputType": "pinned_source_selection",
+            "options": [],
+            "requirement": "conditional",
+            "valueSource": "caller"
+          },
+          {
+            "businessLabel": "Pinned linked member analysis",
+            "defaultingPolicy": "omitted_preserves_legacy_contract",
+            "description": "Exact source-owned linked contribution; select instead of the TWR primary and calendar/trailing products. Official authority remains unavailable.",
+            "fieldId": "composite_linked_selection",
+            "inputType": "pinned_source_selection",
+            "options": [],
+            "requirement": "conditional",
+            "valueSource": "caller"
+          },
+          {
+            "businessLabel": "Pinned calendar and trailing sources",
+            "defaultingPolicy": "omitted_preserves_legacy_contract",
+            "description": "Optional exact source products bound to the primary version vector.",
+            "fieldId": "composite_source_products",
+            "inputType": "pinned_source_selection",
+            "options": [],
+            "requirement": "optional",
+            "valueSource": "caller"
+          },
+          {
+            "businessLabel": "Pinned composite source context",
+            "defaultingPolicy": "omitted_preserves_legacy_contract",
+            "description": "Exact Manage v1 definition joined to the primary TWR vector; Optional SI and explicit supplied membership histories; no approval inference.",
+            "fieldId": "composite_source_context",
+            "inputType": "pinned_source_selection",
+            "options": [],
+            "requirement": "optional",
+            "valueSource": "caller"
+          },
+          {
+            "businessLabel": "Pinned monthly eligibility evidence",
+            "defaultingPolicy": "omitted_preserves_legacy_contract",
+            "description": "Exact published or evaluated-only sources; NOT_ATTESTED. Select as the exclusive primary.",
+            "fieldId": "composite_eligibility_selection",
+            "inputType": "pinned_source_selection",
+            "options": [],
+            "requirement": "conditional",
+            "valueSource": "caller"
+          },
+          {
+            "businessLabel": "Pinned pooled money-weighted analysis",
+            "defaultingPolicy": "omitted_preserves_legacy_contract",
+            "description": "Exact retained outcome, source vector and correction lineage; NOT_ATTESTED.",
+            "fieldId": "composite_pooled_selection",
+            "inputType": "pinned_source_selection",
+            "options": [],
+            "requirement": "conditional",
+            "valueSource": "caller"
+          },
+          {
+            "businessLabel": "Retained same-scope correction notice",
+            "defaultingPolicy": "omitted_preserves_legacy_contract",
+            "description": "Exact ordered v8 source captures and acknowledged correction path; exclusive XLSX primary, PARTIAL and NOT_ATTESTED. Delivery requires compatible receivers and privileged historical relationship reads.",
+            "fieldId": "composite_notice_selection",
+            "inputType": "pinned_source_selection",
+            "options": [],
+            "requirement": "conditional",
+            "valueSource": "caller"
+          }
+        ],
+        "description": "Exact retained composite calculation with unavailable source products declared.",
+        "eligibility": {
+          "message": "This report family is available for the caller and selected scope.",
+          "reasonCode": "report_family_eligible",
+          "state": "ready"
+        },
+        "intendedUse": "internal_composite_calculated_review",
+        "orderingModes": [
+          {
+            "businessLabel": "Exact composite selection",
+            "defaultOutputFormat": "json",
+            "description": "Capture one exact retained composite calculation vector.",
+            "eligibility": {
+              "message": "Gateway does not publish a submission path for this Report-owned mode.",
+              "reasonCode": "gateway_submission_not_supported",
+              "state": "unsupported"
+            },
+            "interactive": false,
+            "modeId": "single_composite",
+            "submission": null
+          }
+        ],
+        "outputFormats": [
+          {
+            "businessLabel": "Structured data package",
+            "formatId": "json",
+            "reasonCode": "report_data_ready",
+            "state": "ready",
+            "usePosture": "system_integration"
+          },
+          {
+            "businessLabel": "Calculated review workbook",
+            "formatId": "xlsx",
+            "reasonCode": "render_supportability_ready",
+            "state": "ready",
+            "usePosture": "governed_document"
+          }
+        ],
+        "reportFamilyId": "composite_review",
+        "sections": []
+      }
+    ],
+    "scopeEligibility": {
+      "message": "The selected portfolio is available for report ordering.",
+      "reasonCode": "selected_scope_eligible",
+      "state": "ready"
+    },
+    "scopeSelection": {
+      "scopeId": "PB_SG_GLOBAL_BAL_001",
+      "scopeType": "portfolio"
+    },
+    "sourceAuthority": "reporting",
+    "sourceContractVersion": "report-ordering-catalogue.v1"
+  },
+  "schemaVersion": "gateway-841-public-service-fixture.v2"
+}

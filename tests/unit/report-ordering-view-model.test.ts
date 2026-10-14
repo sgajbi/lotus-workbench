@@ -18,6 +18,7 @@ import {
 import {
   buildReportJobListResponse,
   buildReportOrderingResponse,
+  buildCompositeReportOrderingResponse,
 } from "../fixtures/report-ordering-fixtures";
 
 const sourceContext = {
@@ -29,6 +30,62 @@ const sourceContext = {
 };
 
 describe("report ordering view model", () => {
+  it("keeps all five projected families and separates composite metadata from actual workflows", () => {
+    const response = parseReportOrderingResponse(buildCompositeReportOrderingResponse());
+    const configuration = createReportOrderingConfiguration(response, sourceContext);
+    const model = buildReportOrderingViewModel(response, configuration, sourceContext);
+    expect(model.eligibleFamilies.map((family) => family.reportFamilyId)).toEqual(["portfolio_review"]);
+    expect(model.workflowManagedFamilies.map((family) => family.reportFamilyId)).toEqual(["proof_pack", "rebalance_wave", "outcome_review"]);
+    expect(model.nonOrderableFamilies).toEqual([response.reportFamilies[4]]);
+    expect(model.outputChoices.map((output) => output.id)).toEqual(["json", "pdf"]);
+    expect(model.canSubmit).toBe(true);
+    expect(selectReportOrderingFamily(response, configuration, "composite_review")).toBe(configuration);
+  });
+
+  it("cannot configure, review or submit a composite-only publication", () => {
+    const response = parseReportOrderingResponse(buildCompositeReportOrderingResponse(true));
+    const configuration = createReportOrderingConfiguration(response, sourceContext);
+    const model = buildReportOrderingViewModel(response, configuration, sourceContext);
+    expect(configuration).toMatchObject({ familyId: "", modeId: "", configurationValues: {}, selectedSections: [], outputFormat: "json" });
+    expect(model.family).toBeNull();
+    expect(model.mode).toBeNull();
+    expect(model.outputChoices).toEqual([]);
+    expect(model.sectionChoices).toEqual([]);
+    expect(model.workflowManagedFamilies).toEqual([]);
+    expect(model.nonOrderableFamilies).toEqual(response.reportFamilies);
+    expect(model.canSubmit).toBe(false);
+    expect(model.canReview).toBe(false);
+  });
+
+  it("excludes XLSX even if a supported family publishes it as its preferred ready output", () => {
+    const payload = buildCompositeReportOrderingResponse();
+    const family = payload.reportFamilies[0];
+    family.outputFormats.unshift(structuredClone(payload.reportFamilies[4].outputFormats[1]));
+    family.orderingModes[0].defaultOutputFormat = "xlsx";
+    const response = parseReportOrderingResponse(payload);
+    const configuration = createReportOrderingConfiguration(response, sourceContext);
+    expect(configuration.outputFormat).toBe("json");
+    const model = buildReportOrderingViewModel(response, configuration, sourceContext);
+    expect(model.outputChoices.map((output) => output.id)).toEqual(["json", "pdf"]);
+    expect(buildReportOrderingViewModel(response, { ...configuration, outputFormat: "xlsx" } as unknown as typeof configuration, sourceContext).canSubmit).toBe(false);
+  });
+
+  it.each(["portfolio", "workflow"])("keeps composite identity non-orderable when unchecked %s metadata strips its pins", (mode) => {
+    const response = parseReportOrderingResponse(buildCompositeReportOrderingResponse(true));
+    const ordinary = parseReportOrderingResponse(buildCompositeReportOrderingResponse());
+    const composite = response.reportFamilies[0];
+    composite.orderingModes = [ordinary.reportFamilies[mode === "portfolio" ? 0 : 1].orderingModes[0]];
+    composite.configurationFields = [];
+    const configuration = createReportOrderingConfiguration(response, sourceContext);
+    const model = buildReportOrderingViewModel(response, configuration, sourceContext);
+    expect(configuration.familyId).toBe("");
+    expect(model.eligibleFamilies).toEqual([]);
+    expect(model.workflowManagedFamilies).toEqual([]);
+    expect(model.nonOrderableFamilies).toEqual([composite]);
+    expect(model.canReview).toBe(false);
+    expect(model.canSubmit).toBe(false);
+  });
+
   it.each([false, true])("preserves source unavailability with retained families=%s for single and batch actions", (retainFamilies) => {
     const payload = buildReportOrderingResponse();
     payload.catalogueAvailability = {

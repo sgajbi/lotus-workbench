@@ -54,6 +54,7 @@ export type ReportOrderingViewModel = {
   batchReadiness: ReportOrderingReadiness;
   eligibleFamilies: ReportFamily[];
   workflowManagedFamilies: ReportFamily[];
+  nonOrderableFamilies: ReportFamily[];
   outputChoices: Array<{
     id: "json" | "pdf";
     label: string;
@@ -174,8 +175,20 @@ export function buildReportOrderingViewModel(
   );
   const workflowManagedFamilies = response.reportFamilies.filter(
     (family) =>
-      family.eligibility.state === "ready" && !firstSupportedMode(family),
+      family.eligibility.state === "ready" &&
+      !isCompositeMetadataFamily(family) &&
+      !firstSupportedMode(family) &&
+      family.orderingModes.some(
+        (mode) =>
+          mode.modeId === "source_workflow" &&
+          !mode.interactive &&
+          (mode.eligibility.state === "ready" ||
+            (mode.eligibility.state === "unsupported" &&
+              mode.eligibility.reasonCode === "source_workflow_only")) &&
+          mode.submission == null,
+      ),
   );
+  const nonOrderableFamilies = response.reportFamilies.filter(isCompositeMetadataFamily);
   const family =
     eligibleFamilies.find(
       (candidate) => candidate.reportFamilyId === configuration.familyId,
@@ -234,7 +247,10 @@ export function buildReportOrderingViewModel(
     batchReadiness,
     eligibleFamilies,
     workflowManagedFamilies,
-    outputChoices: (family?.outputFormats ?? []).map(toOutputChoice),
+    nonOrderableFamilies,
+    outputChoices: (family?.outputFormats ?? [])
+      .filter(isInteractiveOutput)
+      .map(toOutputChoice),
     sectionChoices,
     audienceLabel: family
       ? audienceLabel(family.audienceRoles)
@@ -533,6 +549,27 @@ function evaluateReadiness(
   if (response.scopeEligibility.state !== "ready") {
     issues.push(response.scopeEligibility.message);
   }
+  if (
+    !family?.orderingModes.some(
+      (candidate) =>
+        candidate.modeId === configuration.modeId &&
+        (candidate === findSinglePortfolioMode(family) ||
+          candidate === findPortfolioReviewBatchMode(family)),
+    )
+  ) {
+    issues.push("Select an ordering mode supported for this report.");
+  }
+  if (
+    Object.entries(configuration.configurationValues).some(
+      ([fieldId, value]) =>
+        value.trim() &&
+        !family?.configurationFields.some(
+          (field) => field.fieldId === fieldId && field.inputType === "text",
+        ),
+    )
+  ) {
+    issues.push("Use only configuration fields supported for this report.");
+  }
   if (!family) {
     issues.push(
       "No report is available for the selected portfolio and business role.",
@@ -564,7 +601,9 @@ function evaluateReadiness(
   );
 
   const output = family?.outputFormats.find(
-    (candidate) => candidate.formatId === configuration.outputFormat,
+    (candidate) =>
+      isInteractiveOutput(candidate) &&
+      candidate.formatId === configuration.outputFormat,
   );
   if (!output || output.state !== "ready") {
     issues.push("Select an output that is currently available.");
@@ -690,28 +729,40 @@ function findSinglePortfolioMode(
 }
 
 function firstSupportedMode(family: ReportFamily): ReportOrderingMode | null {
+  if (isCompositeMetadataFamily(family)) return null;
   return (
     findSinglePortfolioMode(family) ?? findPortfolioReviewBatchMode(family)
   );
+}
+
+function isCompositeMetadataFamily(family: ReportFamily): boolean {
+  return family.reportFamilyId === "composite_review" ||
+    family.orderingModes.some((mode) => mode.modeId === "single_composite");
 }
 
 function resolveReadyOutputFormat(
   family: ReportFamily | null,
   mode: ReportOrderingMode | null,
 ): "json" | "pdf" {
-  const preferred = family?.outputFormats.find(
-    (format) =>
-      format.formatId === mode?.defaultOutputFormat && format.state === "ready",
-  );
+  const outputs = (family?.outputFormats ?? []).filter(isInteractiveOutput);
   return (
-    preferred?.formatId ??
-    family?.outputFormats.find((format) => format.state === "ready")
-      ?.formatId ??
+    outputs.find((format) =>
+      format.formatId === mode?.defaultOutputFormat && format.state === "ready",
+    )?.formatId ??
+    outputs.find((format) => format.state === "ready")?.formatId ??
     "json"
   );
 }
 
-function toOutputChoice(output: ReportOutputFormat) {
+function isInteractiveOutput(
+  output: ReportOutputFormat,
+): output is ReportOutputFormat & { formatId: "json" | "pdf" } {
+  return output.formatId === "json" || output.formatId === "pdf";
+}
+
+function toOutputChoice(
+  output: ReportOutputFormat & { formatId: "json" | "pdf" },
+) {
   return {
     id: output.formatId,
     label: output.businessLabel,

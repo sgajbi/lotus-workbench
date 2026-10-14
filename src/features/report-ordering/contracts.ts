@@ -65,6 +65,10 @@ const editableTextFieldIdSchema = z
         "allocation_dimensions",
       ].includes(fieldId),
     "Text configuration fields must not replace dedicated report controls",
+  )
+  .refine(
+    (fieldId) => !Object.keys(pinnedCompositeFields).includes(fieldId),
+    "Pinned composite metadata must not become a text editor",
   );
 
 const configurationFieldBaseSchema = z.object({
@@ -81,7 +85,43 @@ const configurationFieldBaseSchema = z.object({
   options: z.array(configurationOptionSchema),
 });
 
+const pinnedCompositeFields = {
+  composite_selection: ["conditional", "caller_required"],
+  composite_linked_selection: ["conditional", "omitted_preserves_legacy_contract"],
+  composite_source_products: ["optional", "omitted_preserves_legacy_contract"],
+  composite_source_context: ["optional", "omitted_preserves_legacy_contract"],
+  composite_eligibility_selection: ["conditional", "omitted_preserves_legacy_contract"],
+  composite_pooled_selection: ["conditional", "omitted_preserves_legacy_contract"],
+  composite_notice_selection: ["conditional", "omitted_preserves_legacy_contract"],
+} as const;
+
+const pinnedCompositeFieldSchema = configurationFieldBaseSchema
+  .extend({
+    fieldId: z.enum([
+      "composite_selection", "composite_linked_selection",
+      "composite_source_products", "composite_source_context",
+      "composite_eligibility_selection", "composite_pooled_selection",
+      "composite_notice_selection",
+    ]),
+    inputType: z.literal("pinned_source_selection"),
+    requirement: z.enum(["conditional", "optional"]),
+    defaultingPolicy: z.enum(["caller_required", "omitted_preserves_legacy_contract"]),
+    valueSource: z.literal("caller"),
+    options: z.array(configurationOptionSchema).max(0),
+  })
+  .strict()
+  .superRefine((field, context) => {
+    const [requirement, defaultingPolicy] = pinnedCompositeFields[field.fieldId];
+    if (field.requirement !== requirement || field.defaultingPolicy !== defaultingPolicy) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Pinned composite metadata must retain its field requirement and defaulting policy",
+      });
+    }
+  });
+
 const configurationFieldSchema = z.union([
+  pinnedCompositeFieldSchema,
   configurationFieldBaseSchema
     .extend({
       fieldId: editableTextFieldIdSchema,
@@ -178,7 +218,7 @@ const reportSectionSchema = z
 
 const outputFormatSchema = z
   .object({
-    formatId: z.enum(["json", "pdf"]),
+    formatId: z.enum(["json", "pdf", "xlsx"]),
     businessLabel: z.string().min(1),
     usePosture: z.enum(["system_integration", "governed_document"]),
     state: availabilityStateSchema,
@@ -193,10 +233,11 @@ const orderingModeSchema = z
       "explicit_portfolio_batch",
       "governed_schedule",
       "source_workflow",
+      "single_composite",
     ]),
     businessLabel: z.string().min(1),
     description: z.string().min(1),
-    defaultOutputFormat: z.enum(["json", "pdf"]),
+    defaultOutputFormat: z.enum(["json", "pdf", "xlsx"]),
     interactive: z.boolean(),
     eligibility: eligibilitySchema,
     submission: submissionCapabilitySchema.nullable().optional(),
@@ -223,6 +264,35 @@ const reportFamilySchema = z
   })
   .strict()
   .superRefine((family, context) => {
+    const hasCompositeMode = family.orderingModes.some(
+      (mode) => mode.modeId === "single_composite",
+    );
+    const hasPinnedFields = family.configurationFields.some(
+      (field) => field.inputType === "pinned_source_selection",
+    );
+    if (family.reportFamilyId === "composite_review" || hasCompositeMode || hasPinnedFields) {
+      const mode = family.orderingModes[0];
+      if (
+        family.reportFamilyId !== "composite_review" ||
+        family.orderingModes.length !== 1 ||
+        mode?.modeId !== "single_composite" ||
+        mode.interactive ||
+        !((mode.eligibility.state === "unsupported" &&
+           mode.eligibility.reasonCode === "gateway_submission_not_supported") ||
+          (family.eligibility.state !== "ready" &&
+           mode.eligibility.state === family.eligibility.state &&
+           mode.eligibility.reasonCode === family.eligibility.reasonCode)) ||
+        mode.submission != null ||
+        family.sections.length !== 0 ||
+        family.configurationFields.length !== Object.keys(pinnedCompositeFields).length ||
+        family.configurationFields.some((field) => field.inputType !== "pinned_source_selection")
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Pinned composite metadata must bind to the unsupported non-interactive composite family without sections or submission",
+        });
+      }
+    }
     const configurationFieldIds = family.configurationFields.map(
       (field) => field.fieldId,
     );
@@ -237,6 +307,7 @@ const reportFamilySchema = z
 
       if (
         field.requirement === "conditional" &&
+        field.inputType !== "pinned_source_selection" &&
         !family.sections.some((section) =>
           section.dependencyFieldIds.includes(field.fieldId),
         )
