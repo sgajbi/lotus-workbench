@@ -379,6 +379,7 @@ function ReportOrderingWorkspaceSession({
                   onReview={() => void reviewRequest()}
                   onSubmit={() => void submitRequest()}
                   onStartAnother={startAnotherReport}
+                  onRefreshCatalogue={() => void workflow.refreshCatalogue()}
                 />
               </div>
             </div>

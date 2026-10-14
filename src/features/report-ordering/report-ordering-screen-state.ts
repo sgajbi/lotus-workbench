@@ -15,7 +15,7 @@ export type ReportOrderingWorkspaceState =
     }
   | {
       kind: "accepted";
-      model: ReportOrderingViewModel;
+      model: ReportOrderingViewModel | null;
     }
   | {
       kind: "loading" | "permission_blocked" | "error" | "empty";
@@ -51,6 +51,12 @@ export type ReportOrderingReadinessState = {
   showRequestSummary: boolean;
   showActions: boolean;
   showValidationSummary: boolean;
+  requestModel?: ReportOrderingViewModel | null;
+  canStartAnother?: boolean;
+  catalogueNotice?: Exclude<
+    ReportOrderingWorkspaceState,
+    { kind: "configuration" | "accepted" }
+  >;
 };
 
 export type ReportOrderingScreenState = {
@@ -62,6 +68,7 @@ export function buildReportOrderingScreenState({
   catalogueState,
   catalogueError,
   model,
+  submissionModel,
   preflightReviewed,
   submissionState,
   submissionError,
@@ -69,11 +76,50 @@ export function buildReportOrderingScreenState({
   catalogueState: ReportOrderingCatalogueState;
   catalogueError: string | null;
   model: ReportOrderingViewModel | null;
+  submissionModel?: ReportOrderingViewModel | null;
   preflightReviewed: boolean;
   submissionState: ReportOrderingSubmissionState;
   submissionError: string | null;
 }): ReportOrderingScreenState {
   const baseWorkspace = buildWorkspaceState(catalogueState, catalogueError, model);
+  if (submissionState === "submitting" || submissionState === "accepted") {
+    const requestModel = submissionModel ?? null;
+    return {
+      workspace:
+        submissionState === "accepted"
+          ? { kind: "accepted", model: requestModel }
+          : requestModel
+            ? { kind: "configuration", model: requestModel }
+            : baseWorkspace,
+      readiness: {
+        kind: submissionState,
+        badgeLabel: submissionState === "accepted" ? "Accepted" : "Submitting",
+        tone: submissionState === "accepted" ? "success" : "default",
+        title:
+          submissionState === "accepted"
+            ? "Report request accepted"
+            : "Submitting report request",
+        detail:
+          submissionState === "accepted"
+            ? "Reporting recorded the request. Report data, archive, and client delivery remain separate."
+            : "The reviewed request is being sent to Reporting.",
+        clientReleaseTitle: "Review before any client use",
+        clientReleaseDetail: "Request acceptance does not authorize client use.",
+        busy: submissionState === "submitting",
+        showRequestSummary: Boolean(requestModel),
+        showActions: submissionState === "submitting",
+        showValidationSummary: false,
+        requestModel,
+        canStartAnother:
+          submissionState === "accepted" &&
+          baseWorkspace.kind === "configuration" &&
+          baseWorkspace.model.eligibleFamilies.length > 0,
+        ...(baseWorkspace.kind === "configuration"
+          ? {}
+          : { catalogueNotice: baseWorkspace }),
+      },
+    };
+  }
   if (baseWorkspace.kind !== "configuration") {
     return {
       workspace: baseWorkspace,
@@ -82,10 +128,7 @@ export function buildReportOrderingScreenState({
   }
 
   return {
-    workspace:
-      submissionState === "accepted"
-        ? { kind: "accepted", model: baseWorkspace.model }
-        : baseWorkspace,
+    workspace: baseWorkspace,
     readiness: configuredReadinessState({
       model: baseWorkspace.model,
       preflightReviewed,
@@ -215,37 +258,17 @@ function configuredReadinessState({
 }: {
   model: ReportOrderingViewModel;
   preflightReviewed: boolean;
-  submissionState: ReportOrderingSubmissionState;
+  submissionState: Exclude<ReportOrderingSubmissionState, "submitting" | "accepted">;
   submissionError: string | null;
 }): ReportOrderingReadinessState {
   const common = {
     clientReleaseTitle: "Review before any client use",
     clientReleaseDetail: model.clientReleaseLabel,
-    busy: submissionState === "submitting",
+    busy: false,
     showRequestSummary: true,
-    showActions: submissionState !== "accepted",
+    showActions: true,
     showValidationSummary: false,
   };
-  if (submissionState === "submitting") {
-    return {
-      ...common,
-      kind: "submitting",
-      badgeLabel: "Submitting",
-      tone: "default",
-      title: "Submitting report request",
-      detail: "The reviewed request is being sent to Reporting.",
-    };
-  }
-  if (submissionState === "accepted") {
-    return {
-      ...common,
-      kind: "accepted",
-      badgeLabel: "Accepted",
-      tone: "success",
-      title: "Report request accepted",
-      detail: "Reporting recorded the request. Report data, archive, and client delivery remain separate.",
-    };
-  }
   if (submissionState === "error") {
     return {
       ...common,

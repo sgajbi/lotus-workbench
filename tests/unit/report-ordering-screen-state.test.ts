@@ -26,6 +26,34 @@ function readyModel() {
 }
 
 describe("report ordering screen state", () => {
+  it.each((["submitting", "accepted"] as const).flatMap((submissionState) =>
+    (["loading", "unavailable", "empty", "permission", "transport"] as const).map((sourceState) => ({ submissionState, sourceState })),
+  ))("preserves $submissionState lifecycle with $sourceState catalogue independently", ({ submissionState, sourceState }) => {
+    const originalModel = readyModel();
+    originalModel.configuration.asOfDate = "2026-04-21";
+    const payload = buildReportOrderingResponse();
+    payload.reportFamilies = [];
+    if (sourceState === "unavailable") payload.catalogueAvailability.state = "unavailable";
+    if (sourceState === "permission") payload.scopeEligibility.state = "permission_blocked";
+    const response = parseReportOrderingResponse(payload);
+    const currentModel = buildReportOrderingViewModel(response, createReportOrderingConfiguration(response, sourceContext), sourceContext);
+    const state = buildReportOrderingScreenState({
+      catalogueState: sourceState === "loading" ? "loading" : sourceState === "transport" ? "error" : "ready",
+      catalogueError: null, model: sourceState === "transport" ? null : currentModel,
+      submissionModel: originalModel, preflightReviewed: false, submissionState, submissionError: null,
+    });
+    expect(state.workspace.kind).toBe(submissionState === "accepted" ? "accepted" : "configuration");
+    expect(state.readiness).toMatchObject({ kind: submissionState, busy: submissionState === "submitting", showActions: submissionState === "submitting", canStartAnother: false, requestModel: originalModel });
+    expect(state.readiness.catalogueNotice).toBeDefined();
+    expect(state.readiness.requestModel?.configuration.asOfDate).toBe("2026-04-21");
+  });
+
+  it("never reconstructs accepted request terms from a newly loaded catalogue", () => {
+    const state = buildReportOrderingScreenState({ catalogueState: "ready", catalogueError: null, model: readyModel(), preflightReviewed: false, submissionState: "accepted", submissionError: null });
+    expect(state.workspace).toEqual({ kind: "accepted", model: null });
+    expect(state.readiness.showRequestSummary).toBe(false);
+    expect(state.readiness.requestModel).toBeNull();
+  });
   it.each([false, true])("prioritizes unavailable source over retained families=%s", (retainFamilies) => {
     const payload = buildReportOrderingResponse();
     payload.catalogueAvailability = {

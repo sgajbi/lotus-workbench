@@ -40,6 +40,7 @@ import {
   type ReportOrderingScopeMode,
   type ReportSectionAvailabilityEvidence,
   type ReportOrderingSourceContext,
+  type ReportOrderingViewModel,
 } from "./view-model";
 
 type ReviewedIntent = {
@@ -69,6 +70,7 @@ type BatchWorkspaceState = {
   intent: ActiveBatchIntent | null;
   status: ReportBatchStatus | null;
   error: string | null;
+  permissionBlocked?: boolean;
 };
 
 function resolveConfirmedBatchReportingCurrency(
@@ -163,6 +165,15 @@ export function useReportOrderingWorkflow({
     });
   const [submittedHandlesByPortfolio, setSubmittedHandlesByPortfolio] =
     useState<Record<string, ReportJobHandle>>({});
+  const [submissionModelsByPortfolio, setSubmissionModelsByPortfolio] =
+    useState<Record<string, {
+      scopeMode: ReportOrderingScopeMode;
+      model: ReportOrderingViewModel;
+    }>>({});
+  const submissionInFlightRef = useRef<{
+    portfolioId: string;
+    generation: number;
+  } | null>(null);
   const [batchWorkspaceState, setBatchWorkspaceState] =
     useState<BatchWorkspaceState>({
       portfolioId,
@@ -177,6 +188,7 @@ export function useReportOrderingWorkflow({
   const workspaceGenerationRef = useRef(0);
   const batchStatusRequestSequenceRef = useRef(0);
   const historyRequestSequenceRef = useRef(0);
+  const historyPermissionBlockedPortfolioRef = useRef<string | null>(null);
   const catalogueRequestSequenceRef = useRef(0);
   const activeBatchWorkspaceState: BatchWorkspaceState =
     batchWorkspaceState.portfolioId === portfolioId
@@ -275,9 +287,10 @@ export function useReportOrderingWorkflow({
           ...current,
           status: response,
           error: null,
+          permissionBlocked: false,
         }));
         return true;
-      } catch {
+      } catch (error) {
         if (
           activeBatchIdRef.current !== batchId ||
           batchStatusRequestSequenceRef.current !== requestSequence
@@ -286,8 +299,13 @@ export function useReportOrderingWorkflow({
         }
         updateBatchWorkspace(batchId, (current) => ({
           ...current,
-          error:
-            "The bundle was accepted, but current portfolio outcomes could not be loaded.",
+          status: isWorkbenchPermissionBlockedError(error)
+            ? null : current.status,
+          permissionBlocked:
+            isWorkbenchPermissionBlockedError(error) || current.permissionBlocked,
+          error: isWorkbenchPermissionBlockedError(error)
+            ? "The bundle was accepted, but portfolio outcomes are restricted."
+            : "The bundle was accepted, but current portfolio outcomes could not be loaded.",
         }));
         return false;
       }
@@ -398,6 +416,7 @@ export function useReportOrderingWorkflow({
   useEffect(() => {
     if (
       !submittedBatchHandle ||
+      activeBatchWorkspaceState.permissionBlocked ||
       !activeBatchIntent ||
       (batchStatus && isTerminalBatchStatus(batchStatus.status)) ||
       (!batchStatus && !batchStatusError)
@@ -412,6 +431,7 @@ export function useReportOrderingWorkflow({
     );
     return () => window.clearTimeout(timer);
   }, [
+    activeBatchWorkspaceState.permissionBlocked,
     activeBatchIntent,
     batchStatus,
     batchStatusError,
@@ -432,6 +452,8 @@ export function useReportOrderingWorkflow({
       ) {
         return;
       }
+      // Only a matching protected-source success restores this portfolio's history access.
+      historyPermissionBlockedPortfolioRef.current = null;
       setHistory(response);
       setHistoryState("ready");
     } catch (error) {
@@ -442,8 +464,13 @@ export function useReportOrderingWorkflow({
         return;
       }
       const permissionBlocked = isWorkbenchPermissionBlockedError(error);
-      if (permissionBlocked) setHistory(null);
-      setHistoryState(permissionBlocked ? "permission_blocked" : "error");
+      if (permissionBlocked) {
+        historyPermissionBlockedPortfolioRef.current = portfolioId;
+      }
+      const accessWithheld =
+        historyPermissionBlockedPortfolioRef.current === portfolioId;
+      if (accessWithheld) setHistory(null);
+      setHistoryState(accessWithheld ? "permission_blocked" : "error");
       setHistoryError(historyErrorCopy(error));
     }
   }, [isActiveWorkspaceGeneration, portfolioId]);
@@ -451,6 +478,7 @@ export function useReportOrderingWorkflow({
   useEffect(() => {
     if (
       scopeMode !== "single_portfolio" ||
+      historyPermissionBlockedPortfolioRef.current === portfolioId ||
       historyState === "loading" ||
       historyState === "permission_blocked"
     )
@@ -562,6 +590,10 @@ export function useReportOrderingWorkflow({
           );
           setSectionAvailabilityEvidence({ contextKey, state: "unavailable" });
           setReviewedIntent(null);
+          setCatalogueState(
+            isWorkbenchPermissionBlockedError(error) ? "permission_blocked" : "error",
+          );
+          setCatalogueError(catalogueErrorCopy(error));
           return;
         }
         setCatalogue(null);
@@ -580,6 +612,9 @@ export function useReportOrderingWorkflow({
 
   useEffect(() => {
     activePortfolioIdRef.current = portfolioId;
+    if (historyPermissionBlockedPortfolioRef.current !== portfolioId) {
+      historyPermissionBlockedPortfolioRef.current = null;
+    }
     activeBatchIdRef.current = initialBatchId ?? null;
     batchStatusRequestSequenceRef.current += 1;
     sourceFingerprintRef.current = "";
@@ -587,7 +622,12 @@ export function useReportOrderingWorkflow({
     const timer = window.setTimeout(() => {
       setSectionAvailabilityEvidence(null);
       void loadCatalogue(true);
-      void loadHistory();
+      if (historyPermissionBlockedPortfolioRef.current !== portfolioId) {
+        void loadHistory();
+      } else {
+        setHistory(null);
+        setHistoryState("permission_blocked");
+      }
       if (initialBatchId) {
         void rehydrateBatchStatus(initialBatchId);
       }
@@ -748,12 +788,16 @@ export function useReportOrderingWorkflow({
   const submissionError = acceptedHandle
     ? null
     : activeSubmissionProgress.error;
+  const submissionSnapshot = submissionModelsByPortfolio[portfolioId];
+  const submissionModel = submissionSnapshot?.scopeMode === scopeMode
+    ? submissionSnapshot.model : null;
   const screenState = useMemo(
     () =>
       buildReportOrderingScreenState({
         catalogueState,
         catalogueError,
         model,
+        submissionModel,
         preflightReviewed,
         submissionState,
         submissionError,
@@ -765,6 +809,7 @@ export function useReportOrderingWorkflow({
       preflightReviewed,
       submissionError,
       submissionState,
+      submissionModel,
     ],
   );
 
@@ -857,7 +902,13 @@ export function useReportOrderingWorkflow({
   );
 
   const reviewRequest = useCallback(() => {
-    if (!model?.canSubmit || !configuration) {
+    if (
+      catalogueState !== "ready" ||
+      submissionState === "submitting" ||
+      submissionState === "accepted" ||
+      !model?.canSubmit ||
+      !configuration
+    ) {
       return false;
     }
     setReviewedIntent((current) => {
@@ -884,11 +935,19 @@ export function useReportOrderingWorkflow({
         : { portfolioId, state: "idle", error: null },
     );
     return true;
-  }, [configuration, currentScopeFingerprint, model?.canSubmit, portfolioId]);
+  }, [
+    catalogueState, configuration, currentScopeFingerprint,
+    model?.canSubmit, portfolioId, submissionState,
+  ]);
 
   const submitRequest = useCallback(async () => {
     if (
       !configuration ||
+      catalogueState !== "ready" ||
+      submissionState === "submitting" ||
+      submissionState === "accepted" ||
+      (submissionInFlightRef.current?.portfolioId === portfolioId &&
+        submissionInFlightRef.current.generation === workspaceGenerationRef.current) ||
       !model?.canSubmit ||
       !activeReviewedIntent ||
       activeReviewedIntent.configurationFingerprint !==
@@ -900,6 +959,14 @@ export function useReportOrderingWorkflow({
     }
 
     const submissionWorkspaceGeneration = workspaceGenerationRef.current;
+    const submissionToken = {
+      portfolioId, generation: submissionWorkspaceGeneration,
+    };
+    submissionInFlightRef.current = submissionToken;
+    setSubmissionModelsByPortfolio((current) => ({
+      ...current,
+      [portfolioId]: { scopeMode, model: structuredClone(model) },
+    }));
     setSubmissionProgress({ portfolioId, state: "submitting", error: null });
     try {
       const sharedOrder = {
@@ -960,6 +1027,9 @@ export function useReportOrderingWorkflow({
           status: null,
           error: null,
         });
+        if (submissionInFlightRef.current === submissionToken) {
+          submissionInFlightRef.current = null;
+        }
         onBatchAccepted?.(batchHandle.batch_id, {
           asOfDate: batchIntent.asOfDate,
           reportingCurrency:
@@ -980,6 +1050,9 @@ export function useReportOrderingWorkflow({
           handle as ReportJobHandle,
           activeReviewedIntent.idempotencyKey,
         );
+        if (submissionInFlightRef.current === submissionToken) {
+          submissionInFlightRef.current = null;
+        }
         setSubmittedHandlesByPortfolio((current) => ({
           ...current,
           [portfolioId]: reportHandle,
@@ -1000,8 +1073,14 @@ export function useReportOrderingWorkflow({
         error: submissionErrorCopy(error),
       });
       return false;
+    } finally {
+      if (submissionInFlightRef.current === submissionToken) {
+        submissionInFlightRef.current = null;
+      }
     }
   }, [
+    catalogueState,
+    submissionState,
     configuration,
     isActiveWorkspaceGeneration,
     loadHistory,
@@ -1018,7 +1097,14 @@ export function useReportOrderingWorkflow({
   ]);
 
   const startAnotherReport = useCallback(() => {
-    if (!acceptedHandle) {
+    if (
+      !acceptedHandle ||
+      catalogueState !== "ready" ||
+      !model ||
+      model.catalogueAvailability.state === "unavailable" ||
+      model.scopeEligibility.state !== "ready" ||
+      model.eligibleFamilies.length === 0
+    ) {
       return false;
     }
 
@@ -1028,6 +1114,11 @@ export function useReportOrderingWorkflow({
       return next;
     });
     setReviewedIntent(null);
+    setSubmissionModelsByPortfolio((current) => {
+      const next = { ...current };
+      delete next[portfolioId];
+      return next;
+    });
     activeBatchIdRef.current = null;
     batchStatusRequestSequenceRef.current += 1;
     setBatchWorkspaceState({
@@ -1039,7 +1130,7 @@ export function useReportOrderingWorkflow({
     });
     setSubmissionProgress({ portfolioId, state: "idle", error: null });
     return true;
-  }, [acceptedHandle, portfolioId]);
+  }, [acceptedHandle, catalogueState, model, portfolioId]);
 
   return {
     catalogue,
@@ -1068,6 +1159,7 @@ export function useReportOrderingWorkflow({
     preflightReviewed,
     canSubmitReviewedRequest:
       Boolean(model?.canSubmit && preflightReviewed) &&
+      catalogueState === "ready" &&
       submissionState !== "submitting" &&
       submissionState !== "accepted",
     updateConfiguration,

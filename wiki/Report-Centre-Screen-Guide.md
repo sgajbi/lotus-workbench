@@ -155,7 +155,7 @@ controls and do not occur on this screen.
 | Submit the request | The current intent must still match the reviewed intent | Gateway records the idempotent report request or batch |
 | Refresh request or portfolio outcomes | A submitted request or accepted batch handle | None; Workbench re-reads source-owned lifecycle truth; active single requests also refresh on the governed cadence |
 | Return to an addressed portfolio bundle | A valid `batchId` whose Gateway status agrees with the selected portfolio, review date, and any published reporting currency | None; Workbench re-reads the existing source batch and never resubmits it |
-| Create another report | A prior request has been accepted | None until the new request is separately reviewed and submitted |
+| Create another report | A prior request has been accepted and current catalogue access and an orderable report are confirmed | None until the new request is separately reviewed and submitted |
 
 The browser never converts a failed submission into accepted posture and never presents a
 bundle-level acceptance as proof that every portfolio report completed. The completion measure
@@ -196,12 +196,14 @@ Shared endpoint and ownership detail remains in [API Surface](API-Surface) and
 | Degraded or partial | Available evidence remains visible with source limitations | Use only evidenced portfolios and outputs; Gateway still fails closed on unverifiable membership |
 | Submission not accepted | An explicit failure with the reviewed setup retained for controlled retry | Retry only the unchanged reviewed intent or correct the setup and review again |
 | Acceptance receipt mismatch | **Report request not accepted**, with no returned job or support reference promoted into the workspace | Retry the unchanged reviewed request; persistent mismatch is a Gateway/Report contract incident |
+| Catalogue refusal after acceptance | The confirmed receipt and original request terms remain visible, with catalogue unavailability or restriction stated separately | Choose **Try Again** or **Check Again**. Another order remains blocked until catalogue recovery, then requires a fresh review; acceptance does not renew access to protected outcomes |
 | Status not reported | The request remains visible, but no known lifecycle or step is asserted | Refresh the source evidence; do not treat the request as preparing, complete, or failed until Report publishes a recognized state |
 | Single-request refresh unavailable | The last source-confirmed request rows remain visible with an explicit current-evidence warning | Choose **Refresh** to check again. Recognized active requests otherwise follow bounded automatic refresh; terminal or unreported requests do not |
 | Partially complete bundle | Separate complete, in-progress, retryable, and terminal portfolio outcomes | Refresh outcomes; use the affected item's support reference if it remains unresolved |
 | Addressed bundle loading | The selected portfolio context remains visible while Workbench reads the exact Gateway batch | Wait for source confirmation; Workbench does not reconstruct outcomes from the URL or submit a replacement request |
 | Addressed bundle mismatch or unavailable | Explicit **Portfolio bundle could not be restored** evidence with no batch outcomes published | Return to the report setup or retry the exact source read after confirming the portfolio, review date, and currency context |
 | Outcome refresh unavailable | The accepted batch and its last source-confirmed output support posture remain visible, while current item posture is marked unavailable | Choose **Try Again** or **Refresh outcomes**; newer explicit source evidence replaces the retained posture, but absent evidence never implies support or completion |
+| Protected batch outcomes restricted | The accepted receipt remains visible, while prior protected outcomes are withheld and automatic polling stops | Use the supported outcome retry. Only a successful protected outcome read restores those data; a successful catalogue recheck alone does not restore outcome access |
 | Portfolio context changed | The prior portfolio's pending catalogue, history, submission, and outcome results cannot publish into the new workspace | Continue in the selected portfolio context; return deliberately if the prior workflow still needs attention |
 
 ## Workbench Boundaries
