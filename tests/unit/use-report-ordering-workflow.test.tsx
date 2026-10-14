@@ -5,24 +5,39 @@ import {
   getReportOrderingOptions,
   listPortfolioReviewOrders,
   submitPortfolioReviewOrder,
+  submitPortfolioReviewBatch,
+  getPortfolioReviewBatchStatus,
 } from "@/features/report-ordering/api";
-import { parseReportOrderingResponse } from "@/features/report-ordering/contracts";
+import { parseReportOrderingResponse, parseReportBatchHandle, parseReportBatchStatus, type ReportOrderingResponse, type ReportJobHandle, type ReportBatchHandle } from "@/features/report-ordering/contracts";
 import { useReportOrderingWorkflow as useReportOrderingWorkflowSource } from "@/features/report-ordering/use-report-ordering-workflow";
 import { WorkbenchApiError } from "@/features/workbench/api-client";
 import {
   buildReportJobListResponse,
   buildReportOrderingResponse,
+  buildReportBatchHandle,
+  buildReportBatchStatus,
 } from "../fixtures/report-ordering-fixtures";
 
 vi.mock("@/features/report-ordering/api", () => ({
   getReportOrderingOptions: vi.fn(),
   listPortfolioReviewOrders: vi.fn(),
   submitPortfolioReviewOrder: vi.fn(),
+  submitPortfolioReviewBatch: vi.fn(),
+  getPortfolioReviewBatchStatus: vi.fn(),
 }));
 
 const optionsMock = vi.mocked(getReportOrderingOptions);
 const historyMock = vi.mocked(listPortfolioReviewOrders);
 const submitMock = vi.mocked(submitPortfolioReviewOrder);
+const submitBatchMock = vi.mocked(submitPortfolioReviewBatch);
+const batchStatusMock = vi.mocked(getPortfolioReviewBatchStatus);
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((accept, refuse) => { resolve = accept; reject = refuse; });
+  return { promise, resolve, reject };
+}
 
 function useReportOrderingWorkflow(
   options: Omit<
@@ -58,6 +73,281 @@ describe("useReportOrderingWorkflow", () => {
         idempotency_key: idempotencyKey,
       }),
     );
+    submitBatchMock.mockImplementation(async ({ idempotencyKey }) => parseReportBatchHandle({ ...buildReportBatchHandle(), idempotency_key: idempotencyKey }));
+    batchStatusMock.mockResolvedValue(parseReportBatchStatus(buildReportBatchStatus()));
+  });
+
+  it.each(
+    (["single_portfolio", "explicit_portfolio_batch"] as const).flatMap((scopeMode) =>
+      (["catalogue first", "receipt first"] as const).flatMap((completionOrder) =>
+        (["unavailable", "permission", "transport"] as const).map((refusal) => ({ scopeMode, completionOrder, refusal })),
+      ),
+    ),
+  )("preserves $scopeMode transaction through $completionOrder / $refusal catalogue completion", async ({ scopeMode, completionOrder, refusal }) => {
+    const read = deferred<ReportOrderingResponse>();
+    const single = deferred<ReportJobHandle>();
+    const batch = deferred<ReportBatchHandle>();
+    let intentKey = "";
+    if (scopeMode === "single_portfolio") submitMock.mockImplementationOnce(({ idempotencyKey }) => { intentKey = idempotencyKey; return single.promise; });
+    else {
+      submitBatchMock.mockImplementationOnce(({ idempotencyKey }) => { intentKey = idempotencyKey; return batch.promise; });
+      batchStatusMock.mockResolvedValueOnce(parseReportBatchStatus({ ...buildReportBatchStatus(), as_of_date: "2026-04-21" }));
+    }
+    const { result } = renderHook(() => useReportOrderingWorkflow({
+      portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD",
+      scopeMode, selectedPortfolioIds: ["PB_SG_GLOBAL_BAL_001", "PB_SG_INCOME_002"],
+    }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    optionsMock.mockImplementationOnce(() => read.promise);
+    act(() => result.current.updateConfiguration({ asOfDate: "2026-04-21" }));
+    await waitFor(() => expect(optionsMock).toHaveBeenCalledTimes(2));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    let submission!: Promise<boolean>;
+    act(() => { submission = result.current.submitRequest(); });
+    await waitFor(() => expect(result.current.submissionState).toBe("submitting"));
+    const completeRead = async () => {
+      await act(async () => {
+        if (refusal === "transport") read.reject(new Error("catalogue unavailable"));
+        else {
+          const payload = buildReportOrderingResponse();
+          payload.reportFamilies = [];
+          if (refusal === "permission") payload.scopeEligibility.state = "permission_blocked";
+          else payload.catalogueAvailability.state = "unavailable";
+          read.resolve(parseReportOrderingResponse(payload));
+        }
+        await read.promise.catch(() => undefined);
+      });
+    };
+    const completeReceipt = async () => {
+      await act(async () => {
+        if (scopeMode === "single_portfolio") single.resolve({ report_request_id: "rrq_deferred", report_job_id: "rjob_deferred", status: "accepted", status_url: "/api/v1/report-jobs/rjob_deferred", idempotency_key: intentKey });
+        else batch.resolve(parseReportBatchHandle({ ...buildReportBatchHandle(), idempotency_key: intentKey }));
+        await submission;
+      });
+    };
+    let busyAfterRead = true;
+    if (completionOrder === "catalogue first") {
+      await completeRead();
+      busyAfterRead = result.current.screenState.readiness.kind === "submitting";
+      await completeReceipt();
+    } else {
+      await completeReceipt();
+      await completeRead();
+    }
+    expect(busyAfterRead).toBe(true);
+    expect(result.current.submissionState).toBe("accepted");
+    expect(result.current.screenState.workspace.kind).toBe("accepted");
+    expect(result.current.screenState.readiness.kind).toBe("accepted");
+    if (result.current.screenState.workspace.kind === "accepted") {
+      expect(result.current.screenState.workspace.model?.configuration.asOfDate).toBe("2026-04-21");
+      expect(result.current.screenState.workspace.model?.family?.reportFamilyId).toBe("portfolio_review");
+    }
+    expect(result.current.supportReference).toBe(scopeMode === "single_portfolio" ? "rjob_deferred" : "rbch_1");
+    if (scopeMode === "explicit_portfolio_batch") expect(result.current.batchStatus?.batch_id).toBe("rbch_1");
+    expect(result.current.canSubmitReviewedRequest).toBe(false);
+    act(() => expect(result.current.reviewRequest()).toBe(false));
+    await act(async () => expect(await result.current.submitRequest()).toBe(false));
+    expect(submitMock.mock.calls.length + submitBatchMock.mock.calls.length).toBe(1);
+    act(() => expect(result.current.startAnotherReport()).toBe(false));
+    optionsMock.mockResolvedValueOnce(parseReportOrderingResponse(buildReportOrderingResponse()));
+    await act(() => result.current.refreshCatalogue());
+    expect(result.current.preflightReviewed).toBe(false);
+    act(() => expect(result.current.startAnotherReport()).toBe(true));
+    expect(result.current.canSubmitReviewedRequest).toBe(false);
+  });
+
+  it.each(["single_portfolio", "explicit_portfolio_batch"] as const)("admits only one %s POST while the first reviewed intent is in flight", async (scopeMode) => {
+    const post = deferred<ReportJobHandle>();
+    const batchPost = deferred<ReportBatchHandle>();
+    let intentKey = "";
+    if (scopeMode === "single_portfolio") submitMock.mockImplementationOnce(({ idempotencyKey }) => { intentKey = idempotencyKey; return post.promise; });
+    else submitBatchMock.mockImplementationOnce(({ idempotencyKey }) => { intentKey = idempotencyKey; return batchPost.promise; });
+    const { result } = renderHook(() => useReportOrderingWorkflow({ portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD", scopeMode, selectedPortfolioIds: ["PB_SG_GLOBAL_BAL_001", "PB_SG_INCOME_002"] }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    let first!: Promise<boolean>;
+    let second!: Promise<boolean>;
+    act(() => { first = result.current.submitRequest(); second = result.current.submitRequest(); });
+    await act(async () => {
+      post.resolve({ report_request_id: "rrq_pending", report_job_id: "rjob_pending", status: "accepted", status_url: "/api/v1/report-jobs/rjob_pending", idempotency_key: intentKey });
+      batchPost.resolve(parseReportBatchHandle({ ...buildReportBatchHandle(), idempotency_key: intentKey }));
+      await Promise.all([first, second]);
+    });
+    expect(submitMock.mock.calls.length + submitBatchMock.mock.calls.length).toBe(1);
+    expect(await second).toBe(false);
+  });
+
+  it.each(["single_portfolio", "explicit_portfolio_batch"] as const)("preserves actual receipt when protected %s outcomes independently refuse access", async (scopeMode) => {
+    const { result } = renderHook(() => useReportOrderingWorkflow({ portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD", scopeMode, selectedPortfolioIds: ["PB_SG_GLOBAL_BAL_001", "PB_SG_INCOME_002"] }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    await act(() => result.current.submitRequest());
+    const receipt = result.current.supportReference;
+    if (scopeMode === "single_portfolio") {
+      historyMock.mockRejectedValueOnce(new WorkbenchApiError("report history", 403));
+      await act(() => result.current.refreshHistory());
+      expect(result.current.historyState).toBe("permission_blocked");
+      expect(result.current.history).toBeNull();
+      expect(result.current.historyRows).toEqual([]);
+      await act(() => result.current.refreshCatalogue());
+      expect(result.current.historyState).toBe("permission_blocked");
+      expect(result.current.historyRows).toEqual([]);
+      await act(() => result.current.refreshHistory());
+      expect(result.current.historyState).toBe("ready");
+    } else {
+      const timerSpy = vi.spyOn(window, "setTimeout");
+      try {
+        batchStatusMock.mockRejectedValueOnce(new WorkbenchApiError("report bundle outcomes", 403));
+        await act(() => result.current.refreshBatchStatus());
+        expect(result.current.batchStatus).toBeNull();
+        expect(result.current.batchStatusError).toMatch(/restricted/i);
+        expect(timerSpy.mock.calls.some(([, delay]) => delay === 10_000)).toBe(false);
+        await act(() => result.current.refreshCatalogue());
+        expect(result.current.batchStatus).toBeNull();
+        expect(result.current.batchStatusError).toMatch(/restricted/i);
+        await act(() => result.current.refreshBatchStatus());
+        expect(result.current.batchStatus?.batch_id).toBe("rbch_1");
+      } finally {
+        timerSpy.mockRestore();
+      }
+    }
+    expect(result.current.supportReference).toBe(receipt);
+    expect(result.current.screenState.readiness.kind).toBe("accepted");
+    expect(result.current.screenState.workspace.kind).toBe("accepted");
+    expect(submitMock.mock.calls.length + submitBatchMock.mock.calls.length).toBe(1);
+  });
+
+  it.each(["500", "transport"])("keeps a history 403 latched through an explicit %s retry failure and catalogue success", async (failure) => {
+    const { result } = renderHook(() => useReportOrderingWorkflow({
+      portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD",
+    }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    await act(() => result.current.submitRequest());
+    const receipt = result.current.supportReference;
+    historyMock.mockRejectedValueOnce(new WorkbenchApiError("report history", 403));
+    await act(() => result.current.refreshHistory());
+    expect(result.current.historyState).toBe("permission_blocked");
+    expect(result.current.historyRows).toEqual([]);
+
+    const retry = deferred<ReturnType<typeof buildReportJobListResponse>>();
+    historyMock.mockImplementationOnce(() => retry.promise);
+    const timerSpy = vi.spyOn(window, "setTimeout");
+    try {
+      let explicitRetry!: Promise<void>;
+      act(() => { explicitRetry = result.current.refreshHistory(); });
+      expect(result.current.historyState).toBe("loading");
+      expect(result.current.historyRows).toEqual([]);
+      await act(() => result.current.refreshCatalogue());
+      expect(timerSpy.mock.calls.some(([, delay]) => delay === 5_000 || delay === 10_000)).toBe(false);
+      await act(async () => {
+        retry.reject(failure === "500" ? new WorkbenchApiError("report history", 500) : new Error("history transport failed"));
+        await explicitRetry;
+      });
+      await act(() => result.current.refreshCatalogue());
+      expect(timerSpy.mock.calls.some(([, delay]) => delay === 5_000 || delay === 10_000)).toBe(false);
+      expect(result.current.historyState).toBe("permission_blocked");
+      expect(result.current.history).toBeNull();
+      expect(result.current.historyRows).toEqual([]);
+      expect(result.current.supportReference).toBe(receipt);
+      expect(result.current.screenState.readiness.kind).toBe("accepted");
+
+      const recovered = buildReportJobListResponse();
+      recovered.items[0].reportJobId = "rjob_2";
+      recovered.items[0].status = "accepted";
+      recovered.items[0].currentStep = "accepted";
+      historyMock.mockResolvedValueOnce(recovered);
+      await act(() => result.current.refreshHistory());
+      expect(result.current.historyState).toBe("ready");
+      expect(result.current.historyRows).toHaveLength(1);
+      expect(timerSpy.mock.calls.some(([, delay]) => delay === 5_000)).toBe(true);
+      expect(submitMock).toHaveBeenCalledTimes(1);
+    } finally {
+      timerSpy.mockRestore();
+    }
+  });
+
+  it("does not let a superseded protected history 200 clear a newer 403", async () => {
+    const { result } = renderHook(() => useReportOrderingWorkflow({
+      portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate: "2026-04-22", reportingCurrency: "SGD",
+    }));
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    await act(() => result.current.submitRequest());
+    historyMock.mockRejectedValueOnce(new WorkbenchApiError("report history", 403));
+    await act(() => result.current.refreshHistory());
+    const olderRead = deferred<ReturnType<typeof buildReportJobListResponse>>();
+    historyMock.mockImplementationOnce(() => olderRead.promise);
+    let olderRetry!: Promise<void>;
+    act(() => { olderRetry = result.current.refreshHistory(); });
+    historyMock.mockRejectedValueOnce(new WorkbenchApiError("report history", 403));
+    await act(() => result.current.refreshHistory());
+    const timerSpy = vi.spyOn(window, "setTimeout");
+    try {
+      await act(async () => { olderRead.resolve(buildReportJobListResponse()); await olderRetry; });
+      expect(result.current.historyState).toBe("permission_blocked");
+      expect(result.current.historyRows).toEqual([]);
+      expect(timerSpy.mock.calls.some(([, delay]) => delay === 5_000 || delay === 10_000)).toBe(false);
+      expect(result.current.supportReference).toBe("rjob_2");
+      await act(() => result.current.refreshHistory());
+      expect(result.current.historyState).toBe("ready");
+    } finally { timerSpy.mockRestore(); }
+  });
+
+  it("admits history afresh for a different owned portfolio without carrying the prior refusal", async () => {
+    optionsMock.mockImplementation(async (portfolioId) => {
+      const response = buildReportOrderingResponse();
+      response.scopeSelection.scopeId = portfolioId;
+      return parseReportOrderingResponse(response);
+    });
+    historyMock.mockImplementation(async (portfolioId) => {
+      const history = buildReportJobListResponse();
+      history.appliedFilters.portfolioId = portfolioId;
+      history.items[0].portfolioScope.portfolio_ids = [portfolioId];
+      return history;
+    });
+    const { result, rerender } = renderHook(({ portfolioId }) => useReportOrderingWorkflow({
+      portfolioId, asOfDate: "2026-04-22", reportingCurrency: "SGD",
+    }), { initialProps: { portfolioId: "PB_SG_GLOBAL_BAL_001" } });
+    await waitFor(() => expect(result.current.historyState).toBe("ready"));
+    historyMock.mockRejectedValueOnce(new WorkbenchApiError("report history", 403));
+    await act(() => result.current.refreshHistory());
+    expect(result.current.historyState).toBe("permission_blocked");
+    rerender({ portfolioId: "PB_SG_OTHER_002" });
+    await waitFor(() => expect(result.current.history?.appliedFilters.portfolioId).toBe("PB_SG_OTHER_002"));
+    expect(result.current.historyState).toBe("ready");
+    expect(historyMock).toHaveBeenLastCalledWith("PB_SG_OTHER_002");
+    expect(submitMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps same-portfolio refusal across a context change and ignores the previous generation's successful retry", async () => {
+    const { result, rerender } = renderHook(({ asOfDate }) => useReportOrderingWorkflow({
+      portfolioId: "PB_SG_GLOBAL_BAL_001", asOfDate, reportingCurrency: "SGD",
+    }), { initialProps: { asOfDate: "2026-04-22" } });
+    await waitFor(() => expect(result.current.model?.canSubmit).toBe(true));
+    act(() => expect(result.current.reviewRequest()).toBe(true));
+    await act(() => result.current.submitRequest());
+    historyMock.mockRejectedValueOnce(new WorkbenchApiError("report history", 403));
+    await act(() => result.current.refreshHistory());
+    const olderRead = deferred<ReturnType<typeof buildReportJobListResponse>>();
+    historyMock.mockImplementationOnce(() => olderRead.promise);
+    let olderRetry!: Promise<void>;
+    act(() => { olderRetry = result.current.refreshHistory(); });
+    const readsBeforeContextChange = historyMock.mock.calls.length;
+    const timerSpy = vi.spyOn(window, "setTimeout");
+    try {
+      rerender({ asOfDate: "2026-04-21" });
+      await waitFor(() => expect(optionsMock).toHaveBeenLastCalledWith("PB_SG_GLOBAL_BAL_001", { asOfDate: "2026-04-21", reportingCurrency: "SGD" }));
+      expect(result.current.historyState).toBe("permission_blocked");
+      expect(historyMock).toHaveBeenCalledTimes(readsBeforeContextChange);
+      await act(async () => { olderRead.resolve(buildReportJobListResponse()); await olderRetry; });
+      expect(result.current.historyState).toBe("permission_blocked");
+      expect(result.current.historyRows).toEqual([]);
+      expect(timerSpy.mock.calls.some(([, delay]) => delay === 5_000 || delay === 10_000)).toBe(false);
+      expect(result.current.supportReference).toBe("rjob_2");
+      await act(() => result.current.refreshHistory());
+      expect(result.current.historyState).toBe("ready");
+    } finally { timerSpy.mockRestore(); }
   });
 
   it("loads source choices and recent requests for the selected portfolio", async () => {

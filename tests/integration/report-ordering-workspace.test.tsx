@@ -20,6 +20,9 @@ import {
   parseReportBatchHandle,
   parseReportBatchStatus,
   parseReportOrderingResponse,
+  type ReportOrderingResponse,
+  type ReportJobHandle,
+  type ReportBatchHandle,
 } from "@/features/report-ordering/contracts";
 import { WorkbenchApiError } from "@/features/workbench/api-client";
 import { useAdvisorBook } from "@/features/advisor-book/use-advisor-book";
@@ -32,6 +35,12 @@ import {
 import { expectReviewContextOwns } from "../review-context-census";
 
 const routerPushMock = vi.fn();
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((accept) => { resolve = accept; });
+  return { promise, resolve };
+}
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/reports",
@@ -192,7 +201,7 @@ const portfolio = {
 
 describe("ReportOrderingWorkspace", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     window.history.replaceState(
       {},
       "",
@@ -218,6 +227,92 @@ describe("ReportOrderingWorkspace", () => {
     batchStatusMock.mockResolvedValue(
       parseReportBatchStatus(buildReportBatchStatus()),
     );
+  });
+
+  it.each((["single", "batch"] as const).flatMap((scope) =>
+    (["catalogue first", "receipt first"] as const).map((order) => ({ scope, order })),
+  ))("retains $scope receipt and outcomes through $order unavailable catalogue, then recovers explicitly", async ({ scope, order }) => {
+    const read = deferred<ReportOrderingResponse>();
+    const singlePost = deferred<ReportJobHandle>();
+    const batchPost = deferred<ReportBatchHandle>();
+    let key = "";
+    if (scope === "single") submitMock.mockImplementationOnce(({ idempotencyKey }) => { key = idempotencyKey; return singlePost.promise; });
+    else {
+      submitBatchMock.mockImplementationOnce(({ idempotencyKey }) => { key = idempotencyKey; return batchPost.promise; });
+      batchStatusMock.mockResolvedValueOnce(parseReportBatchStatus({ ...buildReportBatchStatus(), reporting_currency: "USD" }));
+    }
+    render(<ReportOrderingWorkspace portfolio={portfolio} />);
+    await screen.findByRole("heading", { name: "Approved report" });
+    if (scope === "batch") {
+      fireEvent.click(screen.getByRole("radio", { name: /Portfolio bundle/ }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /Income Preservation Mandate/ }));
+    }
+    optionsMock.mockImplementationOnce(() => read.promise);
+    fireEvent.change(screen.getByLabelText("Reporting currency"), { target: { value: "USD" } });
+    fireEvent.click(screen.getByRole("button", { name: scope === "single" ? "Review Request" : "Review Portfolio Bundle" }));
+    const submit = screen.getByRole("button", { name: scope === "single" ? "Submit Report Request" : "Submit Portfolio Bundle" });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+    await waitFor(() => expect(submitMock.mock.calls.length + submitBatchMock.mock.calls.length).toBe(1));
+    await waitFor(() => expect(optionsMock).toHaveBeenCalledTimes(2));
+    const settleRead = async () => {
+      const payload = buildReportOrderingResponse();
+      payload.reportFamilies = [];
+      payload.catalogueAvailability.state = "unavailable";
+      await act(async () => { read.resolve(parseReportOrderingResponse(payload)); await read.promise; });
+    };
+    const settlePost = async () => {
+      await act(async () => {
+        singlePost.resolve({ report_request_id: "rrq_2", report_job_id: "rjob_2", status: "accepted", status_url: "/api/v1/report-jobs/rjob_2", idempotency_key: key });
+        batchPost.resolve(parseReportBatchHandle({ ...buildReportBatchHandle(), idempotency_key: key }));
+      });
+      await screen.findByRole("heading", { name: scope === "single" ? "Report request accepted" : "Portfolio bundle accepted" });
+    };
+    if (order === "catalogue first") {
+      await settleRead();
+      expect(screen.getByRole("heading", { name: scope === "single" ? "Submitting report request" : "Submitting portfolio bundle" })).toBeVisible();
+      await settlePost();
+    } else { await settlePost(); await settleRead(); }
+    expect(screen.getByRole("heading", { name: scope === "single" ? "Report request accepted" : "Portfolio bundle accepted" })).toBeVisible();
+    expect(screen.getByText("Approved reports are unavailable")).toBeVisible();
+    expect(screen.getByLabelText("Report request summary")).toHaveTextContent("Portfolio review report");
+    if (scope === "batch") expect(await screen.findByRole("table", { name: "Portfolio report bundle outcomes" })).toBeVisible();
+    else expect(screen.getByRole("table", { name: "Recent portfolio report requests" })).toHaveTextContent("Report data complete");
+    expect(screen.getByRole("button", { name: "Create another report" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Try Again" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Create another report" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Create another report" }));
+    await screen.findByRole("heading", { name: "Approved report" });
+    expect(screen.getByRole("button", { name: scope === "single" ? "Submit Report Request" : "Submit Portfolio Bundle" })).toBeDisabled();
+    expect(submitMock.mock.calls.length + submitBatchMock.mock.calls.length).toBe(1);
+  });
+
+  it.each(["single", "batch"] as const)("withholds protected %s outcomes after their own 403 while retaining the actual receipt", async (scope) => {
+    render(<ReportOrderingWorkspace portfolio={portfolio} />);
+    await screen.findByRole("heading", { name: "Approved report" });
+    if (scope === "batch") {
+      fireEvent.click(screen.getByRole("radio", { name: /Portfolio bundle/ }));
+      fireEvent.click(screen.getByRole("checkbox", { name: /Income Preservation Mandate/ }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: scope === "single" ? "Review Request" : "Review Portfolio Bundle" }));
+    const submit = screen.getByRole("button", { name: scope === "single" ? "Submit Report Request" : "Submit Portfolio Bundle" });
+    await waitFor(() => expect(submit).toBeEnabled());
+    fireEvent.click(submit);
+    const receiptHeading = scope === "single" ? "Report request accepted" : "Portfolio bundle accepted";
+    await screen.findByRole("heading", { name: receiptHeading });
+    if (scope === "single") {
+      historyMock.mockRejectedValueOnce(new WorkbenchApiError("report history", 403));
+      fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+      await screen.findByRole("heading", { name: "Recent requests are restricted" });
+      expect(screen.queryByRole("table", { name: "Recent portfolio report requests" })).not.toBeInTheDocument();
+    } else {
+      batchStatusMock.mockRejectedValueOnce(new WorkbenchApiError("bundle outcomes", 403));
+      fireEvent.click(screen.getByRole("button", { name: "Refresh outcomes" }));
+      expect(await screen.findByText("The bundle was accepted, but portfolio outcomes are restricted.")).toBeVisible();
+      expect(screen.queryByRole("table", { name: "Portfolio report bundle outcomes" })).not.toBeInTheDocument();
+    }
+    expect(screen.getByRole("heading", { name: receiptHeading })).toBeVisible();
+    expect(submitMock.mock.calls.length + submitBatchMock.mock.calls.length).toBe(1);
   });
 
   it("keeps a carried unsupported review period visible as source-scope context", () => {
@@ -469,7 +564,7 @@ describe("ReportOrderingWorkspace", () => {
     );
   });
 
-  it("keeps non-commentary ordering reviewable after an availability recheck fails", async () => {
+  it("requires fresh catalogue and review after the entire availability recheck fails", async () => {
     render(<ReportOrderingWorkspace portfolio={portfolio} />);
     await screen.findByRole("heading", { name: "Approved report" });
 
@@ -479,13 +574,12 @@ describe("ReportOrderingWorkspace", () => {
     });
 
     await waitFor(() => expect(optionsMock).toHaveBeenCalledTimes(2));
-    fireEvent.click(screen.getByText("Review report contents"));
-    expect(
-      await screen.findByText("Availability not confirmed"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("checkbox", { name: /Advisor commentary/ }),
-    ).toBeDisabled();
+    expect(await screen.findByRole("heading", { name: "Approved reports are unavailable" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Review Request" })).not.toBeInTheDocument();
+    expect(submitMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Try Again" }));
+    await screen.findByRole("heading", { name: "Approved report" });
+    expect(screen.getByRole("button", { name: "Submit Report Request" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Review Request" }));
     const submit = screen.getByRole("button", {
@@ -530,6 +624,16 @@ describe("ReportOrderingWorkspace", () => {
     });
     await waitFor(() => expect(optionsMock).toHaveBeenCalledTimes(2));
 
+    expect(await screen.findByRole("heading", { name: "Approved reports are unavailable" })).toBeVisible();
+    expect(submitMock).not.toHaveBeenCalled();
+    const recovered = structuredClone(payload);
+    const recoveredAlternate = structuredClone(alternateFamily);
+    const recoveredCommentary = recoveredAlternate.sections.find((section) => section.sectionId === "ADVISOR_COMMENTARY");
+    if (!recoveredCommentary) throw new Error("Recovered commentary fixture missing");
+    Object.assign(recoveredCommentary, { availability: { state: "unavailable", reasonCode: "advisor_brief_not_reviewed", message: "No accepted commentary is available for this context.", acceptedBrief: null } });
+    optionsMock.mockResolvedValueOnce(parseReportOrderingResponse({ ...recovered, reportFamilies: [...recovered.reportFamilies, recoveredAlternate] }));
+    fireEvent.click(screen.getByRole("button", { name: "Try Again" }));
+    await screen.findByRole("heading", { name: "Approved report" });
     fireEvent.click(
       screen.getByRole("radio", { name: /Condensed portfolio review/ }),
     );

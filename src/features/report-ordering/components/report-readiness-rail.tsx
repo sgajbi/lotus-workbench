@@ -18,6 +18,7 @@ export function ReportReadinessRail({
   onReview,
   onSubmit,
   onStartAnother,
+  onRefreshCatalogue,
 }: {
   model: ReportOrderingViewModel | null;
   screenState: ReportOrderingReadinessState;
@@ -30,10 +31,12 @@ export function ReportReadinessRail({
   onReview: () => void;
   onSubmit: () => void;
   onStartAnother: () => void;
+  onRefreshCatalogue: () => void;
 }) {
-  const selectedSections = model?.sectionChoices.filter((section) => section.selected) ?? [];
-  const selectedOutput = model?.outputChoices.find(
-    (output) => output.id === model.configuration.outputFormat,
+  const requestModel = screenState.requestModel === undefined ? model : screenState.requestModel;
+  const selectedSections = requestModel?.sectionChoices.filter((section) => section.selected) ?? [];
+  const selectedOutput = requestModel?.outputChoices.find(
+    (output) => output.id === requestModel.configuration.outputFormat,
   );
   const validationIssues = screenState.showValidationSummary
     ? model?.readiness.issues ?? []
@@ -78,19 +81,35 @@ export function ReportReadinessRail({
           </div>
         ) : null}
 
-        {model && screenState.showRequestSummary ? (
+        {requestModel && screenState.showRequestSummary ? (
           <DefinitionList
             ariaLabel="Report request summary"
             className={styles.readinessFacts}
             items={[
-              { label: "Report", value: model.family?.businessLabel ?? "Not selected" },
+              { label: "Report", value: requestModel.family?.businessLabel ?? "Not selected" },
               { label: "Scope", value: scopeLabel },
-              { label: "Report date", value: model.configuration.asOfDate || "Not selected" },
+              { label: "Report date", value: requestModel.configuration.asOfDate || "Not selected" },
               { label: "Output", value: selectedOutput?.label ?? "Not selected" },
               { label: "Sections", value: `${selectedSections.length} selected` },
-              { label: "Audience", value: model.audienceLabel },
+              { label: "Audience", value: requestModel.audienceLabel },
             ]}
           />
+        ) : null}
+
+        {!requestModel && screenState.kind === "accepted" && isPortfolioBundle ? (
+          <DefinitionList ariaLabel="Report request scope" items={[{ label: "Scope", value: scopeLabel }]} />
+        ) : null}
+
+        {screenState.catalogueNotice ? (
+          <div className={styles.validationSummary} role="status">
+            <strong>{screenState.catalogueNotice.title}</strong>
+            <p>{screenState.catalogueNotice.body}</p>
+            {screenState.catalogueNotice.actionLabel ? (
+              <ActionButton priority="secondary" onClick={onRefreshCatalogue} disabled={screenState.busy}>
+                {screenState.catalogueNotice.actionLabel}
+              </ActionButton>
+            ) : null}
+          </div>
         ) : null}
 
         {screenState.showActions ? (
@@ -125,7 +144,7 @@ export function ReportReadinessRail({
 
         {screenState.kind === "accepted" ? (
           <div className={styles.actionStack}>
-            <ActionButton priority="primary" onClick={onStartAnother}>
+            <ActionButton priority="primary" onClick={onStartAnother} disabled={!screenState.canStartAnother}>
               Create another report
             </ActionButton>
             <small>The next request starts from the current portfolio setup.</small>
