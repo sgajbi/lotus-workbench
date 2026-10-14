@@ -26,6 +26,32 @@ function readyModel() {
 }
 
 describe("report ordering screen state", () => {
+  it.each([false, true])("prioritizes unavailable source over retained families=%s", (retainFamilies) => {
+    const payload = buildReportOrderingResponse();
+    payload.catalogueAvailability = {
+      state: "unavailable",
+      reasonCode: "report_catalogue_contract_invalid",
+      message: "Report choices are temporarily unavailable.",
+    };
+    if (!retainFamilies) payload.reportFamilies = [];
+    const response = parseReportOrderingResponse(payload);
+    const model = buildReportOrderingViewModel(
+      response, createReportOrderingConfiguration(response, sourceContext), sourceContext,
+    );
+    const state = buildReportOrderingScreenState({
+      catalogueState: "ready", catalogueError: null, model,
+      preflightReviewed: true, submissionState: "idle", submissionError: null,
+    });
+    expect(state.workspace).toEqual(expect.objectContaining({
+      kind: "error", title: "Approved reports are unavailable",
+      body: "Reporting choices could not be loaded.", actionLabel: "Try Again",
+    }));
+    expect(state.readiness.kind).toBe("unavailable");
+    expect(state.readiness.showActions).toBe(false);
+    expect(model.canSubmit).toBe(false);
+    expect(model.canReview).toBe(false);
+  });
+
   it.each([
     ["loading", "loading", "Loading"],
     ["permission_blocked", "restricted", "Restricted"],
@@ -57,6 +83,7 @@ describe("report ordering screen state", () => {
 
   it("treats a ready catalogue without an orderable report as empty", () => {
     const payload = buildReportOrderingResponse();
+    payload.catalogueAvailability.state = "ready";
     payload.reportFamilies = [];
     const response = parseReportOrderingResponse(payload);
     const model = buildReportOrderingViewModel(
@@ -78,6 +105,45 @@ describe("report ordering screen state", () => {
     expect(state.readiness.kind).toBe("empty");
     expect(state.readiness.showActions).toBe(false);
     expect(state.readiness.showValidationSummary).toBe(false);
+  });
+
+  it.each([
+    ["permission_blocked", "permission_blocked", "restricted"],
+    ["unavailable", "error", "unavailable"],
+    ["unsupported", "error", "unavailable"],
+  ] as const)("keeps source scope %s distinct from empty", (scope, workspaceKind, readinessKind) => {
+    const payload = buildReportOrderingResponse();
+    payload.reportFamilies = [];
+    payload.scopeEligibility.state = scope;
+    payload.scopeEligibility.message = "Selected portfolio is not available for reporting.";
+    const response = parseReportOrderingResponse(payload);
+    const model = buildReportOrderingViewModel(
+      response, createReportOrderingConfiguration(response, sourceContext), sourceContext,
+    );
+    const state = buildReportOrderingScreenState({
+      catalogueState: "ready", catalogueError: null, model,
+      preflightReviewed: false, submissionState: "idle", submissionError: null,
+    });
+    expect(state.workspace.kind).toBe(workspaceKind);
+    expect(state.readiness.kind).toBe(readinessKind);
+    expect(state.readiness.showActions).toBe(false);
+    expect(model.canSubmit).toBe(false);
+  });
+
+  it.each(["ready", "partial"])("keeps %s usable catalogue configurable", (availability) => {
+    const payload = buildReportOrderingResponse();
+    payload.catalogueAvailability.state = availability;
+    const response = parseReportOrderingResponse(payload);
+    const model = buildReportOrderingViewModel(
+      response, createReportOrderingConfiguration(response, sourceContext), sourceContext,
+    );
+    const state = buildReportOrderingScreenState({
+      catalogueState: "ready", catalogueError: null, model,
+      preflightReviewed: false, submissionState: "idle", submissionError: null,
+    });
+    expect(state.workspace.kind).toBe("configuration");
+    expect(state.readiness.kind).toBe("ready_for_review");
+    expect(model.outputChoices.find((output) => output.id === "pdf")?.available).toBe(false);
   });
 
   it.each([

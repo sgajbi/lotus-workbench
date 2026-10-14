@@ -29,6 +29,26 @@ const sourceContext = {
 };
 
 describe("report ordering view model", () => {
+  it.each([false, true])("preserves source unavailability with retained families=%s for single and batch actions", (retainFamilies) => {
+    const payload = buildReportOrderingResponse();
+    payload.catalogueAvailability = {
+      state: "unavailable", reasonCode: "report_catalogue_contract_invalid",
+      message: "Report choices are temporarily unavailable.",
+    };
+    if (!retainFamilies) payload.reportFamilies = [];
+    const response = parseReportOrderingResponse(payload);
+    const model = buildReportOrderingViewModel(
+      response, createReportOrderingConfiguration(response, sourceContext), sourceContext,
+    );
+    expect(model.catalogueAvailability).toEqual(response.catalogueAvailability);
+    expect(model.scopeEligibility).toEqual(response.scopeEligibility);
+    for (const candidate of [model, applyReportScopeReadiness(model, "explicit_portfolio_batch", ["P1", "P2"])]) {
+      expect(candidate.canSubmit).toBe(false);
+      expect(candidate.canReview).toBe(false);
+      expect(candidate.readiness.issues).toContain(payload.catalogueAvailability.message);
+    }
+  });
+
   it("selects the source-ready JSON path while keeping unavailable PDF visible", () => {
     const response = parseReportOrderingResponse(buildReportOrderingResponse());
     const configuration = createReportOrderingConfiguration(

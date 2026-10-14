@@ -528,12 +528,25 @@ export function useReportOrderingWorkflow({
         sourceFingerprintRef.current = nextSourceFingerprint;
         setCatalogue(response);
         setConfiguration((current) =>
-          resetConfiguration || !current
-            ? createReportOrderingConfiguration(response, sourceContext)
+          resetConfiguration || !current || !current.familyId
+            ? createReportOrderingConfiguration(response, {
+                ...sourceContext,
+                ...availabilityContext,
+              })
             : reconcileReportSectionAvailability(response, current),
         );
         setSectionAvailabilityEvidence({ contextKey, state: "current" });
         setCatalogueState("ready");
+        setCatalogueError(
+          response.scopeEligibility.state === "permission_blocked"
+            ? response.scopeEligibility.message
+            : response.catalogueAvailability.state === "unavailable"
+              ? response.catalogueAvailability.message
+              : response.scopeEligibility.state === "unavailable" ||
+                  response.scopeEligibility.state === "unsupported"
+                ? response.scopeEligibility.message
+                : null,
+        );
       } catch (error) {
         if (
           !isActiveWorkspaceGeneration(portfolioId, workspaceGeneration) ||
