@@ -1,5 +1,7 @@
 import { readFileSync } from "node:fs";
-import { spawnSync } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
+import { createServer } from "node:http";
+import { promisify } from "node:util";
 import { join } from "node:path";
 
 const REPORT_CENTRE_CLASSIFICATION_PATTERN =
@@ -30,6 +32,65 @@ const BROWSER_WORKFLOW_MODULE = readNormalizedSource(
 );
 
 describe("canonical live validation script", () => {
+  it("sends the governed overview caller and retains missing/wrong authority refusals", async () => {
+    const { CANONICAL_CALLER_CONTEXT_HEADERS: expected } = await import(
+      join(process.cwd(), "scripts/live/validation/probes.mjs")
+    );
+    const requests: Array<{
+      method?: string;
+      url?: string;
+      headers: Record<string, string | string[] | undefined>;
+    }> = [];
+    const server = createServer((request, response) => {
+      requests.push({ method: request.method, url: request.url, headers: request.headers });
+      const valid = Object.entries(expected).every(
+        ([key, value]) => request.headers[key.toLowerCase()] === value,
+      );
+      response.writeHead(valid ? 200 : 400, { "Content-Type": "application/json" });
+      response.end(JSON.stringify({ valid }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Fixture did not bind");
+      }
+      const shells = process.platform === "win32" ? ["powershell.exe", "pwsh"] : ["pwsh"];
+      for (const shell of shells) {
+        for (const scenario of ["valid", "missing-role", "wrong-role", "missing-tenant"]) {
+          const result = await promisify(execFile)(shell, [
+            "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+            join(process.cwd(), "scripts/quality/Test-CanonicalOverviewCaller.ps1"),
+            "-GatewayBaseUrl", `http://127.0.0.1:${address.port}`, "-Case", scenario,
+          ], { timeout: 20_000 }).then(
+            (output) => ({ code: 0, ...output }),
+            (error) => ({ code: error.code, stdout: error.stdout, stderr: error.stderr }),
+          );
+          expect(result.code, `${shell}/${scenario}: ${result.stdout}\n${result.stderr}`)
+            .toBe(scenario === "valid" ? 0 : 1);
+          const request = requests.at(-1)!;
+          expect(request.method).toBe("GET");
+          expect(request.url).toBe("/api/v1/workbench/PB_SG_GLOBAL_BAL_001/overview");
+          if (scenario === "valid") {
+            for (const [key, value] of Object.entries(expected)) {
+              expect(request.headers[key.toLowerCase()]).toBe(value);
+            }
+          } else {
+            expect(result.stderr).toContain("returned HTTP 400");
+            if (scenario === "missing-role") expect(request.headers["x-role"]).toBeUndefined();
+            if (scenario === "wrong-role") expect(request.headers["x-role"]).toBe("VIEWER");
+            if (scenario === "missing-tenant") expect(request.headers["x-tenant-id"]).toBeUndefined();
+          }
+        }
+      }
+      expect(requests).toHaveLength(process.platform === "win32" ? 8 : 4);
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => error ? reject(error) : resolve());
+      });
+    }
+  }, 60_000);
+
   it("executes canonical Idea evidence authority acceptance and refusal cases", () => {
     const powershell = process.platform === "win32" ? "powershell.exe" : "pwsh";
     const contractPath = join(
